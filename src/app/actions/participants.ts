@@ -7,22 +7,51 @@ async function requirePoolOwner(poolId: string) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Faça login para continuar.");
-  const { data: pool } = await supabase.from("pools").select("id,owner_id").eq("id", poolId).single();
-  if (!pool || pool.owner_id !== auth.user.id) throw new Error("Você não pode alterar este bolão.");
-  return supabase;
+  const { data: pool, error } = await supabase
+    .from("pools")
+    .select("id,owner_id,total_shares")
+    .eq("id", poolId)
+    .single();
+  if (error || !pool || pool.owner_id !== auth.user.id) {
+    throw new Error("Você não pode alterar este bolão.");
+  }
+  return { supabase, pool };
 }
 
 export async function addParticipant(input: { poolId: string; name: string; shares: number; phone?: string }) {
-  const supabase = await requirePoolOwner(input.poolId);
+  const name = input.name.trim();
+  const shares = Number(input.shares);
+  if (!name) throw new Error("Informe o nome do participante.");
+  if (!Number.isInteger(shares) || shares < 1) throw new Error("Informe uma quantidade válida de cotas.");
+
+  const { supabase, pool } = await requirePoolOwner(input.poolId);
+  const { data: currentParticipants, error: participantsError } = await supabase
+    .from("participants")
+    .select("shares,status")
+    .eq("pool_id", input.poolId);
+  if (participantsError) throw new Error(participantsError.message);
+
+  const usedShares = (currentParticipants ?? [])
+    .filter((participant) => participant.status !== "cancelled")
+    .reduce((sum, participant) => sum + (Number(participant.shares) || 0), 0);
+
+  if (usedShares + shares > Number(pool.total_shares)) {
+    const available = Math.max(0, Number(pool.total_shares) - usedShares);
+    throw new Error(`O bolão possui somente ${available} cota(s) disponível(is).`);
+  }
+
   const { data, error } = await supabase.from("participants").insert({
     pool_id: input.poolId,
-    name: input.name.trim(),
+    name,
     phone: input.phone?.trim() || null,
-    shares: input.shares,
+    shares,
     status: "confirmed",
     payment_status: "pending",
   }).select().single();
   if (error) throw new Error(error.message);
+
+  revalidatePath("/");
   revalidatePath("/participantes");
+  revalidatePath("/carteira");
   return data;
 }
