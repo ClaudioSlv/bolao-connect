@@ -30,7 +30,14 @@ export async function confirmPayment(input: { poolId: string; participantId: str
   });
   if (walletError) throw new Error(walletError.message);
 
-  await supabase.from("participants").update({ payment_status: "confirmed" }).eq("id", input.participantId).eq("pool_id", input.poolId);
+  const { error: participantError } = await supabase
+    .from("participants")
+    .update({ payment_status: "paid" })
+    .eq("id", input.participantId)
+    .eq("pool_id", input.poolId);
+  if (participantError) throw new Error(participantError.message);
+
+  revalidatePath("/");
   revalidatePath("/carteira");
   revalidatePath("/participantes");
   return payment;
