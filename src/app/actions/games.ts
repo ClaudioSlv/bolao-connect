@@ -20,45 +20,33 @@ async function requirePoolOwner(poolId: string) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Faça login para continuar.");
-  const { data: pool, error } = await supabase.from("pools").select("id,owner_id,lottery").eq("id", poolId).single();
+  const { data: pool, error } = await supabase.from("pools").select("id,owner_id,lottery,contest_number").eq("id", poolId).single();
   if (error || !pool || pool.owner_id !== auth.user.id) throw new Error("Você não pode alterar este bolão.");
-  return { supabase, lottery: pool.lottery as LotteryId };
+  return { supabase, lottery: pool.lottery as LotteryId, contestNumber: pool.contest_number as number | null };
 }
 
-export async function addGame(input: { poolId: string; numbers: number[]; betAmountCents?: number; receiptUrl?: string }) {
+export async function addGame(input: { poolId: string; numbers: number[]; receiptPath?: string }) {
   if (!input.poolId) throw new Error("Bolão não informado.");
   if (!Array.isArray(input.numbers) || input.numbers.length === 0) throw new Error("Informe as dezenas do jogo.");
 
   const numbers = input.numbers.map(Number);
   if (numbers.some((number) => !Number.isInteger(number))) throw new Error("As dezenas informadas são inválidas.");
 
-  const { supabase, lottery } = await requirePoolOwner(input.poolId);
+  const { supabase, lottery, contestNumber } = await requirePoolOwner(input.poolId);
   const rule = lotteryRules[lottery];
   if (!rule) throw new Error("Modalidade não suportada.");
   if (numbers.length < rule.minNumbers || numbers.length > rule.maxNumbers) throw new Error(`Quantidade de dezenas inválida para esta modalidade. Use de ${rule.minNumbers} a ${rule.maxNumbers}.`);
   if (new Set(numbers).size !== numbers.length) throw new Error("Não repita dezenas no mesmo jogo.");
   if (numbers.some((number) => number < rule.min || number > rule.max)) throw new Error(`As dezenas devem ficar entre ${rule.min} e ${rule.max}.`);
 
-  const betAmountCents = input.betAmountCents == null ? null : Number(input.betAmountCents);
-  if (betAmountCents !== null && (!Number.isInteger(betAmountCents) || betAmountCents <= 0)) throw new Error("Informe um valor de aposta válido.");
-
-  const receiptUrl = input.receiptUrl?.trim() || null;
-  if (receiptUrl) {
-    try {
-      const parsed = new URL(receiptUrl);
-      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
-    } catch {
-      throw new Error("Informe um link válido para o comprovante.");
-    }
-  }
-
+  const receiptPath = input.receiptPath?.trim() || null;
   const sortedNumbers = [...numbers].sort((a, b) => a - b);
   const { data, error } = await supabase.from("games").insert({
     pool_id: input.poolId,
+    lottery,
+    contest_number: contestNumber,
     numbers: sortedNumbers,
-    bet_amount_cents: betAmountCents,
-    receipt_url: receiptUrl,
-    status: "registered",
+    receipt_path: receiptPath,
   }).select().single();
 
   if (error) throw new Error(error.message);
