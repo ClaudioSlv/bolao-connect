@@ -28,7 +28,7 @@ export async function confirmPayment(input: { poolId: string; participantId: str
     .eq("pool_id", input.poolId)
     .single();
   if (participantLookupError || !participant || participant.status === "cancelled") throw new Error("Participante não encontrado neste bolão.");
-  if (participant.payment_status === "paid") throw new Error("Este pagamento já foi confirmado.");
+  if (participant.payment_status === "confirmed") throw new Error("Este pagamento já foi confirmado.");
 
   const participantShares = Number(participant.shares) || 0;
   if (shares !== participantShares) throw new Error("A quantidade de cotas não corresponde ao participante.");
@@ -39,7 +39,6 @@ export async function confirmPayment(input: { poolId: string; participantId: str
     pool_id: input.poolId,
     participant_id: input.participantId,
     amount_cents: expectedAmount,
-    shares: participantShares,
     status: "confirmed",
     confirmed_at: new Date().toISOString(),
   }).select().single();
@@ -47,12 +46,12 @@ export async function confirmPayment(input: { poolId: string; participantId: str
 
   const { error: walletError } = await supabase.from("wallet_transactions").insert({
     pool_id: input.poolId,
-    participant_id: input.participantId,
     payment_id: payment.id,
     type: "payment_confirmed",
     amount_cents: expectedAmount,
     shares: participantShares,
     description: "Pagamento de cota confirmado",
+    created_by: auth.user.id,
   });
   if (walletError) {
     await supabase.from("payments").delete().eq("id", payment.id).eq("pool_id", input.poolId);
@@ -61,7 +60,7 @@ export async function confirmPayment(input: { poolId: string; participantId: str
 
   const { error: participantError } = await supabase
     .from("participants")
-    .update({ payment_status: "paid" })
+    .update({ payment_status: "confirmed" })
     .eq("id", input.participantId)
     .eq("pool_id", input.poolId);
   if (participantError) {
