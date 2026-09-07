@@ -15,7 +15,7 @@ async function requirePoolOwner(poolId: string) {
   if (error || !pool || pool.owner_id !== auth.user.id) {
     throw new Error("Você não pode alterar este bolão.");
   }
-  return { supabase, pool };
+  return { supabase, pool, userId: auth.user.id };
 }
 
 export async function addParticipant(input: { poolId: string; name: string; shares: number; phone?: string }) {
@@ -49,6 +49,46 @@ export async function addParticipant(input: { poolId: string; name: string; shar
     payment_status: "pending",
   }).select().single();
   if (error) throw new Error(error.message);
+
+  revalidatePath("/");
+  revalidatePath("/participantes");
+  revalidatePath("/carteira");
+  return data;
+}
+
+export async function cancelParticipant(input: { poolId: string; participantId: string }) {
+  if (!input.poolId || !input.participantId) throw new Error("Participante não informado.");
+  const { supabase, userId } = await requirePoolOwner(input.poolId);
+
+  const { data: participant, error: lookupError } = await supabase
+    .from("participants")
+    .select("id,name,status,payment_status")
+    .eq("id", input.participantId)
+    .eq("pool_id", input.poolId)
+    .single();
+  if (lookupError || !participant) throw new Error("Participante não encontrado.");
+  if (participant.status === "cancelled") return participant;
+  if (participant.payment_status === "paid" || participant.payment_status === "confirmed") {
+    throw new Error("Não cancele participante pago diretamente. Registre primeiro o estorno/correção financeira.");
+  }
+
+  const { data, error } = await supabase
+    .from("participants")
+    .update({ status: "cancelled" })
+    .eq("id", input.participantId)
+    .eq("pool_id", input.poolId)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+
+  await supabase.from("audit_events").insert({
+    pool_id: input.poolId,
+    actor_id: userId,
+    action: "participant_cancelled",
+    entity_type: "participant",
+    entity_id: input.participantId,
+    metadata: { name: participant.name },
+  });
 
   revalidatePath("/");
   revalidatePath("/participantes");
