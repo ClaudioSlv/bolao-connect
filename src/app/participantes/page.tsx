@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
-import { addParticipant } from "@/app/actions/participants";
+import { addParticipant, cancelParticipant } from "@/app/actions/participants";
 import { confirmPayment } from "@/app/actions/payments";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,6 +28,14 @@ async function confirmPaymentFromForm(formData: FormData) {
   redirect("/participantes");
 }
 
+async function cancelParticipantFromForm(formData: FormData) {
+  "use server";
+  const poolId = String(formData.get("poolId") ?? "");
+  const participantId = String(formData.get("participantId") ?? "");
+  await cancelParticipant({ poolId, participantId });
+  redirect("/participantes");
+}
+
 export default async function Participantes() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
@@ -36,8 +44,9 @@ export default async function Participantes() {
   }
 
   const { data: pool } = await supabase.from("pools").select("id,title,total_shares,share_price_cents").eq("owner_id", auth.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
-  const { data: participants } = pool ? await supabase.from("participants").select("id,name,phone,shares,payment_status").eq("pool_id", pool.id).order("created_at", { ascending: true }) : { data: [] };
-  const usedShares = (participants ?? []).reduce((sum, p) => sum + (Number(p.shares) || 0), 0);
+  const { data: participants } = pool ? await supabase.from("participants").select("id,name,phone,shares,payment_status,status").eq("pool_id", pool.id).order("created_at", { ascending: true }) : { data: [] };
+  const activeParticipants = (participants ?? []).filter((p) => p.status !== "cancelled");
+  const usedShares = activeParticipants.reduce((sum, p) => sum + (Number(p.shares) || 0), 0);
 
   return <main className="shell">
     <Link className="back" href="/">← Voltar</Link>
@@ -55,12 +64,19 @@ export default async function Participantes() {
     <section className="section list">
       {(participants ?? []).length ? (participants ?? []).map((p) => {
         const amountCents = Number(p.shares) * Number(pool?.share_price_cents ?? 0);
+        const cancelled = p.status === "cancelled";
         return <div className="list-item" key={p.id}>
           <div><strong>{p.name}</strong><span className="muted"> · {p.shares} {Number(p.shares) === 1 ? "cota" : "cotas"}</span>{p.phone && <div className="muted">{p.phone}</div>}</div>
-          {p.payment_status === "paid" ? <span className="status">PAGO</span> : pool ? <form action={confirmPaymentFromForm}>
-            <input type="hidden" name="poolId" value={pool.id}/><input type="hidden" name="participantId" value={p.id}/><input type="hidden" name="shares" value={p.shares}/><input type="hidden" name="amountCents" value={amountCents}/>
-            <button className="button" type="submit">Confirmar pagamento</button>
-          </form> : <span className="status">PENDENTE</span>}
+          <div>
+            {cancelled ? <span className="status">CANCELADO</span> : p.payment_status === "paid" ? <span className="status">PAGO</span> : pool ? <form action={confirmPaymentFromForm}>
+              <input type="hidden" name="poolId" value={pool.id}/><input type="hidden" name="participantId" value={p.id}/><input type="hidden" name="shares" value={p.shares}/><input type="hidden" name="amountCents" value={amountCents}/>
+              <button className="button" type="submit">Confirmar pagamento</button>
+            </form> : <span className="status">PENDENTE</span>}
+            {!cancelled && p.payment_status !== "paid" && pool && <form action={cancelParticipantFromForm}>
+              <input type="hidden" name="poolId" value={pool.id}/><input type="hidden" name="participantId" value={p.id}/>
+              <button className="button" type="submit">Cancelar participante</button>
+            </form>}
+          </div>
         </div>;
       }) : <p className="muted">Nenhum participante cadastrado.</p>}
     </section>
