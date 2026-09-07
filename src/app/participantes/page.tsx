@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { addParticipant } from "@/app/actions/participants";
+import { confirmPayment } from "@/app/actions/payments";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,16 @@ async function addParticipantFromForm(formData: FormData) {
   redirect("/participantes");
 }
 
+async function confirmPaymentFromForm(formData: FormData) {
+  "use server";
+  const poolId = String(formData.get("poolId") ?? "");
+  const participantId = String(formData.get("participantId") ?? "");
+  const shares = Number(formData.get("shares"));
+  const amountCents = Number(formData.get("amountCents"));
+  await confirmPayment({ poolId, participantId, shares, amountCents });
+  redirect("/participantes");
+}
+
 export default async function Participantes() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
@@ -24,7 +35,7 @@ export default async function Participantes() {
     return <main className="shell"><Link className="back" href="/">← Voltar</Link><section className="section"><h1>👥 Participantes</h1><p className="muted">Entre na sua conta para gerenciar participantes.</p></section><AppNav /></main>;
   }
 
-  const { data: pool } = await supabase.from("pools").select("id,title,total_shares").eq("owner_id", auth.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const { data: pool } = await supabase.from("pools").select("id,title,total_shares,share_price_cents").eq("owner_id", auth.user.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
   const { data: participants } = pool ? await supabase.from("participants").select("id,name,phone,shares,payment_status").eq("pool_id", pool.id).order("created_at", { ascending: true }) : { data: [] };
   const usedShares = (participants ?? []).reduce((sum, p) => sum + (Number(p.shares) || 0), 0);
 
@@ -42,7 +53,16 @@ export default async function Participantes() {
       </form>}
     </section>
     <section className="section list">
-      {(participants ?? []).length ? (participants ?? []).map((p) => <div className="list-item" key={p.id}><div><strong>{p.name}</strong><span className="muted"> · {p.shares} {Number(p.shares) === 1 ? "cota" : "cotas"}</span>{p.phone && <div className="muted">{p.phone}</div>}</div><span className="status">{p.payment_status === "paid" ? "PAGO" : "PENDENTE"}</span></div>) : <p className="muted">Nenhum participante cadastrado.</p>}
+      {(participants ?? []).length ? (participants ?? []).map((p) => {
+        const amountCents = Number(p.shares) * Number(pool?.share_price_cents ?? 0);
+        return <div className="list-item" key={p.id}>
+          <div><strong>{p.name}</strong><span className="muted"> · {p.shares} {Number(p.shares) === 1 ? "cota" : "cotas"}</span>{p.phone && <div className="muted">{p.phone}</div>}</div>
+          {p.payment_status === "paid" ? <span className="status">PAGO</span> : pool ? <form action={confirmPaymentFromForm}>
+            <input type="hidden" name="poolId" value={pool.id}/><input type="hidden" name="participantId" value={p.id}/><input type="hidden" name="shares" value={p.shares}/><input type="hidden" name="amountCents" value={amountCents}/>
+            <button className="button" type="submit">Confirmar pagamento</button>
+          </form> : <span className="status">PENDENTE</span>}
+        </div>;
+      }) : <p className="muted">Nenhum participante cadastrado.</p>}
     </section>
     <AppNav />
   </main>;
