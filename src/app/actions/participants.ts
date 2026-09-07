@@ -12,9 +12,7 @@ async function requirePoolOwner(poolId: string) {
     .select("id,owner_id,total_shares")
     .eq("id", poolId)
     .single();
-  if (error || !pool || pool.owner_id !== auth.user.id) {
-    throw new Error("Você não pode alterar este bolão.");
-  }
+  if (error || !pool || pool.owner_id !== auth.user.id) throw new Error("Você não pode alterar este bolão.");
   return { supabase, pool, userId: auth.user.id };
 }
 
@@ -25,16 +23,9 @@ export async function addParticipant(input: { poolId: string; name: string; shar
   if (!Number.isInteger(shares) || shares < 1) throw new Error("Informe uma quantidade válida de cotas.");
 
   const { supabase, pool } = await requirePoolOwner(input.poolId);
-  const { data: currentParticipants, error: participantsError } = await supabase
-    .from("participants")
-    .select("shares,status")
-    .eq("pool_id", input.poolId);
+  const { data: currentParticipants, error: participantsError } = await supabase.from("participants").select("shares,status").eq("pool_id", input.poolId);
   if (participantsError) throw new Error(participantsError.message);
-
-  const usedShares = (currentParticipants ?? [])
-    .filter((participant) => participant.status !== "cancelled")
-    .reduce((sum, participant) => sum + (Number(participant.shares) || 0), 0);
-
+  const usedShares = (currentParticipants ?? []).filter((p) => p.status !== "cancelled").reduce((sum, p) => sum + (Number(p.shares) || 0), 0);
   if (usedShares + shares > Number(pool.total_shares)) {
     const available = Math.max(0, Number(pool.total_shares) - usedShares);
     throw new Error(`O bolão possui somente ${available} cota(s) disponível(is).`);
@@ -49,49 +40,30 @@ export async function addParticipant(input: { poolId: string; name: string; shar
     payment_status: "pending",
   }).select().single();
   if (error) throw new Error(error.message);
-
-  revalidatePath("/");
-  revalidatePath("/participantes");
-  revalidatePath("/carteira");
+  revalidatePath("/"); revalidatePath("/participantes"); revalidatePath("/carteira");
   return data;
 }
 
 export async function cancelParticipant(input: { poolId: string; participantId: string }) {
   if (!input.poolId || !input.participantId) throw new Error("Participante não informado.");
   const { supabase, userId } = await requirePoolOwner(input.poolId);
-
-  const { data: participant, error: lookupError } = await supabase
-    .from("participants")
-    .select("id,name,status,payment_status")
-    .eq("id", input.participantId)
-    .eq("pool_id", input.poolId)
-    .single();
+  const { data: participant, error: lookupError } = await supabase.from("participants").select("id,name,status,payment_status").eq("id", input.participantId).eq("pool_id", input.poolId).single();
   if (lookupError || !participant) throw new Error("Participante não encontrado.");
   if (participant.status === "cancelled") return participant;
-  if (participant.payment_status === "paid" || participant.payment_status === "confirmed") {
-    throw new Error("Não cancele participante pago diretamente. Registre primeiro o estorno/correção financeira.");
-  }
+  if (participant.payment_status === "confirmed") throw new Error("Não cancele participante pago diretamente. Registre primeiro o estorno/correção financeira.");
 
-  const { data, error } = await supabase
-    .from("participants")
-    .update({ status: "cancelled" })
-    .eq("id", input.participantId)
-    .eq("pool_id", input.poolId)
-    .select()
-    .single();
+  const { data, error } = await supabase.from("participants").update({ status: "cancelled" }).eq("id", input.participantId).eq("pool_id", input.poolId).select().single();
   if (error) throw new Error(error.message);
 
   await supabase.from("audit_events").insert({
     pool_id: input.poolId,
     actor_id: userId,
-    action: "participant_cancelled",
+    event_type: "participant_cancelled",
     entity_type: "participant",
     entity_id: input.participantId,
-    metadata: { name: participant.name },
+    details: { name: participant.name },
   });
 
-  revalidatePath("/");
-  revalidatePath("/participantes");
-  revalidatePath("/carteira");
+  revalidatePath("/"); revalidatePath("/participantes"); revalidatePath("/carteira");
   return data;
 }
