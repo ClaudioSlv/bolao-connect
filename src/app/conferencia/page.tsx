@@ -19,53 +19,40 @@ export default async function Conferencia() {
     if (poolIds.length) {
       const { data } = await supabase.from("games").select("id,lottery,contest_number,numbers").in("pool_id", poolIds).order("created_at", { ascending: true });
       games = (data ?? []) as Game[];
-
       const lotteries = [...new Set(games.map((game) => game.lottery))];
       if (lotteries.length) {
-        const { data: resultData } = await supabase.from("lottery_results").select("id,lottery,contest_number,draw_index,numbers,source,published_at").in("lottery", lotteries).order("contest_number", { ascending: false });
+        const { data: resultData } = await supabase.from("lottery_results").select("id,lottery,contest_number,draw_index,numbers,source,published_at").in("lottery", lotteries).order("contest_number", { ascending: false }).order("draw_index", { ascending: true });
         results = (resultData ?? []) as Result[];
       }
     }
   }
 
-  const resultFor = (game: Game) => results.find((result) => result.lottery === game.lottery && (game.contest_number == null || result.contest_number === game.contest_number));
-  const checkedCount = games.filter((game) => Boolean(resultFor(game))).length;
+  const resultsFor = (game: Game) => {
+    const sameLottery = results.filter((result) => result.lottery === game.lottery);
+    if (game.contest_number != null) return sameLottery.filter((result) => result.contest_number === game.contest_number);
+    const latestContest = sameLottery[0]?.contest_number;
+    return latestContest == null ? [] : sameLottery.filter((result) => result.contest_number === latestContest);
+  };
+  const checkedCount = games.filter((game) => resultsFor(game).length > 0).length;
 
-  return (
-    <main className="shell">
-      <Link className="back" href="/">← Voltar</Link>
-      <section className="section">
-        <h1>✅ Conferência dos Jogos</h1>
-        <p className="muted">Compara as dezenas cadastradas com resultados registrados no Bolão Connect.</p>
-      </section>
-      <section className="section">
-        <div className="card">
-          <strong>{checkedCount ? `${checkedCount} jogo(s) com resultado disponível` : "Resultado ainda não disponível"}</strong>
-          <span>{checkedCount ? "Confira abaixo os acertos de cada jogo." : "Assim que o resultado for registrado, a conferência aparecerá aqui."}</span>
-        </div>
-      </section>
-      <section className="section">
-        <h2>Jogos cadastrados</h2>
-        <div className="list">
-          {games.length === 0 ? <p className="muted">Nenhum jogo cadastrado para conferir.</p> : games.map((game, index) => {
-            const result = resultFor(game);
-            const resultNumbers = result?.numbers?.map(Number) ?? [];
-            const matched = game.numbers.map(Number).filter((number) => resultNumbers.includes(number));
-            return (
-              <div className="list-item" key={game.id}>
-                <div>
-                  <strong>Jogo {String(index + 1).padStart(2, "0")}</strong>
-                  <div className="muted">{game.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}</div>
-                  {result ? <div className="muted">Concurso {result.contest_number}{result.draw_index > 1 ? ` · sorteio ${result.draw_index}` : ""} · Acertos: {matched.length}{matched.length ? ` (${matched.map((n) => String(n).padStart(2, "0")).join(", ")})` : ""}</div> : <div className="muted">Aguardando resultado do concurso.</div>}
-                </div>
-                <span className="status">{result ? `${matched.length} ACERTO${matched.length === 1 ? "" : "S"}` : "—"}</span>
-              </div>
-            );
-          })}
-        </div>
-        <p className="muted">A conferência é informativa. Qualquer possível premiação deve ser validada no resultado oficial antes de ser apresentada como prêmio confirmado.</p>
-      </section>
-      <AppNav />
-    </main>
-  );
+  return <main className="shell">
+    <Link className="back" href="/">← Voltar</Link>
+    <section className="section"><h1>✅ Conferência dos Jogos</h1><p className="muted">Compara as dezenas cadastradas com os resultados disponíveis no Bolão Connect.</p></section>
+    <section className="section"><div className="card"><strong>{checkedCount ? `${checkedCount} jogo(s) com resultado disponível` : "Resultado ainda não disponível"}</strong><span>{checkedCount ? "Confira abaixo os acertos de cada jogo e de cada sorteio." : "Assim que o resultado for registrado, a conferência aparecerá aqui."}</span></div></section>
+    <section className="section"><h2>Jogos cadastrados</h2><div className="list">
+      {games.length === 0 ? <p className="muted">Nenhum jogo cadastrado para conferir.</p> : games.map((game, index) => {
+        const gameResults = resultsFor(game);
+        const checks = gameResults.map((result) => {
+          const resultNumbers = (result.numbers ?? []).map(Number);
+          const matched = game.numbers.map(Number).filter((number) => resultNumbers.includes(number));
+          return { result, matched };
+        });
+        const bestHits = checks.reduce((best, check) => Math.max(best, check.matched.length), 0);
+        return <div className="list-item" key={game.id}><div><strong>Jogo {String(index + 1).padStart(2, "0")}</strong><div className="muted">{game.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}</div>
+          {checks.length ? checks.map(({ result, matched }) => <div className="muted" key={result.id}>Concurso {result.contest_number}{checks.length > 1 || result.draw_index > 1 ? ` · sorteio ${result.draw_index}` : ""} · Acertos: {matched.length}{matched.length ? ` (${matched.map((n) => String(n).padStart(2, "0")).join(", ")})` : ""}</div>) : <div className="muted">Aguardando resultado do concurso.</div>}
+        </div><span className="status">{checks.length ? `${bestHits} ACERTO${bestHits === 1 ? "" : "S"}` : "—"}</span></div>;
+      })}
+    </div><p className="muted">A conferência é informativa. Qualquer possível premiação deve ser validada no resultado oficial antes de ser apresentada como prêmio confirmado.</p></section>
+    <AppNav />
+  </main>;
 }
