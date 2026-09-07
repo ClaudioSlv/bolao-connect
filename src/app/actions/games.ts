@@ -2,6 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { LotteryId } from "@/lib/domain";
+
+const lotteryRules: Record<LotteryId, { min: number; max: number; minNumbers: number; maxNumbers: number }> = {
+  "mega-sena": { min: 1, max: 60, minNumbers: 6, maxNumbers: 20 },
+  lotofacil: { min: 1, max: 25, minNumbers: 15, maxNumbers: 20 },
+  quina: { min: 1, max: 80, minNumbers: 5, maxNumbers: 15 },
+  "dupla-sena": { min: 1, max: 50, minNumbers: 6, maxNumbers: 15 },
+  lotomania: { min: 0, max: 99, minNumbers: 50, maxNumbers: 50 },
+  timemania: { min: 1, max: 80, minNumbers: 10, maxNumbers: 10 },
+  "dia-de-sorte": { min: 1, max: 31, minNumbers: 7, maxNumbers: 15 },
+  "super-sete": { min: 0, max: 9, minNumbers: 7, maxNumbers: 7 },
+  "mais-milionaria": { min: 1, max: 50, minNumbers: 6, maxNumbers: 12 },
+};
 
 async function requirePoolOwner(poolId: string) {
   const supabase = await createClient();
@@ -10,7 +23,7 @@ async function requirePoolOwner(poolId: string) {
 
   const { data: pool, error } = await supabase
     .from("pools")
-    .select("id,owner_id")
+    .select("id,owner_id,lottery")
     .eq("id", poolId)
     .single();
 
@@ -18,7 +31,7 @@ async function requirePoolOwner(poolId: string) {
     throw new Error("Você não pode alterar este bolão.");
   }
 
-  return supabase;
+  return { supabase, lottery: pool.lottery as LotteryId };
 }
 
 export async function addGame(input: {
@@ -33,16 +46,30 @@ export async function addGame(input: {
   }
 
   const numbers = input.numbers.map(Number);
-  if (numbers.some((number) => !Number.isInteger(number) || number < 0)) {
+  if (numbers.some((number) => !Number.isInteger(number))) {
     throw new Error("As dezenas informadas são inválidas.");
   }
 
-  const supabase = await requirePoolOwner(input.poolId);
+  const { supabase, lottery } = await requirePoolOwner(input.poolId);
+  const rule = lotteryRules[lottery];
+  if (!rule) throw new Error("Modalidade não suportada.");
+
+  if (numbers.length < rule.minNumbers || numbers.length > rule.maxNumbers) {
+    throw new Error(`Quantidade de dezenas inválida para esta modalidade. Use de ${rule.minNumbers} a ${rule.maxNumbers}.`);
+  }
+  if (new Set(numbers).size !== numbers.length) {
+    throw new Error("Não repita dezenas no mesmo jogo.");
+  }
+  if (numbers.some((number) => number < rule.min || number > rule.max)) {
+    throw new Error(`As dezenas devem ficar entre ${rule.min} e ${rule.max}.`);
+  }
+
+  const sortedNumbers = [...numbers].sort((a, b) => a - b);
   const { data, error } = await supabase
     .from("games")
     .insert({
       pool_id: input.poolId,
-      numbers,
+      numbers: sortedNumbers,
       bet_amount_cents: input.betAmountCents ?? null,
       receipt_url: input.receiptUrl?.trim() || null,
       status: "registered",
@@ -52,5 +79,6 @@ export async function addGame(input: {
 
   if (error) throw new Error(error.message);
   revalidatePath("/jogos");
+  revalidatePath("/conferencia");
   return data;
 }
