@@ -31,6 +31,10 @@ export async function createPool(input: CreatePoolInput) {
   const { data: auth, error: authError } = await supabase.auth.getUser();
   if (authError || !auth.user) throw new Error("Faça login para criar um bolão.");
 
+  const displayName = String(auth.user.user_metadata?.full_name ?? auth.user.user_metadata?.name ?? auth.user.email?.split("@")[0] ?? "Organizador").slice(0,120);
+  const { error: profileError } = await supabase.from("profiles").upsert({id:auth.user.id,display_name:displayName},{onConflict:"id"});
+  if (profileError) throw new Error(`Não foi possível preparar o perfil do organizador: ${profileError.message}`);
+
   const slugBase = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "bolao";
   const publicSlug = `${slugBase}-${crypto.randomUUID().slice(0, 8)}`;
 
