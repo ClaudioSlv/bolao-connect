@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { PersonalGameGenerator } from "@/components/personal-game-generator";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { syncLottery, type SupportedLottery } from "@/lib/lottery-results/sync";
+import { syncLottery } from "@/lib/lottery-results/sync";
+import type { SupportedLottery } from "@/lib/lottery-results/config";
 
 const lotteries = ["mega-sena","lotofacil","quina","dupla-sena","lotomania","timemania","dia-de-sorte","super-sete","mais-milionaria"] as const;
 type Lottery = typeof lotteries[number];
