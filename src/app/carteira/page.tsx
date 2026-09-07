@@ -23,7 +23,7 @@ export default async function Carteira() {
   let pendingShares = 0;
   for (const participant of participants ?? []) {
     const shares = Number(participant.shares) || 0;
-    if (participant.payment_status === "paid") paidShares += shares;
+    if (participant.payment_status === "confirmed" || participant.payment_status === "paid") paidShares += shares;
     else pendingShares += shares;
   }
   const target = pool.total_shares * pool.share_price_cents;
