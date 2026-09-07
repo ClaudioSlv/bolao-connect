@@ -61,6 +61,12 @@ async function upsertResult(lottery: SupportedLottery, result: CaixaResult) {
   if (error) throw error;
 }
 
+async function inBatches<T>(items: T[], size: number, work: (item: T) => Promise<void>) {
+  for (let index = 0; index < items.length; index += size) {
+    await Promise.all(items.slice(index, index + size).map(work));
+  }
+}
+
 export async function syncLottery(lottery: SupportedLottery) {
   const admin = createAdminClient();
   const latest = await fetchCaixa(lottery);
@@ -78,8 +84,12 @@ export async function syncLottery(lottery: SupportedLottery) {
     if (!stored.has(contest)) missing.push(contest);
   }
 
-  // Always refresh the latest result; fill missing contests to guarantee a rolling 50-contest base.
-  for (const contest of missing) await upsertResult(lottery, contest === latest.numero ? latest : await fetchCaixa(lottery, contest));
+  // Refresh the latest result and backfill missing contests in small parallel batches.
+  // This keeps pressure on the CAIXA service low while making the initial 50-contest load practical.
+  await inBatches(missing, 5, async (contest) => {
+    await upsertResult(lottery, contest === latest.numero ? latest : await fetchCaixa(lottery, contest));
+  });
+
   if (!missing.includes(latest.numero)) await upsertResult(lottery, latest);
 
   return { lottery, latest: latest.numero, fetched: missing.length };
