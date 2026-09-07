@@ -65,14 +65,15 @@ export default async function Participantes() {
       {(participants ?? []).length ? (participants ?? []).map((p) => {
         const amountCents = Number(p.shares) * Number(pool?.share_price_cents ?? 0);
         const cancelled = p.status === "cancelled";
+        const paid = p.payment_status === "confirmed";
         return <div className="list-item" key={p.id}>
           <div><strong>{p.name}</strong><span className="muted"> · {p.shares} {Number(p.shares) === 1 ? "cota" : "cotas"}</span>{p.phone && <div className="muted">{p.phone}</div>}</div>
           <div>
-            {cancelled ? <span className="status">CANCELADO</span> : p.payment_status === "paid" ? <span className="status">PAGO</span> : pool ? <form action={confirmPaymentFromForm}>
+            {cancelled ? <span className="status">CANCELADO</span> : paid ? <span className="status">PAGO</span> : pool ? <form action={confirmPaymentFromForm}>
               <input type="hidden" name="poolId" value={pool.id}/><input type="hidden" name="participantId" value={p.id}/><input type="hidden" name="shares" value={p.shares}/><input type="hidden" name="amountCents" value={amountCents}/>
               <button className="button" type="submit">Confirmar pagamento</button>
             </form> : <span className="status">PENDENTE</span>}
-            {!cancelled && p.payment_status !== "paid" && pool && <form action={cancelParticipantFromForm}>
+            {!cancelled && !paid && pool && <form action={cancelParticipantFromForm}>
               <input type="hidden" name="poolId" value={pool.id}/><input type="hidden" name="participantId" value={p.id}/>
               <button className="button" type="submit">Cancelar participante</button>
             </form>}
