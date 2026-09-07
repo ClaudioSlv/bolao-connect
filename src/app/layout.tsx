@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { PwaRegister } from "@/components/pwa-register";
 import { ParticipantReminderGate } from "@/components/participant-reminder-gate";
+import { LotteryResultsTicker } from "@/components/lottery-results-ticker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,5 +22,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="pt-BR"><body><header className="app-brandbar"><Link href="/" aria-label="Bolão Connect - início"><img src="/icon.svg" alt=""/><span>Bolão Connect</span></Link></header>{children}<ParticipantReminderGate/><PwaRegister /></body></html>;
+  return <html lang="pt-BR"><body><header className="app-brandbar"><Link href="/" aria-label="Bolão Connect - início"><img src="/icon.svg" alt=""/><span>Bolão Connect</span></Link></header>{children}<LotteryResultsTicker/><ParticipantReminderGate/><PwaRegister /></body></html>;
 }
