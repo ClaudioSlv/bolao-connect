@@ -1,13 +1,15 @@
 import Link from "next/link";
 import {AppNav} from "@/components/app-nav";
 import {PoolSwitcher} from "@/components/pool-switcher";
+import {OrganizerCta} from "@/components/organizer-cta";
 import {createClient} from "@/lib/supabase/server";
+import {DEFAULT_APP_BRAND,getOrganizerBrand} from "@/lib/organizer-brand";
 
 export const dynamic="force-dynamic";
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
 type Pool={id:string;title:string;lottery:string;total_shares:number;share_price_cents:number;public_slug:string|null;status:string};
 
-const Brand=({label}:{label:string})=><div className="brand"><strong style={{display:"inline-flex",alignItems:"center",gap:10}}><img src="/icon.svg" alt="Bolão Connect" width="48" height="48" style={{borderRadius:12,display:"block"}}/><span>Bolão Connect</span></strong><span className="badge">{label}</span></div>;
+const Brand=({label,name=DEFAULT_APP_BRAND}:{label:string;name?:string})=><div className="brand"><strong style={{display:"inline-flex",alignItems:"center",gap:10}}><img src="/icon.svg" alt={name} width="48" height="48" style={{borderRadius:12,display:"block"}}/><span>{name}</span></strong><span className="badge">{label}</span></div>;
 
 export default async function Home({searchParams}:{searchParams:Promise<{pool?:string}>}){
   const {pool:requested}=await searchParams;
@@ -26,14 +28,15 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
         <h2>Quando o bolão for publicado</h2>
         <p className="muted">O botão “Participar do Bolão” será liberado automaticamente no link do bolão criado pelo organizador.</p>
       </section>
+      <OrganizerCta/>
       <section className="section">
-        <h2>Área do organizador</h2>
-        <p className="muted">A criação e administração dos bolões fica em uma área separada.</p>
+        <h2>Já é organizador?</h2>
         <Link className="button secondary" href="/login">Entrar como organizador</Link>
       </section>
     </main>;
   }
 
+  const organizerBrand=await getOrganizerBrand(s,auth.user.id);
   let pools:Pool[]=[],paid=0,pending=0,collected=0;
   const {data}=await s.from("pools").select("id,title,lottery,total_shares,share_price_cents,public_slug,status").eq("owner_id",auth.user.id).order("created_at",{ascending:false});
   pools=(data??[]) as Pool[];
@@ -58,10 +61,10 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
   const timerHref=pool?.public_slug?`/temporizador/${pool.public_slug}`:"/temporizador";
 
   return <main className="shell">
-    <Brand label="Organizador"/>
+    <Brand label="Organizador" name={organizerBrand.name}/>
     <section className="hero">
       <h1>Painel do organizador</h1>
-      <p className="muted">Crie o bolão, compartilhe o link e acompanhe automaticamente participantes, pagamentos, carteira e jogos.</p>
+      <p className="muted">Crie o bolão, compartilhe o link e acompanhe automaticamente participantes, pagamentos, carteira e jogos. Seus dados ficam separados dos demais organizadores.</p>
       <div className="actions"><Link className="button primary" href="/criar-bolao">+ Criar bolão</Link><Link className="button secondary" href="/meu-jogo">🎲 Fazer meu próprio jogo</Link></div>
     </section>
 
