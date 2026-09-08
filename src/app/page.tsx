@@ -18,8 +18,8 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
     return <main className="shell">
       <Brand label="Online"/>
       <section className="hero">
-        <h1>Participe do seu bolão pelo link enviado pelo organizador.</h1>
-        <p className="muted">O participante não cria bolão. Abra o link recebido, confira as informações e toque em “Participar do Bolão” para confirmar sua participação.</p>
+        <h1>Acesse o bolão pelo link enviado pelo organizador.</h1>
+        <p className="muted">Abra o link recebido, confira as informações e toque em “Participar do Bolão” para confirmar sua participação.</p>
       </section>
       <section className="section">
         <h2>Área do organizador</h2>
