@@ -2,6 +2,8 @@ import Link from "next/link";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {PoolCountdown} from "@/components/pool-countdown";
 import {TimerReminderOptIn} from "@/components/timer-reminder-opt-in";
+import {OrganizerCta} from "@/components/organizer-cta";
+import {getOrganizerBrand} from "@/lib/organizer-brand";
 
 export const dynamic="force-dynamic";
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
@@ -12,10 +14,11 @@ export default async function TimerPage({params}:{params:Promise<{slug:string}>}
 
   try{
     const s=createAdminClient();
-    const {data:pool,error:poolError}=await s.from("pools").select("id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_deadline,draw_at,status,public_slug").eq("public_slug",slug).maybeSingle();
+    const {data:pool,error:poolError}=await s.from("pools").select("id,owner_id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_deadline,draw_at,status,public_slug").eq("public_slug",slug).maybeSingle();
     if(poolError)throw poolError;
     if(!pool)return <main className="shell"><section className="section"><h1>Bolão não encontrado</h1><p className="muted">Confira se o link recebido está correto.</p></section></main>;
 
+    const organizerBrand=await getOrganizerBrand(s,pool.owner_id);
     const [{data:participants,error:participantsError},{data:games,error:gamesError}]=await Promise.all([
       s.from("participants").select("shares,status").eq("pool_id",pool.id),
       s.from("games").select("id,numbers").eq("pool_id",pool.id),
@@ -37,7 +40,7 @@ export default async function TimerPage({params}:{params:Promise<{slug:string}>}
 
     return <main className="shell">
       <section className="section" style={{textAlign:"center"}}>
-        <p className="eyebrow">BOLÃO CONNECT</p>
+        <p className="eyebrow">{organizerBrand.name.toUpperCase()}</p>
         <h1>🍀 {pool.title}</h1>
         <p className="muted">{pool.lottery}{pool.contest_number?` · Concurso ${pool.contest_number}`:""}</p>
       </section>
@@ -65,6 +68,7 @@ export default async function TimerPage({params}:{params:Promise<{slug:string}>}
       <section className="section" style={{textAlign:"center"}}>
         {closed?<><h2>Participação indisponível</h2><p className="muted">{available<1?"Todas as vagas já foram preenchidas.":"Este bolão não está aberto para novas participações."}</p></>:<><h2>Quer participar?</h2><p className="muted">Você pode participar agora. O pagamento só será liberado na data indicada acima.</p><Link className="button primary" href={`/bolao/${slug}`}>🍀 PARTICIPAR DO BOLÃO</Link></>}
       </section>
+      <OrganizerCta/>
     </main>;
   }catch{
     return <main className="shell"><section className="section"><h1>Temporizador indisponível</h1><p className="muted">Não foi possível carregar os dados deste bolão. A configuração segura do Supabase na Vercel precisa ser conferida.</p></section></main>;
