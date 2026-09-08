@@ -9,10 +9,11 @@ function keyToBytes(value:string){
 }
 
 type Props={slug?:string;campaignKey?:string};
+const REMINDER_CHOICE_KEY="bolao-connect:timer-reminder-choice";
 
 export function TimerReminderOptIn({slug,campaignKey}:Props){
   const[visible,setVisible]=useState(false);
-  const[state,setState]=useState<"checking"|"idle"|"busy"|"ok"|"error">("checking");
+  const[state,setState]=useState<"checking"|"idle"|"busy"|"error">("checking");
   const identity=slug||campaignKey||"";
   const reminderText=campaignKey?"a abertura do próximo bolão":"a abertura dos pagamentos";
 
@@ -20,37 +21,60 @@ export function TimerReminderOptIn({slug,campaignKey}:Props){
     let cancelled=false;
     let timer:number|undefined;
 
-    const checkExisting=async()=>{
+    const prepare=async()=>{
       try{
-        if(!identity||!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();
-        const reg=await navigator.serviceWorker.ready;
-        const sub=await reg.pushManager.getSubscription();
-        if(sub&&Notification.permission==="granted"){
-          const res=await fetch("/api/push/timer-subscribe",{
-            method:"POST",
-            headers:{"content-type":"application/json"},
-            body:JSON.stringify({slug,campaignKey,subscription:sub.toJSON()}),
-          });
-          if(res.ok&&!cancelled){setState("ok");setVisible(true);return;}
+        const choice=window.localStorage.getItem(REMINDER_CHOICE_KEY);
+        if(choice==="declined"){
+          if(!cancelled){setState("idle");setVisible(false)}
+          return;
         }
-      }catch{}
 
-      if(!cancelled){
-        setState("idle");
-        timer=window.setTimeout(()=>setVisible(true),5000);
+        if(choice==="accepted"){
+          if(!identity||!("serviceWorker" in navigator)||!("PushManager" in window))return;
+          const reg=await navigator.serviceWorker.ready;
+          const sub=await reg.pushManager.getSubscription();
+          if(sub&&Notification.permission==="granted"){
+            await fetch("/api/push/timer-subscribe",{
+              method:"POST",
+              headers:{"content-type":"application/json"},
+              body:JSON.stringify({slug,campaignKey,subscription:sub.toJSON()}),
+            });
+          }
+          if(!cancelled){setState("idle");setVisible(false)}
+          return;
+        }
+
+        if(!cancelled){
+          setState("idle");
+          timer=window.setTimeout(()=>setVisible(true),8000);
+        }
+      }catch{
+        if(!cancelled){
+          setState("idle");
+          timer=window.setTimeout(()=>setVisible(true),8000);
+        }
       }
     };
 
-    checkExisting();
+    prepare();
     return()=>{cancelled=true;if(timer)window.clearTimeout(timer)};
   },[identity,slug,campaignKey]);
+
+  const decline=()=>{
+    try{window.localStorage.setItem(REMINDER_CHOICE_KEY,"declined")}catch{}
+    setVisible(false);
+    setState("idle");
+  };
 
   const enable=async()=>{
     try{
       setState("busy");
       if(!identity||!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();
       const permission=await Notification.requestPermission();
-      if(permission!=="granted")throw new Error();
+      if(permission!=="granted"){
+        decline();
+        return;
+      }
       const reg=await navigator.serviceWorker.ready;
       const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if(!publicKey)throw new Error();
@@ -62,30 +86,19 @@ export function TimerReminderOptIn({slug,campaignKey}:Props){
         body:JSON.stringify({slug,campaignKey,subscription:sub.toJSON()}),
       });
       if(!res.ok)throw new Error();
-      setState("ok");
+      try{window.localStorage.setItem(REMINDER_CHOICE_KEY,"accepted")}catch{}
+      setVisible(false);
+      setState("idle");
     }catch{setState("error")}
   };
 
   if(!visible||state==="checking")return null;
-  if(state==="ok")return <div className="section"><p className="status">🔔 LEMBRETES ATIVOS NESTE CELULAR · a cada 10 dias até {reminderText}</p></div>;
 
   return <div className="section">
     <h2>🔔 Quer ser lembrado?</h2>
     <p className="muted">Ative uma única vez neste celular. O Bolão Connect enviará um lembrete a cada 10 dias até {reminderText}.</p>
-    <button
-      className="button"
-      type="button"
-      disabled={state==="busy"}
-      onClick={enable}
-      style={{
-        width:"100%",
-        background:"#102218",
-        border:"1px solid #f7c948",
-        color:"#f7c948",
-        boxShadow:"0 8px 22px rgba(0,0,0,.22)",
-        opacity:state==="busy"?.72:1,
-      }}
-    >{state==="busy"?"Ativando...":"🔔 ATIVAR LEMBRETES NESTE CELULAR"}</button>
+    <button className="button reminder-3d" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"🔔 ATIVAR LEMBRETES NESTE CELULAR"}</button>
+    <button className="reminder-decline" type="button" disabled={state==="busy"} onClick={decline}>Agora não</button>
     {state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas.</p>}
   </div>;
 }
