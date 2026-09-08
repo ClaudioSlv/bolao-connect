@@ -64,11 +64,11 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
     <section className="section">
       {canJoin?<>
         <h2>Quer participar?</h2>
-        <p className="muted">Ao entrar, você ocupa 1 vaga/cota deste bolão e cria seu cadastro de participante.</p>
-        <Link className="button primary" href={`/bolao/${slug}/entrar`}>🍀 ENTRAR NO BOLÃO</Link>
+        <p className="muted">Ao participar, você ocupa 1 vaga/cota deste bolão e cria seu cadastro de participante.</p>
+        <Link className="button primary" href={`/bolao/${slug}/entrar`}>🍀 PARTICIPAR DO BOLÃO</Link>
       </>:<>
-        <h2>Entradas indisponíveis</h2>
-        <p className="muted">{available<1?"Todas as vagas deste bolão já foram preenchidas.":deadlinePassed?"O prazo de entrada/pagamento deste bolão terminou.":"Este bolão não está aberto para novas entradas."}</p>
+        <h2>Participação indisponível</h2>
+        <p className="muted">{available<1?"Todas as vagas deste bolão já foram preenchidas.":deadlinePassed?"O prazo de participação/pagamento deste bolão terminou.":"Este bolão não está aberto para novas participações."}</p>
       </>}
     </section>
   </main>;
