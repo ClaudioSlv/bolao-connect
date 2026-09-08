@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { LotteryId } from "@/lib/domain";
+import type { GamePlanItem } from "@/lib/lottery-pricing";
 
 const LOTTERIES: LotteryId[] = ["mega-sena","lotofacil","quina","dupla-sena","lotomania","timemania","dia-de-sorte","super-sete","mais-milionaria"];
 
@@ -17,6 +18,8 @@ export type CreatePoolInput = {
   estimatedPrizeCents?: number;
   plannedGames?: number;
   numbersPerGame?: number;
+  totalCostCents?: number;
+  gamePlan?: GamePlanItem[];
 };
 
 export async function createPool(input: CreatePoolInput) {
@@ -28,6 +31,7 @@ export async function createPool(input: CreatePoolInput) {
   if (!Number.isInteger(input.sharePriceCents) || input.sharePriceCents < 1) throw new Error("Informe um valor válido para a cota.");
   if (input.plannedGames != null && (!Number.isInteger(input.plannedGames) || input.plannedGames < 1)) throw new Error("Informe uma quantidade válida de jogos.");
   if (input.numbersPerGame != null && (!Number.isInteger(input.numbersPerGame) || input.numbersPerGame < 1)) throw new Error("Informe uma quantidade válida de dezenas por jogo.");
+  if (input.totalCostCents != null && (!Number.isInteger(input.totalCostCents) || input.totalCostCents < 1)) throw new Error("Custo total inválido.");
   const deadline = new Date(input.paymentDeadline);
   if (Number.isNaN(deadline.getTime())) throw new Error("Informe um prazo de pagamento válido.");
 
@@ -54,14 +58,24 @@ export async function createPool(input: CreatePoolInput) {
     estimated_prize_cents: input.estimatedPrizeCents ?? null,
     planned_games: input.plannedGames ?? null,
     numbers_per_game: input.numbersPerGame ?? null,
+    total_cost_cents: input.totalCostCents ?? null,
+    game_plan: input.gamePlan ?? null,
     status: "open",
     public_slug: publicSlug,
   };
 
-  let result = await supabase.from("pools").insert(payload).select().single();
-  if (result.error && /planned_games|numbers_per_game/i.test(result.error.message)) {
-    const { planned_games: _plannedGames, numbers_per_game: _numbersPerGame, ...legacyPayload } = payload;
-    result = await supabase.from("pools").insert(legacyPayload).select().single();
+  let insertPayload={...payload};
+  let result=await supabase.from("pools").insert(insertPayload).select().single();
+
+  if(result.error&&/total_cost_cents|game_plan/i.test(result.error.message)){
+    const {total_cost_cents:_totalCost,game_plan:_gamePlan,...withoutPricingDetails}=insertPayload;
+    insertPayload=withoutPricingDetails;
+    result=await supabase.from("pools").insert(insertPayload).select().single();
+  }
+
+  if(result.error&&/planned_games|numbers_per_game/i.test(result.error.message)){
+    const {planned_games:_plannedGames,numbers_per_game:_numbersPerGame,...legacyPayload}=insertPayload;
+    result=await supabase.from("pools").insert(legacyPayload).select().single();
   }
 
   if (result.error) throw new Error(result.error.message);
