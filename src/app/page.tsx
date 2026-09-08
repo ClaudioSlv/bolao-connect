@@ -18,8 +18,13 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
     return <main className="shell">
       <Brand label="Online"/>
       <section className="hero">
-        <h1>Acesse o bolão pelo link enviado pelo organizador.</h1>
-        <p className="muted">Abra o link recebido, confira as informações e toque em “Participar do Bolão” para confirmar sua participação.</p>
+        <h1>Acompanhe o próximo bolão.</h1>
+        <p className="muted">Mesmo antes de o organizador publicar o bolão, você pode acompanhar o temporizador e ativar os lembretes neste celular.</p>
+        <Link className="button primary" href="/temporizador">⏳ VER TEMPORIZADOR</Link>
+      </section>
+      <section className="section">
+        <h2>Quando o bolão for publicado</h2>
+        <p className="muted">O botão “Participar do Bolão” será liberado automaticamente no link do bolão criado pelo organizador.</p>
       </section>
       <section className="section">
         <h2>Área do organizador</h2>
@@ -50,6 +55,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
   const total=pool?pool.total_shares*pool.share_price_cents:0;
   const progress=total?Math.min(100,Math.round(collected/total*100)):0;
   const q=pool?`?pool=${encodeURIComponent(pool.id)}`:"";
+  const timerHref=pool?.public_slug?`/temporizador/${pool.public_slug}`:"/temporizador";
 
   return <main className="shell">
     <Brand label="Organizador"/>
@@ -61,9 +67,9 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
 
     {pools.length>0&&<section className="section"><h2>Meus bolões</h2><PoolSwitcher pools={pools} activeId={pool?.id} basePath="/"/><div className="list">{pools.map(p=><Link key={p.id} className="list-item" href={`/?pool=${p.id}`}><div><strong>{p.title}</strong><div className="muted">{p.lottery}</div></div><span className="status">{p.status}</span></Link>)}</div></section>}
 
-    <section className="section"><h2>Gerenciar {pool?pool.title:"bolão"}</h2><div className="grid"><Link className="card" href={`/carteira${q}`}><strong>💰 Carteira</strong><span>Arrecadação transparente</span></Link><Link className="card" href={`/jogos${q}`}><strong>🎟️ Jogos</strong><span>Apostas e comprovantes</span></Link><Link className="card" href={`/conferencia${q}`}><strong>✅ Conferência</strong><span>Resultados e acertos</span></Link><Link className="card" href={`/participantes${q}`}><strong>👥 Participantes</strong><span>Lista atualizada automaticamente</span></Link><Link className="card" href="/meu-jogo"><strong>🎲 Meu Jogo</strong><span>Escolha números ou gere combinações</span></Link>{pool?.public_slug?<><Link className="card" href={`/temporizador/${pool.public_slug}`}><strong>⏳ Temporizador</strong><span>Link principal para compartilhar</span></Link><Link className="card" href={`/bolao/${pool.public_slug}`}><strong>🔗 Link do bolão</strong><span>Informações do bolão</span></Link></>:null}</div></section>
+    <section className="section"><h2>Gerenciar {pool?pool.title:"bolão"}</h2><div className="grid"><Link className="card" href={`/carteira${q}`}><strong>💰 Carteira</strong><span>Arrecadação transparente</span></Link><Link className="card" href={`/jogos${q}`}><strong>🎟️ Jogos</strong><span>Apostas e comprovantes</span></Link><Link className="card" href={`/conferencia${q}`}><strong>✅ Conferência</strong><span>Resultados e acertos</span></Link><Link className="card" href={`/participantes${q}`}><strong>👥 Participantes</strong><span>Lista atualizada automaticamente</span></Link><Link className="card" href="/meu-jogo"><strong>🎲 Meu Jogo</strong><span>Escolha números ou gere combinações</span></Link><Link className="card" href={timerHref}><strong>⏳ Temporizador</strong><span>{pool?.public_slug?"Link principal para compartilhar":"Pré-abertura do próximo bolão"}</span></Link>{pool?.public_slug?<Link className="card" href={`/bolao/${pool.public_slug}`}><strong>🔗 Link do bolão</strong><span>Informações do bolão</span></Link>:null}</div></section>
 
-    <section className="section"><h2>{pool?pool.title:"Resumo"}</h2>{pool?<div className="wallet"><div className="wallet-row"><strong>Arrecadado</strong><strong>{money(collected)}</strong></div><div className="progress"><div style={{width:`${progress}%`}}/></div><div className="wallet-row"><span>{paid} cotas pagas</span><span>{pending} pendentes</span></div><small>Meta: {money(total)} · {progress}% arrecadado</small></div>:<p className="muted">Você ainda não criou um bolão.</p>}</section>
+    <section className="section"><h2>{pool?pool.title:"Resumo"}</h2>{pool?<div className="wallet"><div className="wallet-row"><strong>Arrecadado</strong><strong>{money(collected)}</strong></div><div className="progress"><div style={{width:`${progress}%`}}/></div><div className="wallet-row"><span>{paid} cotas pagas</span><span>{pending} pendentes</span></div><small>Meta: {money(total)} · {progress}% arrecadado</small></div>:<p className="muted">Você ainda não criou um bolão. O temporizador de pré-abertura continua disponível para os participantes.</p>}</section>
     <AppNav/>
   </main>;
 }
