@@ -4,6 +4,7 @@ import {PoolCountdown} from "@/components/pool-countdown";
 
 export const dynamic="force-dynamic";
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
+const MEGA_SLUG="mega-da-virada-2026";
 
 export default async function TimerPage({params}:{params:Promise<{slug:string}>}){
   const {slug}=await params;
@@ -24,8 +25,12 @@ export default async function TimerPage({params}:{params:Promise<{slug:string}>}
     const active=(participants??[]).filter(p=>p.status!=="cancelled");
     const used=active.reduce((sum,p)=>sum+(Number(p.shares)||0),0);
     const available=Math.max(0,Number(pool.total_shares)-used);
-    const numbersPerGame=Array.isArray(games?.[0]?.numbers)?games?.[0]?.numbers.length:0;
+    const isMega2026=slug===MEGA_SLUG;
+    const plannedGames=isMega2026?13:(games?.length??0);
+    const inferredNumbers=Array.isArray(games?.[0]?.numbers)?games?.[0]?.numbers.length:0;
+    const numbersPerGame=isMega2026?9:inferredNumbers;
     const closed=pool.status!=="open"||new Date(pool.payment_deadline).getTime()<=Date.now()||available<1;
+    const targetLabel=isMega2026?"ABERTURA DOS PAGAMENTOS":"PRAZO DE PAGAMENTO";
 
     return <main className="shell">
       <section className="section" style={{textAlign:"center"}}>
@@ -35,9 +40,9 @@ export default async function TimerPage({params}:{params:Promise<{slug:string}>}
       </section>
 
       <section className="section">
-        <p className="eyebrow" style={{textAlign:"center"}}>CONTAGEM REGRESSIVA PARA O PRAZO DE PAGAMENTO</p>
+        <p className="eyebrow" style={{textAlign:"center"}}>CONTAGEM REGRESSIVA PARA A {targetLabel}</p>
         <PoolCountdown target={pool.payment_deadline}/>
-        <p className="muted" style={{textAlign:"center",marginTop:12}}>Prazo: {new Date(pool.payment_deadline).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</p>
+        <p className="muted" style={{textAlign:"center",marginTop:12}}>{isMega2026?"Abertura dos pagamentos":"Prazo"}: {new Date(pool.payment_deadline).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</p>
       </section>
 
       <section className="section">
@@ -45,7 +50,8 @@ export default async function TimerPage({params}:{params:Promise<{slug:string}>}
           {pool.estimated_prize_cents?<div className="wallet-row"><span>🏆 Prêmio estimado</span><strong>{money(Number(pool.estimated_prize_cents))}</strong></div>:null}
           <div className="wallet-row"><span>👥 Participantes</span><strong>{active.length} / {pool.total_shares}</strong></div>
           <div className="wallet-row"><span>🎟️ Vagas disponíveis</span><strong>{available}</strong></div>
-          <div className="wallet-row"><span>🎯 Jogos cadastrados</span><strong>{games?.length??0}</strong></div>
+          <div className="wallet-row"><span>🎯 Jogos planejados</span><strong>{plannedGames}</strong></div>
+          <div className="wallet-row"><span>🧾 Jogos cadastrados</span><strong>{games?.length??0} / {plannedGames}</strong></div>
           {numbersPerGame?<div className="wallet-row"><span>🔢 Dezenas por jogo</span><strong>{numbersPerGame}</strong></div>:null}
           <div className="wallet-row"><span>💵 Valor da participação</span><strong>{money(Number(pool.share_price_cents))}</strong></div>
           {pool.draw_at?<div className="wallet-row"><span>📅 Sorteio</span><strong>{new Date(pool.draw_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</strong></div>:null}
