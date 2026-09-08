@@ -72,7 +72,20 @@ export function TimerReminderOptIn({slug,campaignKey}:Props){
   return <div className="section">
     <h2>🔔 Quer ser lembrado?</h2>
     <p className="muted">Ative uma única vez neste celular. O Bolão Connect enviará um lembrete a cada 10 dias até {reminderText}.</p>
-    <button className="button secondary" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"Ativar lembretes neste celular"}</button>
+    <button
+      className="button"
+      type="button"
+      disabled={state==="busy"}
+      onClick={enable}
+      style={{
+        width:"100%",
+        background:"#102218",
+        border:"1px solid #f7c948",
+        color:"#f7c948",
+        boxShadow:"0 8px 22px rgba(0,0,0,.22)",
+        opacity:state==="busy"?.72:1,
+      }}
+    >{state==="busy"?"Ativando...":"🔔 ATIVAR LEMBRETES NESTE CELULAR"}</button>
     {state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas.</p>}
   </div>;
 }
