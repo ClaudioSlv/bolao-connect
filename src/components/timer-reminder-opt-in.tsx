@@ -96,7 +96,7 @@ export function TimerReminderOptIn({slug,campaignKey}:Props){
 
   return <div className="section">
     <h2>🔔 Quer ser lembrado?</h2>
-    <p className="muted">Ative uma única vez neste celular. O Bolão Connect enviará um lembrete a cada 10 dias até {reminderText}.</p>
+    <p className="muted">Ative uma única vez neste celular. O Bolão Amigos BTP enviará um lembrete a cada 10 dias até {reminderText}.</p>
     <button className="button reminder-3d" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"🔔 ATIVAR LEMBRETES NESTE CELULAR"}</button>
     <button className="reminder-decline" type="button" disabled={state==="busy"} onClick={decline}>Agora não</button>
     {state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas.</p>}
