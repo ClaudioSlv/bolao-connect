@@ -34,6 +34,7 @@ export default function LoginPage() {
         {message && <p className="muted">{message}</p>}
         <button className="button primary" disabled={loading} type="submit">{loading ? "Aguarde..." : "Entrar"}</button>
       </form>
+      <div style={{marginTop:16,textAlign:"center"}}><Link href="/esqueci-senha" className="button secondary">🔑 Esqueci minha senha / Criar nova senha</Link></div>
     </section>
   </main>;
 }
