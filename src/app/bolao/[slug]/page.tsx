@@ -1,5 +1,7 @@
 import Link from "next/link";
 import {createAdminClient} from "@/lib/supabase/admin";
+import {OrganizerCta} from "@/components/organizer-cta";
+import {getOrganizerBrand} from "@/lib/organizer-brand";
 
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
 export const dynamic="force-dynamic";
@@ -7,9 +9,10 @@ export const dynamic="force-dynamic";
 export default async function PublicPool({params}:{params:Promise<{slug:string}>}){
   const {slug}=await params;
   const s=createAdminClient();
-  const {data:pool}=await s.from("pools").select("id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_deadline,draw_at,status").eq("public_slug",slug).maybeSingle();
+  const {data:pool}=await s.from("pools").select("id,owner_id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_deadline,draw_at,status").eq("public_slug",slug).maybeSingle();
   if(!pool)return <main className="shell"><section className="section"><h1>Bolão não encontrado</h1><p className="muted">Confira se o link recebido está correto.</p></section></main>;
 
+  const organizerBrand=await getOrganizerBrand(s,pool.owner_id);
   const [{data:participants},{data:games},{data:wallet},{data:plan}]=await Promise.all([
     s.from("participants").select("shares,status").eq("pool_id",pool.id),
     s.from("games").select("id,numbers").eq("pool_id",pool.id),
@@ -32,7 +35,7 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
 
   return <main className="shell">
     <section className="section">
-      <p className="eyebrow">BOLÃO CONNECT</p>
+      <p className="eyebrow">{organizerBrand.name.toUpperCase()}</p>
       <h1>🍀 {pool.title}</h1>
       <p className="muted">{pool.lottery}{pool.contest_number?` · Concurso ${pool.contest_number}`:""}</p>
     </section>
@@ -71,5 +74,6 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
         <p className="muted">{available<1?"Todas as vagas deste bolão já foram preenchidas.":deadlinePassed?"O prazo de participação/pagamento deste bolão terminou.":"Este bolão não está aberto para novas participações."}</p>
       </>}
     </section>
+    <OrganizerCta/>
   </main>;
 }
