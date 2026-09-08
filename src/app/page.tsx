@@ -7,6 +7,8 @@ export const dynamic="force-dynamic";
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
 type Pool={id:string;title:string;lottery:string;total_shares:number;share_price_cents:number;public_slug:string|null;status:string};
 
+const Brand=({label}:{label:string})=><div className="brand"><strong style={{display:"inline-flex",alignItems:"center",gap:10}}><img src="/icon.svg" alt="Bolão Connect" width="48" height="48" style={{borderRadius:12,display:"block"}}/><span>Bolão Connect</span></strong><span className="badge">{label}</span></div>;
+
 export default async function Home({searchParams}:{searchParams:Promise<{pool?:string}>}){
   const {pool:requested}=await searchParams;
   const s=await createClient();
@@ -14,7 +16,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
 
   if(!auth.user){
     return <main className="shell">
-      <div className="brand"><strong>🍀 Bolão Connect</strong><span className="badge">Online</span></div>
+      <Brand label="Online"/>
       <section className="hero">
         <h1>Participe do seu bolão pelo link enviado pelo organizador.</h1>
         <p className="muted">O participante não cria bolão. Abra o link recebido, confira as informações e toque em “Participar do Bolão” para confirmar sua participação.</p>
@@ -50,7 +52,7 @@ export default async function Home({searchParams}:{searchParams:Promise<{pool?:s
   const q=pool?`?pool=${encodeURIComponent(pool.id)}`:"";
 
   return <main className="shell">
-    <div className="brand"><strong>🍀 Bolão Connect</strong><span className="badge">Organizador</span></div>
+    <Brand label="Organizador"/>
     <section className="hero">
       <h1>Painel do organizador</h1>
       <p className="muted">Crie o bolão, compartilhe o link e acompanhe automaticamente participantes, pagamentos, carteira e jogos.</p>
