@@ -18,8 +18,8 @@ async function joinPool(form:FormData){
   const s=createAdminClient();
   const {data:pool}=await s.from("pools").select("id,title,total_shares,payment_deadline,status").eq("public_slug",slug).maybeSingle();
   if(!pool)throw new Error("Bolão não encontrado.");
-  if(pool.status!=="open")throw new Error("Este bolão não está aberto para novas entradas.");
-  if(new Date(pool.payment_deadline).getTime()<Date.now())throw new Error("O prazo para entrar neste bolão terminou.");
+  if(pool.status!=="open")throw new Error("Este bolão não está aberto para novas participações.");
+  if(new Date(pool.payment_deadline).getTime()<Date.now())throw new Error("O prazo para participar deste bolão terminou.");
 
   const {data:participants,error:listError}=await s.from("participants").select("id,phone,shares,status").eq("pool_id",pool.id);
   if(listError)throw new Error("Não foi possível verificar as vagas do bolão.");
@@ -64,12 +64,12 @@ export default async function JoinPool({params}:{params:Promise<{slug:string}>})
   return <main className="shell">
     <Link className="back" href={`/bolao/${slug}`}>← Voltar ao bolão</Link>
     <section className="section">
-      <p className="eyebrow">ENTRAR NO BOLÃO</p>
+      <p className="eyebrow">PARTICIPAR DO BOLÃO</p>
       <h1>🍀 {pool.title}</h1>
       <p className="muted">{pool.lottery} · {available} vaga(s) disponível(is)</p>
     </section>
     <section className="section">
-      {closed?<><h2>Entrada indisponível</h2><p className="muted">Este bolão não possui novas vagas disponíveis neste momento.</p></>:<>
+      {closed?<><h2>Participação indisponível</h2><p className="muted">Este bolão não possui novas vagas disponíveis neste momento.</p></>:<>
         <h2>Crie seu cadastro de participante</h2>
         <p className="muted">Você não escolhe quantidade de cotas. Ao confirmar, será reservada 1 vaga/cota deste bolão para você.</p>
         <form className="form" action={joinPool}>
