@@ -15,6 +15,8 @@ export type CreatePoolInput = {
   paymentDeadline: string;
   drawAt?: string;
   estimatedPrizeCents?: number;
+  plannedGames?: number;
+  numbersPerGame?: number;
 };
 
 export async function createPool(input: CreatePoolInput) {
@@ -22,8 +24,10 @@ export async function createPool(input: CreatePoolInput) {
   if (!title || title.length > 120) throw new Error("Informe um nome válido para o bolão.");
   if (!LOTTERIES.includes(input.lottery)) throw new Error("Modalidade inválida.");
   if (input.contestNumber != null && (!Number.isInteger(input.contestNumber) || input.contestNumber < 1)) throw new Error("Informe um concurso válido.");
-  if (!Number.isInteger(input.totalShares) || input.totalShares < 1 || input.totalShares > 100000) throw new Error("Informe uma quantidade válida de cotas.");
+  if (!Number.isInteger(input.totalShares) || input.totalShares < 1 || input.totalShares > 100000) throw new Error("Informe uma quantidade válida de cotas/vagas.");
   if (!Number.isInteger(input.sharePriceCents) || input.sharePriceCents < 1) throw new Error("Informe um valor válido para a cota.");
+  if (input.plannedGames != null && (!Number.isInteger(input.plannedGames) || input.plannedGames < 1)) throw new Error("Informe uma quantidade válida de jogos.");
+  if (input.numbersPerGame != null && (!Number.isInteger(input.numbersPerGame) || input.numbersPerGame < 1)) throw new Error("Informe uma quantidade válida de dezenas por jogo.");
   const deadline = new Date(input.paymentDeadline);
   if (Number.isNaN(deadline.getTime())) throw new Error("Informe um prazo de pagamento válido.");
 
@@ -38,7 +42,7 @@ export async function createPool(input: CreatePoolInput) {
   const slugBase = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "bolao";
   const publicSlug = `${slugBase}-${crypto.randomUUID().slice(0, 8)}`;
 
-  const { data, error } = await supabase.from("pools").insert({
+  const payload:any = {
     owner_id: auth.user.id,
     title,
     lottery: input.lottery,
@@ -48,11 +52,19 @@ export async function createPool(input: CreatePoolInput) {
     payment_deadline: deadline.toISOString(),
     draw_at: input.drawAt || null,
     estimated_prize_cents: input.estimatedPrizeCents ?? null,
+    planned_games: input.plannedGames ?? null,
+    numbers_per_game: input.numbersPerGame ?? null,
     status: "open",
     public_slug: publicSlug,
-  }).select().single();
+  };
 
-  if (error) throw new Error(error.message);
+  let result = await supabase.from("pools").insert(payload).select().single();
+  if (result.error && /planned_games|numbers_per_game/i.test(result.error.message)) {
+    const { planned_games: _plannedGames, numbers_per_game: _numbersPerGame, ...legacyPayload } = payload;
+    result = await supabase.from("pools").insert(legacyPayload).select().single();
+  }
+
+  if (result.error) throw new Error(result.error.message);
   revalidatePath("/"); revalidatePath("/criar-bolao"); revalidatePath("/jogos"); revalidatePath("/conferencia");
-  return data;
+  return result.data;
 }
