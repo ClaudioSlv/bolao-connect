@@ -5,10 +5,10 @@ import { LotteryResultsTicker } from "@/components/lottery-results-ticker";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Bolão Connect", template: "%s · Bolão Connect" },
+  title: { default: "Bolão Amigos BTP", template: "%s · Bolão Amigos BTP" },
   description: "Organize bolões, cotas, pagamentos, jogos e conferências em um só lugar.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Bolão Connect",
+  applicationName: "Bolão Amigos BTP",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut: "/icon.svg",
@@ -21,5 +21,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="pt-BR"><body><header className="app-brandbar"><Link href="/" aria-label="Bolão Connect - início"><img src="/icon.svg" alt=""/><span>Bolão Connect</span></Link></header>{children}<LotteryResultsTicker/><PwaRegister /></body></html>;
+  return <html lang="pt-BR"><body><header className="app-brandbar"><Link href="/" aria-label="Bolão Amigos BTP - início"><img src="/icon.svg" alt=""/><span>Bolão Amigos BTP</span></Link></header>{children}<LotteryResultsTicker/><PwaRegister /></body></html>;
 }
