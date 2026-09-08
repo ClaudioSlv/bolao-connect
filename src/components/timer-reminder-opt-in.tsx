@@ -8,9 +8,13 @@ function keyToBytes(value:string){
   return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
 }
 
-export function TimerReminderOptIn({slug}:{slug:string}){
+type Props={slug?:string;campaignKey?:string};
+
+export function TimerReminderOptIn({slug,campaignKey}:Props){
   const[visible,setVisible]=useState(false);
   const[state,setState]=useState<"checking"|"idle"|"busy"|"ok"|"error">("checking");
+  const identity=slug||campaignKey||"";
+  const reminderText=campaignKey?"a abertura do próximo bolão":"a abertura dos pagamentos";
 
   useEffect(()=>{
     let cancelled=false;
@@ -18,14 +22,14 @@ export function TimerReminderOptIn({slug}:{slug:string}){
 
     const checkExisting=async()=>{
       try{
-        if(!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();
+        if(!identity||!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();
         const reg=await navigator.serviceWorker.ready;
         const sub=await reg.pushManager.getSubscription();
         if(sub&&Notification.permission==="granted"){
           const res=await fetch("/api/push/timer-subscribe",{
             method:"POST",
             headers:{"content-type":"application/json"},
-            body:JSON.stringify({slug,subscription:sub.toJSON()}),
+            body:JSON.stringify({slug,campaignKey,subscription:sub.toJSON()}),
           });
           if(res.ok&&!cancelled){setState("ok");setVisible(true);return;}
         }
@@ -39,12 +43,12 @@ export function TimerReminderOptIn({slug}:{slug:string}){
 
     checkExisting();
     return()=>{cancelled=true;if(timer)window.clearTimeout(timer)};
-  },[slug]);
+  },[identity,slug,campaignKey]);
 
   const enable=async()=>{
     try{
       setState("busy");
-      if(!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();
+      if(!identity||!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();
       const permission=await Notification.requestPermission();
       if(permission!=="granted")throw new Error();
       const reg=await navigator.serviceWorker.ready;
@@ -55,7 +59,7 @@ export function TimerReminderOptIn({slug}:{slug:string}){
       const res=await fetch("/api/push/timer-subscribe",{
         method:"POST",
         headers:{"content-type":"application/json"},
-        body:JSON.stringify({slug,subscription:sub.toJSON()}),
+        body:JSON.stringify({slug,campaignKey,subscription:sub.toJSON()}),
       });
       if(!res.ok)throw new Error();
       setState("ok");
@@ -63,11 +67,11 @@ export function TimerReminderOptIn({slug}:{slug:string}){
   };
 
   if(!visible||state==="checking")return null;
-  if(state==="ok")return <div className="section"><p className="status">🔔 LEMBRETES ATIVOS NESTE CELULAR · a cada 10 dias até a abertura dos pagamentos</p></div>;
+  if(state==="ok")return <div className="section"><p className="status">🔔 LEMBRETES ATIVOS NESTE CELULAR · a cada 10 dias até {reminderText}</p></div>;
 
   return <div className="section">
     <h2>🔔 Quer ser lembrado?</h2>
-    <p className="muted">Ative uma única vez neste celular. O Bolão Connect enviará um lembrete a cada 10 dias até a abertura dos pagamentos.</p>
+    <p className="muted">Ative uma única vez neste celular. O Bolão Connect enviará um lembrete a cada 10 dias até {reminderText}.</p>
     <button className="button secondary" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"Ativar lembretes neste celular"}</button>
     {state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas.</p>}
   </div>;
