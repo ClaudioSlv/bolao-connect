@@ -4,6 +4,7 @@ import {createAdminClient} from "@/lib/supabase/admin";
 
 export const dynamic="force-dynamic";
 const TEN_DAYS=10*24*60*60*1000;
+const MEGA_SLUG="mega-da-virada-2026";
 
 export async function GET(req:Request){
   const secret=process.env.CRON_SECRET;
@@ -24,8 +25,9 @@ export async function GET(req:Request){
       disabled++;
       continue;
     }
-    const {data:pool}=await s.from("pools").select("title,payment_deadline,status").eq("id",sub.pool_id).maybeSingle();
+    const {data:pool}=await s.from("pools").select("title,payment_deadline,status,public_slug").eq("id",sub.pool_id).maybeSingle();
     if(!pool||["drawn","archived"].includes(pool.status)||new Date(pool.payment_deadline).getTime()<=now){skipped++;continue}
+    if(pool.public_slug===MEGA_SLUG){skipped++;continue}
     const anchor=sub.last_sent_at||sub.created_at;
     if(anchor&&now-new Date(anchor).getTime()<TEN_DAYS){skipped++;continue}
     const payload=JSON.stringify({title:"🍀 Bolão Connect",body:`${p.name}, não esqueça o pagamento do bolão ${pool.title}.`,url:`/p/${p.access_token}`,tag:`bolao-${sub.pool_id}`});
