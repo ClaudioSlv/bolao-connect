@@ -1,4 +1,4 @@
-const CACHE = "bolao-connect-v4";
+const CACHE = "bolao-amigos-btp-v5";
 const CORE = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", event => {
@@ -17,7 +17,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-// O Bolão Connect usa páginas dinâmicas e Server Components do Next.js.
+// O app usa páginas dinâmicas e Server Components do Next.js.
 // Não interceptamos navegação, API ou arquivos do Next para evitar devolver
 // HTML em requisições internas e causar tela preta no Chrome/PWA.
 self.addEventListener("fetch", event => {
@@ -46,15 +46,15 @@ self.addEventListener("push", event => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { body: event.data?.text() || "Você tem uma atualização no Bolão Connect." };
+    data = { body: event.data?.text() || "Você tem uma atualização no Bolão Amigos BTP." };
   }
 
-  const title = data.title || "🍀 Bolão Connect";
+  const title = data.title || "🍀 Bolão Amigos BTP";
   const options = {
     body: data.body || "Não esqueça o prazo do seu bolão.",
     icon: "/icon.svg",
     data: { url: data.url || "/" },
-    tag: data.tag || "bolao-connect-reminder",
+    tag: data.tag || "bolao-reminder",
     renotify: true,
   };
 
