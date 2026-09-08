@@ -14,10 +14,14 @@ export default function ForgotPasswordPage(){
     e.preventDefault();
     setLoading(true);setMessage("");setOk(false);
     const s=createClient();
-    const redirectTo=`${window.location.origin}/auth/callback?next=/nova-senha`;
+    const redirectTo=`${window.location.origin}/nova-senha`;
     const {error}=await s.auth.resetPasswordForEmail(email,{redirectTo});
     setLoading(false);
-    if(error){setMessage("Não foi possível enviar o link agora. Confira o e-mail e tente novamente.");return;}
+    if(error){
+      console.error("password reset error",error);
+      setMessage(`Não foi possível enviar o link. ${error.message}`);
+      return;
+    }
     setOk(true);
     setMessage("Enviamos um link para o seu e-mail. Abra esse link para criar uma nova senha.");
   }
