@@ -1,6 +1,8 @@
-import Link from "next/link";
 import {redirect} from "next/navigation";
 import {createAdminClient} from "@/lib/supabase/admin";
+import {PoolCountdown} from "@/components/pool-countdown";
+import {TimerReminderOptIn} from "@/components/timer-reminder-opt-in";
+import {NEXT_POOL_PRELAUNCH} from "@/lib/next-pool";
 
 export const dynamic="force-dynamic";
 
@@ -14,5 +16,32 @@ export default async function TimerRedirect(){
     return <main className="shell"><section className="section"><h1>Temporizador indisponível</h1><p className="muted">Não foi possível carregar os bolões neste momento.</p></section></main>;
   }
 
-  return <main className="shell"><section className="section"><h1>Nenhum bolão aberto</h1><p className="muted">O link do participante só fica disponível depois que o organizador cria o bolão.</p><Link className="button secondary" href="/login">Área do organizador</Link></section></main>;
+  const beforeOpening=Date.now()<new Date(NEXT_POOL_PRELAUNCH.opensAt).getTime();
+
+  return <main className="shell">
+    <section className="section" style={{textAlign:"center"}}>
+      <p className="eyebrow">BOLÃO CONNECT</p>
+      <h1>🍀 {NEXT_POOL_PRELAUNCH.title}</h1>
+      <p className="muted">Próximo bolão</p>
+    </section>
+
+    <section className="section">
+      {beforeOpening?<>
+        <p className="eyebrow" style={{textAlign:"center"}}>CONTAGEM REGRESSIVA PARA A ABERTURA DO PRÓXIMO BOLÃO</p>
+        <PoolCountdown target={NEXT_POOL_PRELAUNCH.opensAt}/>
+        <p className="muted" style={{textAlign:"center",marginTop:12}}>Abertura prevista: {NEXT_POOL_PRELAUNCH.displayOpensAt}</p>
+      </>:<>
+        <p className="eyebrow" style={{textAlign:"center"}}>AGUARDANDO LIBERAÇÃO DO ORGANIZADOR</p>
+        <h2 style={{textAlign:"center"}}>O próximo bolão ainda não foi publicado.</h2>
+      </>}
+    </section>
+
+    {beforeOpening&&<TimerReminderOptIn campaignKey={NEXT_POOL_PRELAUNCH.key}/>} 
+
+    <section className="section" style={{textAlign:"center"}}>
+      <h2>Participação ainda fechada</h2>
+      <p className="muted">Você já pode acompanhar o temporizador e ativar os lembretes. A participação será liberada quando o organizador criar e publicar o bolão.</p>
+      <button className="button primary" type="button" disabled style={{opacity:.45,cursor:"not-allowed",width:"100%"}}>🔒 PARTICIPAR DO BOLÃO — FECHADO</button>
+    </section>
+  </main>;
 }
