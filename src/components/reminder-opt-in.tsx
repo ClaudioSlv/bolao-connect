@@ -5,12 +5,37 @@ function keyToBytes(value:string){const padding="=".repeat((4-value.length%4)%4)
 
 export function ReminderOptIn({token}:{token:string}){
   const[visible,setVisible]=useState(false);
-  const[state,setState]=useState<"idle"|"busy"|"ok"|"error">("idle");
+  const[state,setState]=useState<"checking"|"idle"|"busy"|"ok"|"error">("checking");
 
   useEffect(()=>{
-    const timer=window.setTimeout(()=>setVisible(true),5000);
-    return()=>window.clearTimeout(timer);
-  },[]);
+    let cancelled=false;
+    let timer:number|undefined;
+
+    const checkExisting=async()=>{
+      try{
+        if(!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();
+        const reg=await navigator.serviceWorker.ready;
+        const sub=await reg.pushManager.getSubscription();
+
+        if(sub&&Notification.permission==="granted"){
+          const res=await fetch("/api/push/subscribe",{
+            method:"POST",
+            headers:{"content-type":"application/json"},
+            body:JSON.stringify({token,subscription:sub.toJSON()}),
+          });
+          if(res.ok&&!cancelled){setState("ok");setVisible(true);return;}
+        }
+      }catch{}
+
+      if(!cancelled){
+        setState("idle");
+        timer=window.setTimeout(()=>setVisible(true),5000);
+      }
+    };
+
+    checkExisting();
+    return()=>{cancelled=true;if(timer)window.clearTimeout(timer)};
+  },[token]);
 
   const enable=async()=>{
     try{
@@ -26,7 +51,7 @@ export function ReminderOptIn({token}:{token:string}){
     }catch{setState("error")}
   };
 
-  if(!visible)return null;
-  if(state==="ok")return <p className="status">🔔 LEMBRETES ATIVADOS · a cada 10 dias até o pagamento</p>;
-  return <div className="section"><h2>🔔 Não perca o prazo</h2><p className="muted">Quer receber um lembrete deste bolão no seu celular a cada 10 dias até o pagamento ser confirmado?</p><button className="button secondary" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"Ativar lembretes a cada 10 dias"}</button>{state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas.</p>}</div>
+  if(!visible||state==="checking")return null;
+  if(state==="ok")return <p className="status">🔔 LEMBRETES ATIVOS NESTE CELULAR · a cada 10 dias até o pagamento</p>;
+  return <div className="section"><h2>🔔 Não perca o prazo</h2><p className="muted">Quer receber um lembrete deste bolão neste celular a cada 10 dias até o pagamento ser confirmado? A ativação é feita uma única vez neste aparelho.</p><button className="button secondary" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"Ativar lembretes neste celular"}</button>{state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas.</p>}</div>
 }
