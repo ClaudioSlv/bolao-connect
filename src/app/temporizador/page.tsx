@@ -2,7 +2,9 @@ import {redirect} from "next/navigation";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {PoolCountdown} from "@/components/pool-countdown";
 import {TimerReminderOptIn} from "@/components/timer-reminder-opt-in";
+import {OrganizerCta} from "@/components/organizer-cta";
 import {NEXT_POOL_PRELAUNCH} from "@/lib/next-pool";
+import {DEFAULT_APP_BRAND} from "@/lib/organizer-brand";
 
 export const dynamic="force-dynamic";
 
@@ -20,7 +22,7 @@ export default async function TimerRedirect(){
 
   return <main className="shell">
     <section className="section" style={{textAlign:"center"}}>
-      <p className="eyebrow">BOLÃO CONNECT</p>
+      <p className="eyebrow">{DEFAULT_APP_BRAND.toUpperCase()}</p>
       <h1>🍀 {NEXT_POOL_PRELAUNCH.title}</h1>
       <p className="muted">Próximo bolão</p>
     </section>
@@ -43,5 +45,7 @@ export default async function TimerRedirect(){
       <p className="muted">Você já pode acompanhar o temporizador e ativar os lembretes. A participação será liberada quando o organizador criar e publicar o bolão.</p>
       <button className="button primary" type="button" disabled style={{opacity:.45,cursor:"not-allowed",width:"100%"}}>🔒 PARTICIPAR DO BOLÃO — FECHADO</button>
     </section>
+
+    <OrganizerCta/>
   </main>;
 }
