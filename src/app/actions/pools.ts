@@ -53,7 +53,7 @@ export async function createPool(input: CreatePoolInput) {
   if(profileResult.error&&/brand_name|account_type|updated_at/i.test(profileResult.error.message)){
     profileResult=await supabase.from("profiles").upsert({id:auth.user.id,display_name:displayName},{onConflict:"id"});
   }
-  if (profileResult.error) throw new Error(`Não foi possível preparar o perfil do organizador: ${profileResult.error.message}`);
+  if (profileResult.error) throw new Error("Não foi possível preparar o perfil do organizador.");
 
   const slugBase = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "bolao";
   const publicSlug = `${slugBase}-${crypto.randomUUID().slice(0, 8)}`;
@@ -76,21 +76,20 @@ export async function createPool(input: CreatePoolInput) {
     public_slug: publicSlug,
   };
 
-  let insertPayload={...payload};
-  let result=await supabase.from("pools").insert(insertPayload).select().single();
+  const {total_cost_cents:_totalCost,game_plan:_gamePlan,...withoutPricingDetails}=payload;
+  const {planned_games:_plannedGames,numbers_per_game:_numbersPerGame,...legacyPayload}=withoutPricingDetails;
 
-  if(result.error&&/total_cost_cents|game_plan/i.test(result.error.message)){
-    const {total_cost_cents:_totalCost,game_plan:_gamePlan,...withoutPricingDetails}=insertPayload;
-    insertPayload=withoutPricingDetails;
-    result=await supabase.from("pools").insert(insertPayload).select().single();
+  const attempts=[payload,withoutPricingDetails,legacyPayload];
+  let result:any=null;
+  for(const candidate of attempts){
+    result=await supabase.from("pools").insert(candidate).select().single();
+    if(!result.error)break;
+
+    const isSchemaMismatch=/schema cache|column|total_cost_cents|game_plan|planned_games|numbers_per_game/i.test(result.error.message||"");
+    if(!isSchemaMismatch)break;
   }
 
-  if(result.error&&/planned_games|numbers_per_game/i.test(result.error.message)){
-    const {planned_games:_plannedGames,numbers_per_game:_numbersPerGame,...legacyPayload}=insertPayload;
-    result=await supabase.from("pools").insert(legacyPayload).select().single();
-  }
-
-  if (result.error) throw new Error(result.error.message);
+  if (result?.error) throw new Error("Não foi possível salvar o bolão. Confira os dados e tente novamente.");
   revalidatePath("/"); revalidatePath("/criar-bolao"); revalidatePath("/jogos"); revalidatePath("/conferencia");
   return result.data;
 }
