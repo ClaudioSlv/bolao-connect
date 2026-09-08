@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { LotteryId } from "@/lib/domain";
 import type { GamePlanItem } from "@/lib/lottery-pricing";
+import { DEFAULT_APP_BRAND } from "@/lib/organizer-brand";
 
 const LOTTERIES: LotteryId[] = ["mega-sena","lotofacil","quina","dupla-sena","lotomania","timemania","dia-de-sorte","super-sete","mais-milionaria"];
 
@@ -40,8 +41,19 @@ export async function createPool(input: CreatePoolInput) {
   if (authError || !auth.user) throw new Error("Faça login para criar um bolão.");
 
   const displayName = String(auth.user.user_metadata?.full_name ?? auth.user.user_metadata?.name ?? auth.user.email?.split("@")[0] ?? "Organizador").slice(0,120);
-  const { error: profileError } = await supabase.from("profiles").upsert({id:auth.user.id,display_name:displayName},{onConflict:"id"});
-  if (profileError) throw new Error(`Não foi possível preparar o perfil do organizador: ${profileError.message}`);
+  const brandName = String(auth.user.user_metadata?.brand_name ?? DEFAULT_APP_BRAND).trim().slice(0,120) || DEFAULT_APP_BRAND;
+  const extendedProfile:any={
+    id:auth.user.id,
+    display_name:displayName,
+    brand_name:brandName,
+    account_type:"organizer",
+    updated_at:new Date().toISOString(),
+  };
+  let profileResult=await supabase.from("profiles").upsert(extendedProfile,{onConflict:"id"});
+  if(profileResult.error&&/brand_name|account_type|updated_at/i.test(profileResult.error.message)){
+    profileResult=await supabase.from("profiles").upsert({id:auth.user.id,display_name:displayName},{onConflict:"id"});
+  }
+  if (profileResult.error) throw new Error(`Não foi possível preparar o perfil do organizador: ${profileResult.error.message}`);
 
   const slugBase = title.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "bolao";
   const publicSlug = `${slugBase}-${crypto.randomUUID().slice(0, 8)}`;
