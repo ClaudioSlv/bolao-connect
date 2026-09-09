@@ -20,10 +20,11 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
     s.from("pools").select("planned_games,numbers_per_game").eq("id",pool.id).maybeSingle(),
   ]);
 
-  const active=(participants??[]).filter(p=>p.status!=="cancelled");
-  const participantCount=active.length;
-  const usedShares=active.reduce((sum,p)=>sum+(Number(p.shares)||0),0);
+  const confirmed=(participants??[]).filter(p=>p.status==="confirmed");
+  const participantCount=confirmed.length;
+  const usedShares=confirmed.reduce((sum,p)=>sum+(Number(p.shares)||0),0);
   const available=Math.max(0,Number(pool.total_shares)-usedShares);
+  const waitlistCount=(participants??[]).filter(p=>p.status==="waitlisted").length;
   const collected=(wallet??[]).reduce((sum,row)=>sum+Number(row.amount_cents||0),0);
   const target=Number(pool.total_shares)*Number(pool.share_price_cents);
   const progress=target?Math.max(0,Math.min(100,Math.round(collected/target*100))):0;
@@ -31,7 +32,8 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
   const inferredNumbers=Array.isArray(games?.[0]?.numbers)?games?.[0]?.numbers.length:0;
   const numbersPerGame=Number(plan?.numbers_per_game||inferredNumbers||0);
   const deadlinePassed=new Date(pool.payment_deadline).getTime()<Date.now();
-  const canJoin=pool.status==="open"&&!deadlinePassed&&available>0;
+  const registrationOpen=pool.status==="open"&&!deadlinePassed;
+  const isFull=available<1;
 
   return <main className="shell">
     <section className="section">
@@ -47,6 +49,7 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
         {pool.estimated_prize_cents?<div className="wallet-row"><span>Prêmio estimado</span><strong>{money(Number(pool.estimated_prize_cents))}</strong></div>:null}
         <div className="wallet-row"><span>Participantes</span><strong>{participantCount} / {pool.total_shares}</strong></div>
         <div className="wallet-row"><span>Vagas/cotas disponíveis</span><strong>{available}</strong></div>
+        {waitlistCount>0?<div className="wallet-row"><span>Lista de espera</span><strong>{waitlistCount}</strong></div>:null}
         <div className="wallet-row"><span>Jogos</span><strong>{games?.length??0}{plannedGames?` de ${plannedGames}`:" cadastrados"}</strong></div>
         {numbersPerGame?<div className="wallet-row"><span>Dezenas por jogo</span><strong>{numbersPerGame}</strong></div>:null}
         <div className="wallet-row"><span>Prazo para pagamento</span><strong>{new Date(pool.payment_deadline).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</strong></div>
@@ -65,13 +68,13 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
     </section>
 
     <section className="section">
-      {canJoin?<>
-        <h2>Quer participar?</h2>
-        <p className="muted">Ao participar, você ocupa 1 vaga/cota deste bolão e cria seu cadastro de participante.</p>
-        <Link className="button primary" href={`/bolao/${slug}/entrar`}>🍀 PARTICIPAR DO BOLÃO</Link>
+      {registrationOpen?<>
+        <h2>{isFull?"⏳ Lista de espera aberta":"Quer participar?"}</h2>
+        <p className="muted">{isFull?"As vagas principais estão preenchidas. Você pode entrar na lista de espera por ordem de inscrição e só deverá pagar se ganhar uma vaga.":"Ao participar, você ocupa 1 vaga/cota deste bolão e cria seu cadastro de participante."}</p>
+        <Link className="button primary" href={`/bolao/${slug}/entrar`}>{isFull?"⏳ ENTRAR NA LISTA DE ESPERA":"🍀 PARTICIPAR DO BOLÃO"}</Link>
       </>:<>
         <h2>Participação indisponível</h2>
-        <p className="muted">{available<1?"Todas as vagas deste bolão já foram preenchidas.":deadlinePassed?"O prazo de participação/pagamento deste bolão terminou.":"Este bolão não está aberto para novas participações."}</p>
+        <p className="muted">{deadlinePassed?"O prazo de participação deste bolão terminou.":"Este bolão não está aberto para novas participações."}</p>
       </>}
     </section>
     <OrganizerCta/>
