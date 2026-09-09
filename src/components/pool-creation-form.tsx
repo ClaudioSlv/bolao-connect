@@ -17,4 +17,4 @@ return <form className="form" action={action}>
 <div className="field"><label>🟢 Início dos pagamentos</label><input name="paymentOpensAt" type="datetime-local" required/><small>Até esta data o Pix e o envio de comprovante ficam bloqueados.</small></div>
 <div className="field"><label>🔴 Encerramento dos pagamentos</label><input name="paymentDeadline" type="datetime-local" required/><small>Depois desta data o pagamento é fechado automaticamente.</small></div>
 <div className="field"><label>🎰 Data e hora do sorteio</label><input name="drawAt" type="datetime-local"/></div>
-<button className="button primary" disabled={!calculation}>Criar bolão com cota automática</button></form>}
+<button className="button primary create-pool-button" disabled={!calculation}>Criar bolão com cota automática</button></form>}
