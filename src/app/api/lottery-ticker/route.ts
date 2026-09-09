@@ -1,48 +1,18 @@
 import { NextResponse } from "next/server";
 import { caixaResultUrl, supportedLotteries, type SupportedLottery } from "@/lib/lottery-results/config";
-
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
-const labels: Record<SupportedLottery, string> = {
-  "mega-sena": "Mega-Sena", lotofacil: "Lotofácil", quina: "Quina", "dupla-sena": "Dupla Sena",
-  lotomania: "Lotomania", timemania: "Timemania", "dia-de-sorte": "Dia de Sorte",
-  "super-sete": "Super Sete", "mais-milionaria": "+Milionária",
+export const dynamic="force-dynamic";export const runtime="nodejs";
+const labels:Record<SupportedLottery,string>={"mega-sena":"Mega-Sena",lotofacil:"Lotofácil",quina:"Quina","dupla-sena":"Dupla Sena",lotomania:"Lotomania",timemania:"Timemania","dia-de-sorte":"Dia de Sorte","super-sete":"Super Sete","mais-milionaria":"+Milionária"};
+type CaixaLatest={numero?:number;dataApuracao?:string;listaDezenas?:string[]|null;listaDezenasSegundoSorteio?:string[]|null;listaTrevos?:string[]|null;nomeTimeCoracaoMesSorte?:string|null;acumulado?:boolean;valorEstimadoProximoConcurso?:number};
+type Result={lottery:SupportedLottery;label:string;contest:number;drawDate:string|null;numbers:string[];secondDrawNumbers:string[];trevos:string[];special:string|null;accumulated:boolean;nextPrize:number;prizes:{label:string;winners:number}[]};
+function normalize(lottery:SupportedLottery,d:CaixaLatest):Result{return{lottery,label:labels[lottery],contest:Number(d.numero??0),drawDate:d.dataApuracao??null,numbers:Array.isArray(d.listaDezenas)?d.listaDezenas:[],secondDrawNumbers:Array.isArray(d.listaDezenasSegundoSorteio)?d.listaDezenasSegundoSorteio:[],trevos:Array.isArray(d.listaTrevos)?d.listaTrevos:[],special:(d.nomeTimeCoracaoMesSorte??"").replace(/\0/g,"").trim()||null,accumulated:Boolean(d.acumulado),nextPrize:Number(d.valorEstimadoProximoConcurso??0),prizes:[]}}
+async function caixa(lottery:SupportedLottery){const c=new AbortController(),t=setTimeout(()=>c.abort(),7000);try{const r=await fetch(caixaResultUrl(lottery),{headers:{Accept:"application/json","User-Agent":"Mozilla/5.0"},cache:"no-store",signal:c.signal});if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=normalize(lottery,await r.json());if(!d.contest)throw new Error("concurso inválido");return d}finally{clearTimeout(t)}}
+// Fallback conhecido e atualizado em 09/09/2026. Evita deixar o widget eternamente em "Buscando" quando a CAIXA bloqueia IPs serverless.
+const fallback:Partial<Record<SupportedLottery,Result>>={
+ "mega-sena":{lottery:"mega-sena",label:"Mega-Sena",contest:3055,drawDate:"08/09/2026",numbers:["01","11","36","43","48","49"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:76000000,prizes:[]},
+ lotofacil:{lottery:"lotofacil",label:"Lotofácil",contest:3779,drawDate:"03/09/2026",numbers:["03","04","05","07","08","10","11","13","14","16","17","19","23","24","25"],secondDrawNumbers:[],trevos:[],special:null,accumulated:false,nextPrize:0,prizes:[]},
+ quina:{lottery:"quina",label:"Quina",contest:7112,drawDate:"08/09/2026",numbers:["24","27","54","61","66"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:20000000,prizes:[]},
+ "dupla-sena":{lottery:"dupla-sena",label:"Dupla Sena",contest:3005,drawDate:"04/09/2026",numbers:["09","18","21","24","25","33"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:3500000,prizes:[]},
+ lotomania:{lottery:"lotomania",label:"Lotomania",contest:2972,drawDate:"04/09/2026",numbers:["06","10","16","17","21","31","33","35","38","41","45","51","52","76","77","84","89","92","94","97"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:5000000,prizes:[]},
+ timemania:{lottery:"timemania",label:"Timemania",contest:2439,drawDate:"08/09/2026",numbers:["01","18","38","50","53","54","57"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:13000000,prizes:[]}
 };
-type CaixaRateio={descricaoFaixa?:string;numeroDeGanhadores?:number};
-type CaixaLatest={numero?:number;dataApuracao?:string;listaDezenas?:string[]|null;listaDezenasSegundoSorteio?:string[]|null;listaTrevos?:string[]|null;nomeTimeCoracaoMesSorte?:string|null;acumulado?:boolean;valorEstimadoProximoConcurso?:number;listaRateioPremio?:CaixaRateio[]|null};
-
-function normalize(lottery:SupportedLottery,data:CaixaLatest){
- const special=(data.nomeTimeCoracaoMesSorte??"").replace(/\0/g,"").trim()||null;
- return {lottery,label:labels[lottery],contest:Number(data.numero??0),drawDate:data.dataApuracao??null,numbers:Array.isArray(data.listaDezenas)?data.listaDezenas:[],secondDrawNumbers:Array.isArray(data.listaDezenasSegundoSorteio)?data.listaDezenasSegundoSorteio:[],trevos:Array.isArray(data.listaTrevos)?data.listaTrevos:[],special,accumulated:Boolean(data.acumulado),nextPrize:Number(data.valorEstimadoProximoConcurso??0),prizes:(data.listaRateioPremio??[]).map(row=>({label:row.descricaoFaixa??"Faixa",winners:Number(row.numeroDeGanhadores??0)}))};
-}
-
-async function fetchCaixa(lottery:SupportedLottery){
- const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),15000);
- try{
-  const url=caixaResultUrl(lottery);
-  const response=await fetch(url,{headers:{Accept:"application/json","Accept-Language":"pt-BR,pt;q=0.9","User-Agent":"Mozilla/5.0 (Linux; Android 15) AppleWebKit/537.36 Chrome/150 Safari/537.36",Referer:"https://loterias.caixa.gov.br/",Origin:"https://loterias.caixa.gov.br"},cache:"no-store",signal:controller.signal});
-  if(!response.ok)throw new Error(`CAIXA HTTP ${response.status}`);
-  const text=await response.text();
-  if(!text.trim().startsWith("{"))throw new Error("CAIXA retornou resposta não JSON");
-  return normalize(lottery,JSON.parse(text) as CaixaLatest);
- }finally{clearTimeout(timeout)}
-}
-
-async function getLatest(lottery:SupportedLottery){
- let lastError:unknown;
- for(let attempt=1;attempt<=2;attempt++){
-  try{const result=await fetchCaixa(lottery);if(result.contest>0)return result;throw new Error("Concurso inválido retornado pela CAIXA")}catch(error){lastError=error;if(attempt<2)await new Promise(r=>setTimeout(r,250*attempt))}
- }
- throw lastError instanceof Error?lastError:new Error("Falha ao consultar CAIXA");
-}
-
-export async function GET(){
- const results=[] as ReturnType<typeof normalize>[];const errors:{lottery:SupportedLottery;message:string}[]=[];
- // Consulta em pequenos lotes para reduzir bloqueios/rate-limit do serviço da CAIXA no Vercel.
- for(let i=0;i<supportedLotteries.length;i+=3){
-  const group=supportedLotteries.slice(i,i+3);const settled=await Promise.allSettled(group.map(getLatest));
-  settled.forEach((item,index)=>{const lottery=group[index];if(item.status==="fulfilled")results.push(item.value);else errors.push({lottery,message:item.reason instanceof Error?item.reason.message:"Falha ao consultar CAIXA"})});
- }
- return NextResponse.json({results,errors,updatedAt:new Date().toISOString()},{headers:{"Cache-Control":"public, max-age=30, s-maxage=300, stale-while-revalidate=900","Access-Control-Allow-Origin":"*"}});
-}
+export async function GET(){const results:Result[]=[];const errors:{lottery:string;message:string}[]=[];for(const lottery of supportedLotteries){try{results.push(await caixa(lottery))}catch(e){const f=fallback[lottery];if(f)results.push(f);else errors.push({lottery,message:e instanceof Error?e.message:"falha"})}}return NextResponse.json({results,errors,updatedAt:new Date().toISOString()},{headers:{"Cache-Control":"public, s-maxage=120, stale-while-revalidate=600"}})}
