@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PersonalGameGenerator } from "@/components/personal-game-generator";
+import { LotterySelector } from "@/components/lottery-selector";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncLottery } from "@/lib/lottery-results/sync";
 import type { SupportedLottery } from "@/lib/lottery-results/config";
@@ -30,18 +31,14 @@ export default async function Page({searchParams}:{searchParams:Promise<{lottery
   try {
     let data = await readResults(lottery);
     const contestCount = new Set(data.map((row) => Number(row.contest_number))).size;
-
-    // First access to a modality seeds the rolling 50-contest history automatically.
-    // If the daily cron already populated it, this is effectively a no-op refresh.
     if (contestCount < 50) {
       await syncLottery(lottery as SupportedLottery);
       data = await readResults(lottery);
     }
-
     results = data as typeof results;
   } catch {
-    // Keep the manual generator available if the external result service is temporarily unavailable.
+    // Mantém o gerador manual disponível se o serviço externo estiver indisponível.
   }
 
-  return <main className="shell"><Link className="back" href="/">← Voltar</Link><section className="section"><p className="eyebrow">JOGO PESSOAL</p><h1>🍀 Fazer meu próprio jogo</h1><p className="muted">Escolha a modalidade, monte seus próprios números ou use o gerador estatístico.</p><form method="get" className="form"><div className="field"><label>Modalidade</label><select name="lottery" defaultValue={lottery}>{lotteries.map(l=><option key={l} value={l}>{labels[l]}</option>)}</select></div><button className="button secondary" type="submit">Carregar modalidade</button></form></section><section className="section"><h2>{labels[lottery]}</h2><PersonalGameGenerator lottery={lottery} results={results}/></section></main>;
+  return <main className="shell"><Link className="back" href="/">← Voltar</Link><section className="section"><p className="eyebrow">JOGO PESSOAL</p><h1>🍀 Fazer meu próprio jogo</h1><p className="muted">Escolha a modalidade, monte seus próprios números ou use o gerador estatístico.</p><LotterySelector value={lottery} options={lotteries.map(value=>({value,label:labels[value]}))}/></section><section className="section"><h2>{labels[lottery]}</h2><PersonalGameGenerator key={lottery} lottery={lottery} results={results}/></section></main>;
 }
