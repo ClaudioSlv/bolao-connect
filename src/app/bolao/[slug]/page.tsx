@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {OrganizerCta} from "@/components/organizer-cta";
+import {SharePoolLink} from "@/components/share-pool-link";
 import {getOrganizerBrand} from "@/lib/organizer-brand";
 
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
@@ -40,6 +41,7 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
       <p className="eyebrow">{organizerBrand.name.toUpperCase()}</p>
       <h1>🍀 {pool.title}</h1>
       <p className="muted">{pool.lottery}{pool.contest_number?` · Concurso ${pool.contest_number}`:""}</p>
+      <SharePoolLink/>
     </section>
 
     <section className="section">
