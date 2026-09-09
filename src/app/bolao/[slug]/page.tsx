@@ -52,7 +52,7 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
         <div className="wallet-row"><span>Participantes</span><strong>{participantCount} / {pool.total_shares}</strong></div>
         <div className="wallet-row"><span>Vagas/cotas disponíveis</span><strong>{available}</strong></div>
         {waitlistCount>0?<div className="wallet-row"><span>Lista de espera</span><strong>{waitlistCount}</strong></div>:null}
-        <div className="wallet-row"><span>Jogos</span><strong>{games?.length??0}{plannedGames?` de ${plannedGames}`:" cadastrados"}</strong></div>
+        <div className="wallet-row"><span>Jogos</span><strong>{plannedGames||games?.length||0}</strong></div>
         {numbersPerGame?<div className="wallet-row"><span>Dezenas por jogo</span><strong>{numbersPerGame}</strong></div>:null}
         <div className="wallet-row"><span>Prazo para pagamento</span><strong>{new Date(pool.payment_deadline).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</strong></div>
         {pool.draw_at?<div className="wallet-row"><span>Sorteio</span><strong>{new Date(pool.draw_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</strong></div>:null}
