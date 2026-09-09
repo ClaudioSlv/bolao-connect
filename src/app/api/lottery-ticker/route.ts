@@ -1,18 +1,85 @@
 import { NextResponse } from "next/server";
-import { caixaResultUrl, supportedLotteries, type SupportedLottery } from "@/lib/lottery-results/config";
-export const dynamic="force-dynamic";export const runtime="nodejs";
-const labels:Record<SupportedLottery,string>={"mega-sena":"Mega-Sena",lotofacil:"Lotofácil",quina:"Quina","dupla-sena":"Dupla Sena",lotomania:"Lotomania",timemania:"Timemania","dia-de-sorte":"Dia de Sorte","super-sete":"Super Sete","mais-milionaria":"+Milionária"};
-type CaixaLatest={numero?:number;dataApuracao?:string;listaDezenas?:string[]|null;listaDezenasSegundoSorteio?:string[]|null;listaTrevos?:string[]|null;nomeTimeCoracaoMesSorte?:string|null;acumulado?:boolean;valorEstimadoProximoConcurso?:number};
-type Result={lottery:SupportedLottery;label:string;contest:number;drawDate:string|null;numbers:string[];secondDrawNumbers:string[];trevos:string[];special:string|null;accumulated:boolean;nextPrize:number;prizes:{label:string;winners:number}[]};
-function normalize(lottery:SupportedLottery,d:CaixaLatest):Result{return{lottery,label:labels[lottery],contest:Number(d.numero??0),drawDate:d.dataApuracao??null,numbers:Array.isArray(d.listaDezenas)?d.listaDezenas:[],secondDrawNumbers:Array.isArray(d.listaDezenasSegundoSorteio)?d.listaDezenasSegundoSorteio:[],trevos:Array.isArray(d.listaTrevos)?d.listaTrevos:[],special:(d.nomeTimeCoracaoMesSorte??"").replace(/\0/g,"").trim()||null,accumulated:Boolean(d.acumulado),nextPrize:Number(d.valorEstimadoProximoConcurso??0),prizes:[]}}
-async function caixa(lottery:SupportedLottery){const c=new AbortController(),t=setTimeout(()=>c.abort(),7000);try{const r=await fetch(caixaResultUrl(lottery),{headers:{Accept:"application/json","User-Agent":"Mozilla/5.0"},cache:"no-store",signal:c.signal});if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=normalize(lottery,await r.json());if(!d.contest)throw new Error("concurso inválido");return d}finally{clearTimeout(t)}}
-// Fallback conhecido e atualizado em 09/09/2026. Evita deixar o widget eternamente em "Buscando" quando a CAIXA bloqueia IPs serverless.
-const fallback:Partial<Record<SupportedLottery,Result>>={
- "mega-sena":{lottery:"mega-sena",label:"Mega-Sena",contest:3055,drawDate:"08/09/2026",numbers:["01","11","36","43","48","49"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:76000000,prizes:[]},
- lotofacil:{lottery:"lotofacil",label:"Lotofácil",contest:3779,drawDate:"03/09/2026",numbers:["03","04","05","07","08","10","11","13","14","16","17","19","23","24","25"],secondDrawNumbers:[],trevos:[],special:null,accumulated:false,nextPrize:0,prizes:[]},
- quina:{lottery:"quina",label:"Quina",contest:7112,drawDate:"08/09/2026",numbers:["24","27","54","61","66"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:20000000,prizes:[]},
- "dupla-sena":{lottery:"dupla-sena",label:"Dupla Sena",contest:3005,drawDate:"04/09/2026",numbers:["09","18","21","24","25","33"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:3500000,prizes:[]},
- lotomania:{lottery:"lotomania",label:"Lotomania",contest:2972,drawDate:"04/09/2026",numbers:["06","10","16","17","21","31","33","35","38","41","45","51","52","76","77","84","89","92","94","97"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:5000000,prizes:[]},
- timemania:{lottery:"timemania",label:"Timemania",contest:2439,drawDate:"08/09/2026",numbers:["01","18","38","50","53","54","57"],secondDrawNumbers:[],trevos:[],special:null,accumulated:true,nextPrize:13000000,prizes:[]}
+import { supportedLotteries, type SupportedLottery } from "@/lib/lottery-results/config";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const CAIXA_HOME = "https://servicebus2.caixa.gov.br/portaldeloterias/api/home/ultimos-resultados";
+
+const labels: Record<SupportedLottery, string> = {
+  "mega-sena": "Mega-Sena", lotofacil: "Lotofácil", quina: "Quina", "dupla-sena": "Dupla Sena",
+  lotomania: "Lotomania", timemania: "Timemania", "dia-de-sorte": "Dia de Sorte",
+  "super-sete": "Super Sete", "mais-milionaria": "+Milionária",
 };
-export async function GET(){const results:Result[]=[];const errors:{lottery:string;message:string}[]=[];for(const lottery of supportedLotteries){try{results.push(await caixa(lottery))}catch(e){const f=fallback[lottery];if(f)results.push(f);else errors.push({lottery,message:e instanceof Error?e.message:"falha"})}}return NextResponse.json({results,errors,updatedAt:new Date().toISOString()},{headers:{"Cache-Control":"public, s-maxage=120, stale-while-revalidate=600"}})}
+
+const homeKeys: Record<SupportedLottery, string> = {
+  "mega-sena": "megasena", lotofacil: "lotofacil", quina: "quina", "dupla-sena": "duplasena",
+  lotomania: "lotomania", timemania: "timemania", "dia-de-sorte": "diaDeSorte",
+  "super-sete": "superSete", "mais-milionaria": "maisMilionaria",
+};
+
+type HomeResult = {
+  numeroDoConcurso?: number;
+  dataApuracao?: string;
+  dezenas?: string[] | null;
+  dezenasSegundoSorteio?: string[] | null;
+  trevosSorteados?: string[] | null;
+  timeDoCoracao?: string | null;
+  mesDaSorte?: string | null;
+  acumulado?: boolean;
+  valorEstimadoProximoConcurso?: number;
+};
+
+function normalize(lottery: SupportedLottery, data: HomeResult) {
+  let special: string | null = null;
+  if (lottery === "timemania") special = (data.timeDoCoracao ?? "").trim() || null;
+  if (lottery === "dia-de-sorte") special = data.mesDaSorte ? `Mês da Sorte: ${data.mesDaSorte}` : null;
+  return {
+    lottery,
+    label: labels[lottery],
+    contest: Number(data.numeroDoConcurso ?? 0),
+    drawDate: data.dataApuracao ?? null,
+    numbers: Array.isArray(data.dezenas) ? data.dezenas : [],
+    secondDrawNumbers: Array.isArray(data.dezenasSegundoSorteio) ? data.dezenasSegundoSorteio : [],
+    trevos: Array.isArray(data.trevosSorteados) ? data.trevosSorteados : [],
+    special,
+    accumulated: Boolean(data.acumulado),
+    nextPrize: Number(data.valorEstimadoProximoConcurso ?? 0),
+    prizes: [],
+  };
+}
+
+export async function GET() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch(CAIXA_HOME, {
+      headers: {
+        Accept: "application/json, text/plain, */*",
+        "Accept-Language": "pt-BR,pt;q=0.9",
+        "User-Agent": "Mozilla/5.0 (compatible; BolaoAmigosBTP/1.0)",
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`CAIXA HTTP ${response.status}`);
+    const home = (await response.json()) as Record<string, HomeResult>;
+    const results = supportedLotteries.flatMap((lottery) => {
+      const item = home[homeKeys[lottery]];
+      if (!item) return [];
+      const result = normalize(lottery, item);
+      return result.contest > 0 ? [result] : [];
+    });
+    return NextResponse.json(
+      { results, errors: [], source: "caixa-home", updatedAt: new Date().toISOString() },
+      { headers: { "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=300" } },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { results: [], errors: [{ lottery: "all", message: error instanceof Error ? error.message : "Falha ao consultar CAIXA" }], source: "caixa-home", updatedAt: new Date().toISOString() },
+      { status: 502, headers: { "Cache-Control": "no-store" } },
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
