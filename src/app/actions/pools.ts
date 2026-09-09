@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { LotteryId } from "@/lib/domain";
 import type { GamePlanItem } from "@/lib/lottery-pricing";
@@ -42,4 +43,17 @@ export async function createPool(input: CreatePoolInput) {
   if(error){console.error("[createPool] pools insert failed",{code:error.code,message:error.message,details:error.details,hint:error.hint});throw new Error("Não foi possível salvar o bolão. Confirme se a migração 0013 foi aplicada no Supabase.");}
   revalidatePath("/");revalidatePath("/criar-bolao");revalidatePath("/jogos");revalidatePath("/conferencia");
   return data;
+}
+
+export async function deletePool(poolId:string){
+  if(!poolId)throw new Error("Bolão inválido.");
+  const supabase=await createClient();
+  const {data:auth,error:authError}=await supabase.auth.getUser();
+  if(authError||!auth.user)throw new Error("Faça login para excluir um bolão.");
+  const {data:pool,error:poolError}=await supabase.from("pools").select("id,owner_id,title").eq("id",poolId).maybeSingle();
+  if(poolError||!pool||pool.owner_id!==auth.user.id)throw new Error("Você não pode excluir este bolão.");
+  const {error}=await supabase.from("pools").delete().eq("id",poolId).eq("owner_id",auth.user.id);
+  if(error){console.error("[deletePool] delete failed",{code:error.code,message:error.message,details:error.details,hint:error.hint,poolId});throw new Error("Não foi possível excluir o bolão. Tente novamente.");}
+  revalidatePath("/");revalidatePath("/participantes");revalidatePath("/carteira");revalidatePath("/jogos");revalidatePath("/conferencia");
+  redirect("/");
 }
