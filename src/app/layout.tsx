@@ -5,14 +5,30 @@ import { LotteryResultsTicker } from "@/components/lottery-results-ticker";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://bolao-connect.vercel.app"),
   title: { default: "Bolão Amigos BTP", template: "%s · Bolão Amigos BTP" },
-  description: "Organize bolões, cotas, pagamentos, jogos e conferências em um só lugar.",
+  description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
   manifest: "/manifest.webmanifest",
   applicationName: "Bolão Amigos BTP",
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
     shortcut: "/icon.svg",
     apple: "/icon.svg",
+  },
+  openGraph: {
+    type: "website",
+    locale: "pt_BR",
+    url: "/bolao",
+    siteName: "Bolão Amigos BTP",
+    title: "🍀 Bolão Amigos BTP",
+    description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
+    images: [{url:"/icon.svg",width:512,height:512,alt:"Bolão Amigos BTP"}],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "🍀 Bolão Amigos BTP",
+    description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
+    images: ["/icon.svg"],
   },
 };
 
