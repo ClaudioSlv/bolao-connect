@@ -2,6 +2,7 @@ import Link from "next/link";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {OrganizerCta} from "@/components/organizer-cta";
 import {SharePoolLink} from "@/components/share-pool-link";
+import {TimerReminderOptIn} from "@/components/timer-reminder-opt-in";
 import {getOrganizerBrand} from "@/lib/organizer-brand";
 
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
@@ -37,6 +38,7 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
   const isFull=available<1;
 
   return <main className="shell">
+    <TimerReminderOptIn slug={slug}/>
     <section className="section">
       <p className="eyebrow">{organizerBrand.name.toUpperCase()}</p>
       <h1>🍀 {pool.title}</h1>
