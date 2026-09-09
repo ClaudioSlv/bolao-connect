@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 
 const CAIXA_HOME = "https://servicebus2.caixa.gov.br/portaldeloterias/api/home/ultimos-resultados";
 const CAIXA_BASE = "https://servicebus2.caixa.gov.br/portaldeloterias/api";
+const FALLBACK_BASE = "https://loteriascaixa-api.herokuapp.com/api";
 
 const labels: Record<SupportedLottery, string> = {
   "mega-sena": "Mega-Sena", lotofacil: "Lotofácil", quina: "Quina", "dupla-sena": "Dupla Sena",
@@ -25,37 +26,37 @@ const caixaPaths: Record<SupportedLottery, string> = {
   "super-sete": "supersete", "mais-milionaria": "maismilionaria",
 };
 
+const fallbackPaths: Record<SupportedLottery, string> = {
+  "mega-sena": "megasena", lotofacil: "lotofacil", quina: "quina", "dupla-sena": "duplasena",
+  lotomania: "lotomania", timemania: "timemania", "dia-de-sorte": "diadesorte",
+  "super-sete": "supersete", "mais-milionaria": "maismilionaria",
+};
+
 type HomeResult = {
-  numeroDoConcurso?: number;
-  numero?: number;
-  concurso?: number;
-  dataApuracao?: string;
-  data?: string;
-  dezenas?: string[] | null;
-  listaDezenas?: string[] | null;
-  dezenasSegundoSorteio?: string[] | null;
-  listaDezenasSegundoSorteio?: string[] | null;
-  trevosSorteados?: string[] | null;
-  listaTrevos?: string[] | null;
-  timeDoCoracao?: string | null;
-  nomeTimeCoracaoMesSorte?: string | null;
-  mesDaSorte?: string | null;
-  acumulado?: boolean;
+  numeroDoConcurso?: number; numero?: number; concurso?: number;
+  dataApuracao?: string; data?: string;
+  dezenas?: string[] | null; listaDezenas?: string[] | null;
+  dezenasSegundoSorteio?: string[] | null; listaDezenasSegundoSorteio?: string[] | null;
+  trevosSorteados?: string[] | null; listaTrevos?: string[] | null; trevos?: string[] | null;
+  timeDoCoracao?: string | null; timeCoracao?: string | null; nomeTimeCoracaoMesSorte?: string | null;
+  mesDaSorte?: string | null; mesSorte?: string | null;
+  acumulado?: boolean; acumulou?: boolean;
   valorEstimadoProximoConcurso?: number;
 };
 
 const headers = {
   Accept: "application/json, text/plain, */*",
   "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-  Referer: "https://loterias.caixa.gov.br/",
-  Origin: "https://loterias.caixa.gov.br",
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36",
+  "User-Agent": "Mozilla/5.0 (compatible; BolaoAmigosBTP/1.0)",
 };
 
 function normalize(lottery: SupportedLottery, data: HomeResult) {
   let special: string | null = null;
-  if (lottery === "timemania") special = (data.timeDoCoracao ?? data.nomeTimeCoracaoMesSorte ?? "").trim() || null;
-  if (lottery === "dia-de-sorte") special = data.mesDaSorte ? `Mês da Sorte: ${data.mesDaSorte}` : (data.nomeTimeCoracaoMesSorte ? `Mês da Sorte: ${data.nomeTimeCoracaoMesSorte}` : null);
+  if (lottery === "timemania") special = (data.timeDoCoracao ?? data.timeCoracao ?? data.nomeTimeCoracaoMesSorte ?? "").trim() || null;
+  if (lottery === "dia-de-sorte") {
+    const month = data.mesDaSorte ?? data.mesSorte ?? data.nomeTimeCoracaoMesSorte;
+    special = month ? `Mês da Sorte: ${month}` : null;
+  }
   return {
     lottery,
     label: labels[lottery],
@@ -63,36 +64,35 @@ function normalize(lottery: SupportedLottery, data: HomeResult) {
     drawDate: data.dataApuracao ?? data.data ?? null,
     numbers: Array.isArray(data.dezenas) ? data.dezenas : (Array.isArray(data.listaDezenas) ? data.listaDezenas : []),
     secondDrawNumbers: Array.isArray(data.dezenasSegundoSorteio) ? data.dezenasSegundoSorteio : (Array.isArray(data.listaDezenasSegundoSorteio) ? data.listaDezenasSegundoSorteio : []),
-    trevos: Array.isArray(data.trevosSorteados) ? data.trevosSorteados : (Array.isArray(data.listaTrevos) ? data.listaTrevos : []),
+    trevos: Array.isArray(data.trevosSorteados) ? data.trevosSorteados : (Array.isArray(data.listaTrevos) ? data.listaTrevos : (Array.isArray(data.trevos) ? data.trevos : [])),
     special,
-    accumulated: Boolean(data.acumulado),
+    accumulated: Boolean(data.acumulado ?? data.acumulou),
     nextPrize: Number(data.valorEstimadoProximoConcurso ?? 0),
     prizes: [],
   };
 }
 
-async function fetchJson(url: string, timeoutMs = 6000) {
+async function fetchJson(url: string, timeoutMs = 7000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { headers, cache: "no-store", signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
-  } finally {
-    clearTimeout(timeout);
-  }
+  } finally { clearTimeout(timeout); }
 }
 
-async function fetchIndividualResults() {
+async function fetchAll(base: string, paths: Record<SupportedLottery, string>, suffix = "") {
   const settled = await Promise.allSettled(supportedLotteries.map(async lottery => {
-    const data = await fetchJson(`${CAIXA_BASE}/${caixaPaths[lottery]}`);
+    const data = await fetchJson(`${base}/${paths[lottery]}${suffix}`);
     const result = normalize(lottery, data as HomeResult);
     if (result.contest <= 0 || result.numbers.length === 0) throw new Error("resultado inválido");
     return result;
   }));
-  const results = settled.flatMap(item => item.status === "fulfilled" ? [item.value] : []);
-  const errors = settled.flatMap((item, index) => item.status === "rejected" ? [{ lottery: supportedLotteries[index], message: item.reason instanceof Error ? item.reason.message : "falha" }] : []);
-  return { results, errors };
+  return {
+    results: settled.flatMap(item => item.status === "fulfilled" ? [item.value] : []),
+    errors: settled.flatMap((item, index) => item.status === "rejected" ? [{ lottery: supportedLotteries[index], message: item.reason instanceof Error ? item.reason.message : "falha" }] : []),
+  };
 }
 
 export async function GET() {
@@ -105,25 +105,17 @@ export async function GET() {
       const result = normalize(lottery, item);
       return result.contest > 0 && result.numbers.length > 0 ? [result] : [];
     });
-    if (results.length) return NextResponse.json(
-      { results, errors, source: "caixa-home", updatedAt: new Date().toISOString() },
-      { headers: { "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=600" } },
-    );
-    errors.push({ lottery: "all", message: "Endpoint consolidado retornou vazio" });
-  } catch (error) {
-    errors.push({ lottery: "all", message: error instanceof Error ? error.message : "Falha no endpoint consolidado" });
-  }
+    if (results.length) return NextResponse.json({ results, errors, source: "caixa-home", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
+  } catch (error) { errors.push({ lottery: "all", message: error instanceof Error ? error.message : "Falha CAIXA" }); }
 
-  const fallback = await fetchIndividualResults();
-  errors.push(...fallback.errors);
-  if (fallback.results.length) return NextResponse.json(
-    { results: fallback.results, errors, source: "caixa-individual", updatedAt: new Date().toISOString() },
-    { headers: { "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=600" } },
-  );
+  const caixa = await fetchAll(CAIXA_BASE, caixaPaths);
+  errors.push(...caixa.errors);
+  if (caixa.results.length) return NextResponse.json({ results: caixa.results, errors, source: "caixa-individual", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
 
-  console.error("lottery-ticker: CAIXA indisponível", errors);
-  return NextResponse.json(
-    { results: [], errors, source: "caixa-unavailable", updatedAt: new Date().toISOString() },
-    { status: 503, headers: { "Cache-Control": "no-store" } },
-  );
+  const backup = await fetchAll(FALLBACK_BASE, fallbackPaths, "/latest");
+  errors.push(...backup.errors);
+  if (backup.results.length) return NextResponse.json({ results: backup.results, errors, source: "backup", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
+
+  console.error("lottery-ticker: fontes indisponíveis", errors);
+  return NextResponse.json({ results: [], errors, source: "unavailable", updatedAt: new Date().toISOString() }, { status: 503, headers: { "Cache-Control": "no-store" } });
 }
