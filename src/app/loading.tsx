@@ -1,0 +1,1 @@
+export default function Loading(){return <main className="shell" aria-live="polite" aria-busy="true"><section className="section" style={{textAlign:"center",paddingTop:"32px",paddingBottom:"32px"}}><div style={{fontSize:"28px",marginBottom:"10px"}}>⏳</div><strong>Carregando...</strong><p className="muted" style={{marginBottom:0}}>Só um instante.</p></section></main>}
