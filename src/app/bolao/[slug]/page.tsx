@@ -65,9 +65,10 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
       <h2>💰 Carteira do bolão</h2>
       <div className="wallet">
         <div className="wallet-row"><span>Arrecadado</span><strong>{money(collected)}</strong></div>
-        <div className="progress"><div style={{width:`${progress}%`}}/></div>
         <div className="wallet-row"><span>Meta</span><span>{money(target)}</span></div>
-        <small>{progress}% arrecadado</small>
+        <div className="pool-progress-head"><span>{progress}% arrecadado</span><span>{money(collected)} de {money(target)}</span></div>
+        <div className="pool-progress" role="progressbar" aria-label={`${progress}% arrecadado`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><div className="pool-progress-fill" style={{width:`${progress}%`}}/></div>
+        <div className="pool-progress-percent">{progress}%</div>
       </div>
     </section>
 
