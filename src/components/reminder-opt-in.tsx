@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 
 function keyToBytes(value:string){const padding="=".repeat((4-value.length%4)%4);const base64=(value+padding).replace(/-/g,"+").replace(/_/g,"/");const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
 
-export function ReminderOptIn({token,prompt=true}:{token:string;prompt?:boolean}){
+export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
   const[visible,setVisible]=useState(false);
   const[state,setState]=useState<"checking"|"idle"|"busy"|"ok"|"error">("checking");
 
@@ -17,17 +17,17 @@ export function ReminderOptIn({token,prompt=true}:{token:string;prompt?:boolean}
         const sub=await reg.pushManager.getSubscription();
         if(sub&&Notification.permission==="granted"){
           const res=await fetch("/api/push/subscribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token,subscription:sub.toJSON()})});
-          if(res.ok&&!cancelled){setState("ok");setVisible(prompt);return;}
+          if(res.ok&&!cancelled){setState("ok");setVisible(true);return;}
         }
       }catch{}
-      if(!cancelled){setState("idle");if(prompt)timer=window.setTimeout(()=>setVisible(true),5000)}
+      if(!cancelled){setState("idle");timer=window.setTimeout(()=>setVisible(true),paid?800:5000)}
     };
     checkExisting();return()=>{cancelled=true;if(timer)window.clearTimeout(timer)};
-  },[token,prompt]);
+  },[token,paid]);
 
-  const enable=async()=>{try{setState("busy");if(!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();const permission=await Notification.requestPermission();if(permission!=="granted")throw new Error();const reg=await navigator.serviceWorker.ready;const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;if(!publicKey)throw new Error();let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyToBytes(publicKey)});const res=await fetch("/api/push/subscribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token,subscription:sub.toJSON()})});if(!res.ok)throw new Error();setState("ok")}catch{setState("error")}};
+  const enable=async()=>{try{setState("busy");if(!("serviceWorker" in navigator)||!("PushManager" in window))throw new Error();const permission=await Notification.requestPermission();if(permission!=="granted")throw new Error();const reg=await navigator.serviceWorker.ready;const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;if(!publicKey)throw new Error();let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyToBytes(publicKey)});const res=await fetch("/api/push/subscribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token,subscription:sub.toJSON()})});if(!res.ok)throw new Error();setState("ok");setVisible(true)}catch{setState("error");setVisible(true)}};
 
-  if(!prompt||!visible||state==="checking")return null;
-  if(state==="ok")return <p className="status">🔔 LEMBRETES ATIVOS NESTE CELULAR · a cada 10 dias até o pagamento</p>;
-  return <div className="section"><h2>🔔 Não perca o prazo</h2><p className="muted">Quer receber um lembrete deste bolão neste celular a cada 10 dias até o pagamento ser confirmado? A ativação é feita uma única vez neste aparelho.</p><button className="button secondary" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"Ativar lembretes neste celular"}</button>{state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas.</p>}</div>
+  if(!visible||state==="checking")return null;
+  if(state==="ok")return <p className="status">🔔 NOTIFICAÇÕES ATIVADAS NESTE CELULAR · {paid?"você receberá avisos do bolão, sem lembretes de pagamento":"incluindo lembretes de pagamento enquanto houver valor pendente"}</p>;
+  return <div className="section"><h2>🔔 Notificações do bolão</h2><p className="muted">{paid?"Sua cota já está quitada. Ative as notificações para receber avisos dos jogos, resultados, prêmios, créditos e outras novidades do bolão. Você não receberá lembretes de pagamento.":"Ative as notificações para receber avisos deste bolão e lembretes enquanto seu pagamento estiver pendente."}</p><button className="button secondary" type="button" disabled={state==="busy"} onClick={enable}>{state==="busy"?"Ativando...":"🔔 ATIVAR NOTIFICAÇÕES NESTE CELULAR"}</button>{state==="error"&&<p className="muted">Não foi possível ativar neste aparelho. Verifique se as notificações estão permitidas neste navegador.</p>}</div>
 }
