@@ -51,8 +51,9 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
       <div className="wallet">
         <div className="wallet-row"><span>Valor da participação</span><strong>{money(Number(pool.share_price_cents))}</strong></div>
         {pool.estimated_prize_cents?<div className="wallet-row"><span>Prêmio estimado</span><strong>{money(Number(pool.estimated_prize_cents))}</strong></div>:null}
-        <div className="wallet-row"><span>Participantes</span><strong>{participantCount} / {pool.total_shares}</strong></div>
-        <div className="wallet-row"><span>Vagas/cotas disponíveis</span><strong>{available}</strong></div>
+        <div className="wallet-row"><span>👥 Participantes confirmados</span><strong>{participantCount}</strong></div>
+        <div className="wallet-row"><span>🎟️ Cotas ocupadas</span><strong>{usedShares} / {pool.total_shares}</strong></div>
+        <div className="wallet-row"><span>🎫 Cotas disponíveis</span><strong>{available}</strong></div>
         {waitlistCount>0?<div className="wallet-row"><span>Lista de espera</span><strong>{waitlistCount}</strong></div>:null}
         <div className="wallet-row"><span>Jogos</span><strong>{plannedGames||games?.length||0}</strong></div>
         {numbersPerGame?<div className="wallet-row"><span>Dezenas por jogo</span><strong>{numbersPerGame}</strong></div>:null}
@@ -75,7 +76,7 @@ export default async function PublicPool({params}:{params:Promise<{slug:string}>
     <section className="section">
       {registrationOpen?<>
         <h2>{isFull?"⏳ Lista de espera aberta":"Quer participar?"}</h2>
-        <p className="muted">{isFull?"As vagas principais estão preenchidas. Você pode entrar na lista de espera por ordem de inscrição e só deverá pagar se ganhar uma vaga.":"Ao participar, você ocupa 1 vaga/cota deste bolão e cria seu cadastro de participante."}</p>
+        <p className="muted">{isFull?"As cotas principais estão preenchidas. Você pode entrar na lista de espera por ordem de inscrição e só deverá pagar se ganhar uma cota.":"Cada participante pode reservar 1 ou 2 cotas neste bolão. O número de participantes e a quantidade de cotas são contabilizados separadamente."}</p>
         <Link className="button primary" href={`/bolao/${slug}/entrar`}>{isFull?"⏳ ENTRAR NA LISTA DE ESPERA":"🍀 PARTICIPAR DO BOLÃO"}</Link>
       </>:<>
         <h2>Participação indisponível</h2>
