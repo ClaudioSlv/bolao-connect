@@ -39,15 +39,28 @@ export async function POST(req:Request){
       return NextResponse.json({error:"Os pagamentos já foram abertos."},{status:409});
     }
 
+    const now=new Date().toISOString();
     const {error}=await s.from("timer_push_subscriptions").upsert({
       pool_id:pool.id,
       endpoint:subscription.endpoint,
       p256dh:subscription.keys.p256dh,
       auth:subscription.keys.auth,
       enabled:true,
-      updated_at:new Date().toISOString(),
+      updated_at:now,
     },{onConflict:"endpoint"});
     if(error)throw error;
+
+    // Se este aparelho já foi vinculado a um participante deste mesmo bolão,
+    // mantenha também o vínculo individual ativo. Assim a ativação/renovação
+    // pelo temporizador não faz o cartão do participante aparecer como inativo.
+    const {error:participantPushError}=await s.from("push_subscriptions").update({
+      p256dh:subscription.keys.p256dh,
+      auth:subscription.keys.auth,
+      enabled:true,
+      updated_at:now,
+    }).eq("pool_id",pool.id).eq("endpoint",subscription.endpoint);
+    if(participantPushError)throw participantPushError;
+
     return NextResponse.json({ok:true,mode:"pool"});
   }catch{
     return NextResponse.json({error:"Não foi possível ativar o lembrete do temporizador."},{status:500});
