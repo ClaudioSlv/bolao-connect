@@ -25,5 +25,19 @@ export function LotteryResultsTicker(){
  useEffect(()=>{let cancelled=false;async function load(){try{const response=await fetch("/api/lottery-ticker",{cache:"no-store"});if(!response.ok)throw new Error("ticker api");const data=(await response.json())as{results?:Result[]};if(!cancelled&&Array.isArray(data.results)&&data.results.length){setResults(data.results);setStatus("online");return}if(!cancelled)setStatus("error")}catch{if(!cancelled)setStatus("error")}}load();const timer=window.setInterval(load,5*60*1000);return()=>{cancelled=true;window.clearInterval(timer)}},[]);
  const items=[...results,...results];
  const waitingText=status==="loading"?"Buscando resultado…":"Resultado temporariamente indisponível";
- return <aside className="lottery-ticker" aria-label="Últimos resultados das Loterias CAIXA"><div className="lottery-ticker-label"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Loterias%20Caixa%20logo%202017.svg" alt="Loterias CAIXA"/><span>Resultados CAIXA</span></div><div className="lottery-ticker-window" tabIndex={0} title="Toque e segure para pausar os resultados"><div className="lottery-ticker-track">{items.map((r,index)=><div className={`lottery-ticker-item ${tones[r.lottery]??""}`} key={`${r.lottery}-${index}`}><strong>{r.label}</strong>{r.contest>0?<><span>Concurso {r.contest}</span>{r.drawDate&&<span>{r.drawDate}</span>}{r.numbers.length>0&&<span className="ticker-numbers">{r.numbers.join(" • ")}</span>}{r.secondDrawNumbers.length>0&&<span>2º sorteio: <b>{r.secondDrawNumbers.join(" • ")}</b></span>}{r.trevos.length>0&&<span>Trevos: <b>{r.trevos.join(" • ")}</b></span>}{r.special&&<span><b>{r.special}</b></span>}<span className={r.accumulated?"ticker-accumulated":""}>{r.accumulated?"ACUMULOU":"Resultado"}</span>{r.nextPrize>0&&<span>Próximo prêmio: <b>{money.format(r.nextPrize)}</b></span>}</>:<span>{waitingText}</span>}<i>◆</i></div>)}</div></div></aside>;
+ return <aside className="lottery-ticker" aria-label="Últimos resultados das Loterias CAIXA">
+  <div className="lottery-ticker-label"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Loterias%20Caixa%20logo%202017.svg" alt="Loterias CAIXA"/><span>Resultados CAIXA</span></div>
+  <div className="lottery-ticker-window" tabIndex={0} title="Toque e segure para pausar os resultados">
+   <div className="lottery-ticker-track">
+    {items.map((r,index)=><article className={`lottery-ticker-item ${tones[r.lottery]??""}`} key={`${r.lottery}-${index}`}>
+     <div className="ticker-heading"><strong>{r.label}</strong>{r.contest>0?<span>Concurso {r.contest}{r.drawDate?` · ${r.drawDate}`:""}</span>:<span>{waitingText}</span>}</div>
+     {r.contest>0&&<div className="ticker-balls" aria-label={`Dezenas: ${r.numbers.join(", ")}`}>{r.numbers.map((number,numberIndex)=><span className="ticker-ball" key={`${number}-${numberIndex}`}>{number}</span>)}</div>}
+     {r.secondDrawNumbers.length>0&&<div className="ticker-extra">2º sorteio: {r.secondDrawNumbers.join(" · ")}</div>}
+     {r.trevos.length>0&&<div className="ticker-extra">Trevos: {r.trevos.join(" · ")}</div>}
+     {r.special&&<div className="ticker-extra">{r.special}</div>}
+     {r.nextPrize>0&&<div className="ticker-prize"><span className={r.accumulated?"ticker-accumulated":""}>{r.accumulated?"ACUMULOU":"Próximo prêmio"}</span><b>{money.format(r.nextPrize)}</b></div>}
+    </article>)}
+   </div>
+  </div>
+ </aside>;
 }
