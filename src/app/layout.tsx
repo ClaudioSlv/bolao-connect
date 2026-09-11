@@ -21,15 +21,15 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     url: "/bolao",
     siteName: "Bolão Amigos BTP",
-    title: "🍀 Bolão Amigos BTP",
+    title: "Bolão Amigos BTP",
     description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
-    images: [{url:"/icon.svg",width:512,height:512,alt:"Bolão Amigos BTP"}],
+    images: [{url:"/social-preview.jpg",width:512,height:512,alt:"Logo do Bolão Amigos BTP"}],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "🍀 Bolão Amigos BTP",
+    card: "summary",
+    title: "Bolão Amigos BTP",
     description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
-    images: ["/icon.svg"],
+    images: ["/social-preview.jpg"],
   },
 };
 
