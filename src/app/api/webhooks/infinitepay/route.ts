@@ -34,6 +34,6 @@ export async function POST(request:Request){
   await s.from("payment_checkout_sessions").update({status:"paid",paid_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq("id",session.id);
   await s.from("payment_submissions").update({status:"approved",reviewed_at:new Date().toISOString()}).eq("participant_id",p.id).eq("status","pending");
   await s.from("audit_events").insert({pool_id:session.pool_id,actor_id:pool.owner_id,event_type:session.is_test?"test_payment_confirmed":"payment_confirmed_automatically",entity_type:"payment",entity_id:payment.id,details:{participant_id:p.id,participant_name:p.name,provider:"infinitepay",order_nsu:session.order_nsu,transaction_nsu:payload.transaction_nsu,gross_amount_cents:gross,cash_paid_cents:cashPaid,credit_used_cents:creditUsed,is_test:session.is_test}});
-  try{await sendPaymentConfirmedPush({participantId:p.id,amountCents:cashPaid})}catch(error){console.error("Falha ao enviar confirmação de pagamento",error)}
+  try{const pushResult=await sendPaymentConfirmedPush({participantId:p.id,amountCents:cashPaid});console.log("Resultado do push de pagamento",JSON.stringify({participantId:p.id,...pushResult}))}catch(error){console.error("Falha ao enviar confirmação de pagamento",error)}
   return NextResponse.json({received:true});
 }
