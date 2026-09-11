@@ -46,3 +46,11 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .lottery-ticker-item .ticker-numbers{color:#fff;font-weight:900;letter-spacing:.05em}
 .lottery-ticker-item i{color:#f7c948;font-size:10px}
 @media(max-width:390px){.summary-card{padding:18px}.summary-card h2{font-size:21px}.summary-value strong{font-size:27px}.summary-value span{font-size:13px}.summary-stats strong{font-size:22px}.lottery-ticker-item{gap:10px;padding-left:18px;padding-right:18px}}
+
+
+/* Trevo do cartão de arrecadação */
+.summary-card{display:grid;grid-template-columns:82px minmax(0,1fr);gap:16px;align-items:start}
+.summary-clover{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:82px;height:82px;margin-top:2px;font-size:63px;line-height:1;filter:drop-shadow(0 5px 5px rgba(0,0,0,.55)) drop-shadow(0 0 10px rgba(247,201,72,.28));transform:rotate(-6deg)}
+.summary-content{min-width:0}
+.summary-card .summary-stats,.summary-card .summary-progress-head,.summary-card .progress{grid-column:1/-1}
+@media(max-width:390px){.summary-card{grid-template-columns:67px minmax(0,1fr);gap:12px}.summary-clover{width:67px;height:67px;font-size:52px}.summary-card h2{font-size:19px}.summary-value{display:block}.summary-value span{display:block;margin-top:5px}}
