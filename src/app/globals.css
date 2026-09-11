@@ -20,3 +20,29 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .nav a:focus-visible{outline:2px solid #f7c948;outline-offset:2px}
 @media(max-width:360px){.nav{gap:3px;padding-left:5px;padding-right:5px}.nav a{font-size:10px}.nav-icon{width:31px;height:28px}.nav-icon svg{width:19px;height:19px}}
 @media print{.nav{display:none}}
+
+
+/* Painel aprovado: resumo premium e ticker mais legível */
+.summary-section{margin-top:28px}
+.summary-card{position:relative;overflow:hidden;padding:22px;border:1px solid rgba(247,201,72,.78);border-radius:24px;background:radial-gradient(circle at 92% 12%,rgba(247,201,72,.12),transparent 34%),linear-gradient(145deg,rgba(19,48,29,.98),rgba(5,20,11,.99));box-shadow:inset 0 1px 0 rgba(255,236,159,.18),0 12px 28px rgba(0,0,0,.28)}
+.summary-card h2{margin:0 0 18px;font-size:24px;color:#fff}
+.summary-value{display:flex;align-items:baseline;gap:9px;margin-bottom:20px}
+.summary-value strong{color:#f7c948;font-size:31px;line-height:1}
+.summary-value span{color:#c4cec7;font-size:15px}
+.summary-stats{display:grid;grid-template-columns:1fr 1fr;margin:0 0 20px;padding:17px 0;border-top:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12)}
+.summary-stats>div{display:flex;flex-direction:column;align-items:center;gap:5px}
+.summary-stats>div+div{border-left:1px solid rgba(255,255,255,.15)}
+.summary-stats strong{font-size:25px}
+.summary-stats span{color:#bdc8c0;font-size:14px}
+.summary-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.summary-progress-head strong{color:#f7c948;font-size:19px}
+.summary-progress-head span{color:#bdc8c0;font-size:13px}
+.summary-card .progress{height:13px;overflow:hidden;border:1px solid rgba(247,201,72,.28);border-radius:999px;background:#203228;box-shadow:inset 0 2px 5px rgba(0,0,0,.45)}
+.summary-card .progress>div{height:100%;min-width:5px;border-radius:inherit;background:linear-gradient(90deg,#f7c948,#ffe477);box-shadow:0 0 12px rgba(247,201,72,.55);transition:width .45s ease}
+.lottery-ticker-window:active .lottery-ticker-track,.lottery-ticker-window:focus .lottery-ticker-track,.lottery-ticker-window:hover .lottery-ticker-track{animation-play-state:paused}
+.lottery-ticker-window:focus-visible{outline:2px solid #f7c948;outline-offset:-3px}
+.lottery-ticker-track{animation-duration:145s}
+.lottery-ticker-item{gap:12px;padding-left:22px;padding-right:22px}
+.lottery-ticker-item .ticker-numbers{color:#fff;font-weight:900;letter-spacing:.05em}
+.lottery-ticker-item i{color:#f7c948;font-size:10px}
+@media(max-width:390px){.summary-card{padding:18px}.summary-card h2{font-size:21px}.summary-value strong{font-size:27px}.summary-value span{font-size:13px}.summary-stats strong{font-size:22px}.lottery-ticker-item{gap:10px;padding-left:18px;padding-right:18px}}
