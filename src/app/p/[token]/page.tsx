@@ -5,6 +5,7 @@ import { ReminderOptIn } from "@/components/reminder-opt-in";
 import { ParticipantSelfie } from "@/components/participant-selfie";
 import { InfinitePayCheckout } from "@/components/infinitepay-checkout";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
+import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
@@ -323,22 +324,31 @@ export default async function Page({
             })}
           </p>
         ) : (
-          <details className="manual-payment">
-            <summary>LER REGRAS DO BOLÃO</summary>
-            <div className="card">
-              <span style={{ whiteSpace: "pre-line" }}>{rules}</span>
+          <>
+            <div className="rules-required-notice">
+              <strong>⚠️ LEITURA OBRIGATÓRIA</strong>
+              <span>
+                Para continuar, abra as regras do grupo, leia e confirme que
+                está de acordo.
+              </span>
             </div>
-            <form className="form" action={acceptRules}>
-              <input type="hidden" name="token" value={token} />
-              <label>
-                <input type="checkbox" name="agreed" required /> Li e estou de
-                acordo com as Regras do Bolão.
-              </label>
-              <button className="button primary">
-                ACEITAR AS REGRAS
-              </button>
-            </form>
-          </details>
+            <details className="rules-disclosure">
+              <summary>📜 ABRIR E LER AS REGRAS DO GRUPO</summary>
+              <div className="card">
+                <span style={{ whiteSpace: "pre-line" }}>{rules}</span>
+              </div>
+              <form className="form" action={acceptRules}>
+                <input type="hidden" name="token" value={token} />
+                <label>
+                  <input type="checkbox" name="agreed" required /> Li e estou de
+                  acordo com as Regras do Grupo.
+                </label>
+                <button className="button primary">
+                  ACEITAR AS REGRAS
+                </button>
+              </form>
+            </details>
+          </>
         )}
       </section>
       {acceptance && (
@@ -491,27 +501,11 @@ export default async function Page({
             )}
           </section>
         )}
-      <section className="section">
-        <h2>Bilhetes do bolão</h2>
-        <p className="muted">
-          Veja as fotos dos bilhetes publicados pelo organizador.
-        </p>
-        <Link className="button secondary" href={`/p/${token}/comprovantes`}>
-          🎟️ VER BILHETES DO BOLÃO
-        </Link>
+      <section className="section participant-area">
+        <p className="eyebrow">ÁREA DO PARTICIPANTE</p>
+        <h2>Acesse suas opções</h2>
+        <ParticipantActionGrid token={token} poolSlug={pool.public_slug} />
       </section>
-      <Link className="button primary" href={`/p/${token}/carteira`}>
-        💳 MINHA CARTEIRA
-      </Link>
-      <Link
-        className="button primary"
-        href={`/meu-jogo?voltar=${encodeURIComponent(`/p/${token}`)}`}
-      >
-        🎯 CRIAR JOGO INDIVIDUAL
-      </Link>
-      <Link className="button secondary" href={`/bolao/${pool.public_slug}`}>
-        🏠 VOLTAR PARA O BOLÃO
-      </Link>
       <Link className="back" href="/">
         Bolão Amigos BTP
       </Link>
