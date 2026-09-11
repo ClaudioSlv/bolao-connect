@@ -497,6 +497,9 @@ export default async function Page({
           📷 VER COMPROVANTES
         </Link>
       </section>
+      <Link className="button primary" href={`/p/${token}/carteira`}>
+        💳 MINHA CARTEIRA
+      </Link>
       <Link
         className="button primary"
         href={`/meu-jogo?voltar=${encodeURIComponent(`/p/${token}`)}`}
