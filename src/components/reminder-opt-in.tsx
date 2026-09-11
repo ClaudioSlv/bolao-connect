@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useState} from "react";
+import {ensureCurrentPushSubscription} from "@/lib/push/browser-subscription";
 
-function keyToBytes(value:string){const padding="=".repeat((4-value.length%4)%4);const base64=(value+padding).replace(/-/g,"+").replace(/_/g,"/");const raw=atob(base64);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)))}
 function withTimeout<T>(promise:Promise<T>,ms=12000):Promise<T>{return Promise.race([promise,new Promise<T>((_,reject)=>window.setTimeout(()=>reject(new Error("timeout")),ms))])}
 
 export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
@@ -15,8 +15,9 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
       try{
         if(!("serviceWorker" in navigator)||!("PushManager" in window)||!("Notification" in window))throw new Error();
         const reg=await withTimeout(navigator.serviceWorker.ready,8000);
-        const sub=await withTimeout(reg.pushManager.getSubscription(),8000);
-        if(sub&&Notification.permission==="granted"){
+        const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if(publicKey&&Notification.permission==="granted"){
+          const sub=await withTimeout(ensureCurrentPushSubscription(reg,publicKey),12000);
           const res=await withTimeout(fetch("/api/push/subscribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token,subscription:sub.toJSON()})}),8000);
           if(res.ok&&!cancelled){setState("ok");setVisible(true);return;}
         }
@@ -35,8 +36,7 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
       const reg=await withTimeout(navigator.serviceWorker.ready,10000);
       const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if(!publicKey)throw new Error("key");
-      let sub=await withTimeout(reg.pushManager.getSubscription(),10000);
-      if(!sub)sub=await withTimeout(reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:keyToBytes(publicKey)}),12000);
+      const sub=await withTimeout(ensureCurrentPushSubscription(reg,publicKey),12000);
       const res=await withTimeout(fetch("/api/push/subscribe",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({token,subscription:sub.toJSON()})}),10000);
       if(!res.ok)throw new Error("server");
       setState("ok");
