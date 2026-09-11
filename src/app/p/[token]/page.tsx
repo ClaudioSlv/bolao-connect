@@ -497,6 +497,12 @@ export default async function Page({
           📷 VER COMPROVANTES
         </Link>
       </section>
+      <Link
+        className="button primary"
+        href={`/meu-jogo?voltar=${encodeURIComponent(`/p/${token}`)}`}
+      >
+        🎯 CRIAR JOGO INDIVIDUAL
+      </Link>
       <Link className="button secondary" href={`/bolao/${pool.public_slug}`}>
         🏠 VOLTAR PARA O BOLÃO
       </Link>
