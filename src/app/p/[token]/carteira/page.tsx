@@ -42,6 +42,9 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
         <div className="wallet-row"><span>Saldo após esta participação</span><strong>{money(afterPayment)}</strong></div>
       </div>
       {paid&&<p className="status">✓ Pagamento confirmado</p>}
+      <Link className="button secondary" href={`/p/${token}/comprovantes`}>
+        📷 VER COMPROVANTES DOS JOGOS
+      </Link>
     </section>
     <section className="section">
       <h2>Histórico de créditos</h2>
