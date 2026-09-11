@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ReminderOptIn } from "@/components/reminder-opt-in";
 import { ParticipantSelfie } from "@/components/participant-selfie";
 import { InfinitePayCheckout } from "@/components/infinitepay-checkout";
+import { ManualPixCopy } from "@/components/manual-pix-copy";
 import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
@@ -450,6 +451,7 @@ export default async function Page({
                   <strong>Pago</strong>.
                 </p>
                 <InfinitePayCheckout token={token} amountLabel={money(due)} />
+                <ManualPixCopy pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d" amountLabel={money(due)} />
                 {sub || sent ? (
                   <details className="manual-payment">
                     <summary>Já paguei por outra chave Pix</summary>
