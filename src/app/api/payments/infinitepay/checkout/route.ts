@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     { data: p } = await s
       .from("participants")
       .select(
-        "id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents",
+        "id,pool_id,name,phone,email,shares,status,payment_status,is_test,test_amount_cents",
       )
       .eq("access_token", token)
       .maybeSingle();
@@ -157,6 +157,7 @@ export async function POST(request: Request) {
       customer: {
         name: p.name,
         ...(p.phone ? { phone_number: phoneKey(p.phone) } : {}),
+        ...(p.email ? { email: p.email } : {}),
       },
       redirect_url: `${origin}/p/${token}?payment=return`,
       webhook_url: `${origin}/api/webhooks/infinitepay`,
