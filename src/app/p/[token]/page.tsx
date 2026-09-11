@@ -492,12 +492,12 @@ export default async function Page({
           </section>
         )}
       <section className="section">
-        <h2>Comprovantes dos jogos</h2>
+        <h2>Bilhetes do bolão</h2>
         <p className="muted">
-          Confira as apostas registradas pelo organizador.
+          Veja as fotos dos bilhetes publicados pelo organizador.
         </p>
         <Link className="button secondary" href={`/p/${token}/comprovantes`}>
-          📷 VER COMPROVANTES
+          🎟️ VER BILHETES DO BOLÃO
         </Link>
       </section>
       <Link className="button primary" href={`/p/${token}/carteira`}>
