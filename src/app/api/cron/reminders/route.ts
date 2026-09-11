@@ -46,13 +46,8 @@ export async function GET(req: Request) {
       .select("name,status,payment_status,access_token")
       .eq("id", sub.participant_id)
       .maybeSingle();
-    if (
-      !p ||
-      p.status === "cancelled" ||
-      p.status === "waitlisted" ||
-      p.payment_status === "confirmed"
-    ) {
-      if (!p || p.status === "cancelled" || p.payment_status === "confirmed")
+    if (!p || p.status === "cancelled" || p.status === "waitlisted") {
+      if (!p || p.status === "cancelled")
         await s
           .from("push_subscriptions")
           .update({ enabled: false, updated_at: new Date().toISOString() })
@@ -87,6 +82,10 @@ export async function GET(req: Request) {
       : 0;
     const openingNotice = !lastSentAt || lastSentAt < opensAt;
     const anchor = sub.last_sent_at || sub.created_at;
+    if (p.payment_status === "confirmed" && !openingNotice) {
+      skipped++;
+      continue;
+    }
     if (
       !openingNotice &&
       anchor &&
@@ -156,12 +155,64 @@ export async function GET(req: Request) {
       const opensAt = pool.payment_opens_at
         ? new Date(pool.payment_opens_at).getTime()
         : NaN;
-      if (!Number.isFinite(opensAt) || opensAt <= now) {
+      if (!Number.isFinite(opensAt)) {
         await s
           .from("timer_push_subscriptions")
           .update({ enabled: false, updated_at: new Date().toISOString() })
           .eq("id", sub.id);
         timerDisabled++;
+        continue;
+      }
+      if (opensAt <= now) {
+        const { data: participantSub } = await s
+          .from("push_subscriptions")
+          .select("id")
+          .eq("pool_id", sub.pool_id)
+          .eq("endpoint", sub.endpoint)
+          .eq("enabled", true)
+          .limit(1)
+          .maybeSingle();
+        if (participantSub) {
+          await s
+            .from("timer_push_subscriptions")
+            .update({ enabled: false, updated_at: new Date().toISOString() })
+            .eq("id", sub.id);
+          timerDisabled++;
+          continue;
+        }
+        const brand = await getOrganizerBrand(s, pool.owner_id);
+        const openingPayload = JSON.stringify({
+          title: "🟢 Pagamentos liberados!",
+          body: `O temporizador zerou. Os pagamentos do ${pool.title} já estão abertos.`,
+          url: `/bolao/${pool.public_slug}`,
+          tag: `abertura-${sub.pool_id}`,
+        });
+        try {
+          await webpush.sendNotification(
+            {
+              endpoint: sub.endpoint,
+              keys: { p256dh: sub.p256dh, auth: sub.auth },
+            },
+            openingPayload,
+          );
+          await s
+            .from("timer_push_subscriptions")
+            .update({
+              enabled: false,
+              last_sent_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", sub.id);
+          timerSent++;
+        } catch (e: any) {
+          if (e?.statusCode === 404 || e?.statusCode === 410) {
+            await s
+              .from("timer_push_subscriptions")
+              .update({ enabled: false, updated_at: new Date().toISOString() })
+              .eq("id", sub.id);
+            timerDisabled++;
+          }
+        }
         continue;
       }
       const anchor = sub.last_sent_at || sub.created_at;
