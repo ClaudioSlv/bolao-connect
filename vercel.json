@@ -1,6 +1,6 @@
 {
   "crons": [
-    {"path": "/api/cron/reminders", "schedule": "0 12 * * *"},
-    {"path": "/api/cron/lottery-results", "schedule": "30 3 * * *"}
+    { "path": "/api/cron/reminders", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/lottery-results", "schedule": "30 3 * * *" }
   ]
 }

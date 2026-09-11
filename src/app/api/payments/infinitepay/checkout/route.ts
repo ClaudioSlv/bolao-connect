@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import QRCode from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_POOL_RULES_VERSION } from "@/lib/pool-rules";
 
@@ -90,13 +89,8 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle();
   if (existing?.checkout_url) {
-    const qrCode = await QRCode.toDataURL(existing.checkout_url, {
-      width: 480,
-      margin: 2,
-    });
     return NextResponse.json({
       checkoutUrl: existing.checkout_url,
-      qrCode,
       reused: true,
     });
   }
@@ -191,6 +185,5 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     })
     .eq("order_nsu", orderNsu);
-  const qrCode = await QRCode.toDataURL(checkoutUrl, { width: 480, margin: 2 });
-  return NextResponse.json({ checkoutUrl, qrCode });
+  return NextResponse.json({ checkoutUrl });
 }
