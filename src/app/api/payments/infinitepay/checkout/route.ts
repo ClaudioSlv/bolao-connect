@@ -154,6 +154,10 @@ export async function POST(request: Request) {
         },
       ],
       order_nsu: orderNsu,
+      customer: {
+        name: p.name,
+        ...(p.phone ? { phone_number: phoneKey(p.phone) } : {}),
+      },
       redirect_url: `${origin}/p/${token}?payment=return`,
       webhook_url: `${origin}/api/webhooks/infinitepay`,
     }),
