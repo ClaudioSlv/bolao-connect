@@ -315,9 +315,6 @@ export default async function Page({
       <ReminderOptIn token={token} paid={paid} />
       <section className="section">
         <h2>📜 Regras do Bolão</h2>
-        <div className="card">
-          <span style={{ whiteSpace: "pre-line" }}>{rules}</span>
-        </div>
         {acceptance ? (
           <p className="status">
             ✓ Regras aceitas em{" "}
@@ -326,16 +323,22 @@ export default async function Page({
             })}
           </p>
         ) : (
-          <form className="form" action={acceptRules}>
-            <input type="hidden" name="token" value={token} />
-            <label>
-              <input type="checkbox" name="agreed" required /> Li e estou de
-              acordo com as Regras do Bolão.
-            </label>
-            <button className="button primary">
-              Aceitar regras e continuar
-            </button>
-          </form>
+          <details className="manual-payment">
+            <summary>LER REGRAS DO BOLÃO</summary>
+            <div className="card">
+              <span style={{ whiteSpace: "pre-line" }}>{rules}</span>
+            </div>
+            <form className="form" action={acceptRules}>
+              <input type="hidden" name="token" value={token} />
+              <label>
+                <input type="checkbox" name="agreed" required /> Li e estou de
+                acordo com as Regras do Bolão.
+              </label>
+              <button className="button primary">
+                ACEITAR AS REGRAS
+              </button>
+            </form>
+          </details>
         )}
       </section>
       {acceptance && (
