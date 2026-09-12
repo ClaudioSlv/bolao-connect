@@ -447,7 +447,11 @@ export default async function Page({
             <h2>Pagamento automático por Pix</h2>
             <div className="card">
               <strong>Valor do Pix: {money(due)}</strong>
-              <span>Pagamento seguro pela InfinitePay</span>
+              <span>
+                {isTest
+                  ? "Ambiente seguro de testes do PagBank"
+                  : "Pagamento seguro pela InfinitePay"}
+              </span>
               <span>
                 O QR Code será vinculado automaticamente ao seu cadastro.
               </span>
@@ -460,7 +464,7 @@ export default async function Page({
             ) : (
               <>
                 <p className="muted">
-                  Gere sua cobrança individual. Assim que a InfinitePay
+                  Gere sua cobrança individual. Assim que a {isTest ? "PagBank" : "InfinitePay"}
                   confirmar o Pix, sua cota mudará automaticamente para{" "}
                   <strong>Pago</strong>.
                 </p>
@@ -475,7 +479,9 @@ export default async function Page({
                 ) : (
                   <InfinitePayCheckout token={token} amountLabel={money(due)} />
                 )}
-                <ManualPixCopy pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d" amountLabel={money(due)} />
+                {!isTest && (
+                  <ManualPixCopy pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d" amountLabel={money(due)} />
+                )}
                 {sub || sent ? (
                   <details className="manual-payment">
                     <summary>Já paguei por outra chave Pix</summary>
