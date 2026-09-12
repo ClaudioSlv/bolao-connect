@@ -7,7 +7,7 @@ export async function addGame(input:{poolId:string;numbers:number[];receiptPath?
  const stored=lottery==="super-sete"?[...numbers]:[...numbers].sort((a,b)=>a-b);const {data,error}=await s.from("games").insert({pool_id:input.poolId,lottery,contest_number:contest,numbers:stored,special_value:special,receipt_path:input.receiptPath?.trim()||null}).select().single();if(error)throw new Error(error.message);revalidatePath("/");revalidatePath("/jogos");revalidatePath("/conferencia");return data;}
 
 
-export async function deleteGame(poolId:string,gameId:string){
+export async function deleteGame(poolId:string,gameId:string,_formData?:FormData):Promise<void>{
  if(!poolId||!gameId)throw new Error("Jogo não informado.");
  const {s}=await owner(poolId);
  const {data:game,error:lookupError}=await s.from("games").select("id,pool_id").eq("id",gameId).eq("pool_id",poolId).maybeSingle();
@@ -16,5 +16,4 @@ export async function deleteGame(poolId:string,gameId:string){
  if(error)throw new Error("Não foi possível excluir o jogo.");
  revalidatePath("/jogos");
  revalidatePath("/conferencia");
- return {ok:true};
 }
