@@ -11,7 +11,7 @@ type PagBankOrder = {
     expiration_date?: string;
     links?: Array<{ rel?: string; href?: string; media?: string }>;
   }>;
-  error_messages?: Array<{ description?: string }>;
+  error_messages?: Array<{ code?: string; parameter_name?: string; description?: string }>;
 };
 
 export async function POST(request: Request) {
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const s = createAdminClient();
   const { data: participant } = await s
     .from("participants")
-    .select("id,pool_id,name,status,payment_status,is_test,test_amount_cents")
+    .select("id,pool_id,name,email,phone,status,payment_status,is_test,test_amount_cents")
     .eq("access_token", accessToken)
     .eq("is_test", true)
     .maybeSingle();
@@ -86,6 +86,10 @@ export async function POST(request: Request) {
     headers: { "x-idempotency-key": crypto.randomUUID() },
     body: JSON.stringify({
       reference_id: referenceId,
+      customer: {
+        name: participant.name,
+        ...(participant.email ? { email: participant.email } : {}),
+      },
       items: [{ reference_id: participant.id, name: `Teste - ${pool.title}`, quantity: 1, unit_amount: amount }],
       qr_codes: [{ amount: { value: amount }, expiration_date: expiration }],
       notification_urls: [`${origin}/api/webhooks/pagbank/sandbox`],
@@ -97,7 +101,10 @@ export async function POST(request: Request) {
     (link) => link.rel === "QRCODE.PNG" || link.media === "image/png",
   )?.href;
   if (!response.ok || !order?.id || !qr?.text) {
-    const reason = order?.error_messages?.[0]?.description;
+    const failure = order?.error_messages?.[0];
+    const reason = [failure?.parameter_name, failure?.description]
+      .filter(Boolean)
+      .join(": ");
     return NextResponse.json(
       { error: reason || "O PagBank Sandbox não conseguiu gerar o QR Code." },
       { status: 502 },
@@ -127,4 +134,3 @@ export async function POST(request: Request) {
     expiresAt: qr.expiration_date || expiration,
   });
 }
-
