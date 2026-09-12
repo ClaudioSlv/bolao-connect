@@ -447,12 +447,12 @@ export default async function Page({
             <h2>Pagamento automático por Pix</h2>
             <div className="card">
               <strong>Valor do Pix: {money(due)}</strong>
-              <span>
+              <span style={{ display: "block" }}>
                 {isTest
                   ? "Ambiente seguro de testes do PagBank"
                   : "Pagamento seguro pela InfinitePay"}
               </span>
-              <span>
+              <span style={{ display: "block", marginTop: 6 }}>
                 O QR Code será vinculado automaticamente ao seu cadastro.
               </span>
             </div>
