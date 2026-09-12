@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 type Prize = { label: string; winners: number };
 type Result = { lottery:string; label:string; contest:number; drawDate:string|null; numbers:string[]; secondDrawNumbers:string[]; trevos:string[]; special:string|null; accumulated:boolean; nextPrize:number; prizes:Prize[] };
+type LiveStatus={live:boolean;watchUrl?:string;poolTitle?:string;liveUntil?:string};
 
 const tones:Record<string,string>={"mega-sena":"ticker-mega",lotofacil:"ticker-lotofacil",quina:"ticker-quina","dupla-sena":"ticker-dupla",lotomania:"ticker-lotomania",timemania:"ticker-timemania","dia-de-sorte":"ticker-dia", "super-sete":"ticker-super","mais-milionaria":"ticker-milionaria"};
 const money=new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
@@ -22,11 +23,17 @@ const fallback:Result[]=[
 export function LotteryResultsTicker(){
  const[results,setResults]=useState<Result[]>(fallback);
  const[status,setStatus]=useState<"loading"|"online"|"error">("loading");
- useEffect(()=>{let cancelled=false;async function load(){try{const response=await fetch("/api/lottery-ticker",{cache:"no-store"});if(!response.ok)throw new Error("ticker api");const data=(await response.json())as{results?:Result[]};if(!cancelled&&Array.isArray(data.results)&&data.results.length){setResults(data.results);setStatus("online");return}if(!cancelled)setStatus("error")}catch{if(!cancelled)setStatus("error")}}load();const timer=window.setInterval(load,5*60*1000);return()=>{cancelled=true;window.clearInterval(timer)}},[]);
+ const[live,setLive]=useState<LiveStatus>({live:false});
+ useEffect(()=>{let cancelled=false;let resultTick=0;async function load(){try{const requests:Promise<Response>[]=[fetch("/api/lottery-live",{cache:"no-store"})];if(resultTick%10===0)requests.push(fetch("/api/lottery-ticker",{cache:"no-store"}));const responses=await Promise.all(requests);const liveData=(await responses[0].json())as LiveStatus;if(!cancelled)setLive(liveData?.live?liveData:{live:false});if(responses[1]){if(!responses[1].ok)throw new Error("ticker api");const data=(await responses[1].json())as{results?:Result[]};if(!cancelled&&Array.isArray(data.results)&&data.results.length){setResults(data.results);setStatus("online")}else if(!cancelled)setStatus("error")}resultTick++}catch{if(!cancelled&&resultTick===0)setStatus("error");resultTick++}}load();const timer=window.setInterval(load,30*1000);return()=>{cancelled=true;window.clearInterval(timer)}},[]);
  const items=[...results,...results];
  const waitingText=status==="loading"?"Buscando resultado…":"Resultado temporariamente indisponível";
- return <aside className="lottery-ticker" aria-label="Últimos resultados das Loterias CAIXA">
-  <div className="lottery-ticker-label"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Loterias%20Caixa%20logo%202017.svg" alt="Loterias CAIXA"/><span>Resultados CAIXA</span></div>
+ return <aside className={`lottery-ticker${live.live?" lottery-ticker-live":""}`} aria-label={live.live?"Sorteio das Loterias CAIXA ao vivo":"Últimos resultados das Loterias CAIXA"}>
+  {live.live&&live.watchUrl?
+   <a className="lottery-ticker-label lottery-live-button" href={live.watchUrl} target="_blank" rel="noreferrer" aria-label="Assistir ao sorteio ao vivo no canal oficial da CAIXA">
+    <img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Loterias%20Caixa%20logo%202017.svg" alt="Loterias CAIXA"/>
+    <span><b><i/> SORTEIO AO VIVO</b><small>TOQUE PARA ASSISTIR</small></span>
+   </a>:
+   <div className="lottery-ticker-label"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Loterias%20Caixa%20logo%202017.svg" alt="Loterias CAIXA"/><span>Resultados CAIXA</span></div>}
   <div className="lottery-ticker-window" tabIndex={0} title="Toque e segure para pausar os resultados">
    <div className="lottery-ticker-track">
     {items.map((r,index)=><article className={`lottery-ticker-item ${tones[r.lottery]??""}`} key={`${r.lottery}-${index}`}>
