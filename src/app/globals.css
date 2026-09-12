@@ -238,3 +238,42 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
     animation: none;
   }
 }
+
+
+/* Exclusão de jogos cadastrados pelo organizador */
+.game-item-actions {
+  display: grid;
+  justify-items: end;
+  gap: .65rem;
+  flex: 0 0 auto;
+}
+.game-delete-button {
+  min-height: 42px;
+  padding: .65rem .85rem;
+  border: 1px solid rgba(255, 107, 107, .58);
+  border-radius: 14px;
+  background: rgba(95, 18, 22, .42);
+  color: #ffb3b3;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.game-delete-button:active {
+  background: rgba(155, 27, 34, .65);
+  transform: translateY(1px);
+}
+.game-delete-button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+@media (max-width: 520px) {
+  .game-item-actions {
+    width: 100%;
+    margin-top: .75rem;
+    justify-items: stretch;
+  }
+  .game-delete-button {
+    width: 100%;
+  }
+}
