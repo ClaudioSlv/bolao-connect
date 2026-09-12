@@ -464,7 +464,8 @@ export default async function Page({
             ) : (
               <>
                 <p className="muted">
-                  Gere sua cobrança individual. Assim que a {isTest ? "PagBank" : "InfinitePay"}
+                  Gere sua cobrança individual. Assim que a{" "}
+                  {isTest ? "PagBank" : "InfinitePay"}{" "}
                   confirmar o Pix, sua cota mudará automaticamente para{" "}
                   <strong>Pago</strong>.
                 </p>
@@ -482,7 +483,7 @@ export default async function Page({
                 {!isTest && (
                   <ManualPixCopy pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d" amountLabel={money(due)} />
                 )}
-                {sub || sent ? (
+                {!isTest && (sub || sent ? (
                   <details className="manual-payment">
                     <summary>Já paguei por outra chave Pix</summary>
                     <p className="status">COMPROVANTE RECEBIDO</p>
@@ -513,7 +514,7 @@ export default async function Page({
                       </button>
                     </form>
                   </details>
-                )}
+                ))}
               </>
             )}
           </section>
