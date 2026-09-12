@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ReminderOptIn } from "@/components/reminder-opt-in";
 import { ParticipantSelfie } from "@/components/participant-selfie";
-import { InfinitePayCheckout } from "@/components/infinitepay-checkout";
+import { PagBankCheckout } from "@/components/pagbank-checkout";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import {
@@ -446,7 +446,7 @@ export default async function Page({
             <h2>Pagamento automático por Pix</h2>
             <div className="card">
               <strong>Valor do Pix: {money(due)}</strong>
-              <span>Pagamento seguro pela InfinitePay</span>
+              <span>Pagamento seguro pelo PagBank</span>
               <span>
                 O QR Code será vinculado automaticamente ao seu cadastro.
               </span>
@@ -459,11 +459,11 @@ export default async function Page({
             ) : (
               <>
                 <p className="muted">
-                  Gere sua cobrança individual. Assim que a InfinitePay
+                  Gere sua cobrança individual. Assim que o PagBank
                   confirmar o Pix, sua cota mudará automaticamente para{" "}
                   <strong>Pago</strong>.
                 </p>
-                <InfinitePayCheckout token={token} amountLabel={money(due)} />
+                <PagBankCheckout token={token} amountLabel={money(due)} />
                 <ManualPixCopy pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d" amountLabel={money(due)} />
                 {sub || sent ? (
                   <details className="manual-payment">
@@ -478,7 +478,7 @@ export default async function Page({
                     <summary>Prefiro enviar um comprovante manual</summary>
                     <p className="muted">
                       Use esta opção somente se você pagou fora da cobrança
-                      InfinitePay.
+                      PagBank.
                     </p>
                     <form className="form" action={submitReceipt}>
                       <input type="hidden" name="token" value={token} />

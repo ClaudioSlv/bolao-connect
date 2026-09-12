@@ -277,3 +277,8 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
     width: 100%;
   }
 }
+
+.pagbank-checkout { display: grid; gap: .85rem; margin-top: 1rem; }
+.pagbank-qr { display: grid; justify-items: center; gap: .45rem; padding: 1rem; border-radius: 18px; background: #fff; color: #111; text-align: center; }
+.pagbank-qr img { display: block; width: min(280px, 100%); height: auto; }
+.pagbank-pix-code { width: 100%; min-height: 86px; resize: none; overflow-wrap: anywhere; font-size: .75rem; }
