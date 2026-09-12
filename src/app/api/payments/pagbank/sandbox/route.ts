@@ -88,7 +88,11 @@ export async function POST(request: Request) {
       reference_id: referenceId,
       customer: {
         name: participant.name,
-        ...(participant.email ? { email: participant.email } : {}),
+        email:
+          participant.email ||
+          `teste.${participant.id.slice(0, 8)}@sandbox.pagseguro.com`,
+        // Dado fictício aceito exclusivamente no ambiente Sandbox do PagBank.
+        tax_id: "12345678909",
       },
       items: [{ reference_id: participant.id, name: `Teste - ${pool.title}`, quantity: 1, unit_amount: amount }],
       qr_codes: [{ amount: { value: amount }, expiration_date: expiration }],
