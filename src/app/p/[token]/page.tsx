@@ -463,7 +463,7 @@ export default async function Page({
                   confirmar o Pix, sua cota mudará automaticamente para{" "}
                   <strong>Pago</strong>.
                 </p>
-                <PagBankCheckout token={token} amountLabel={money(due)} />
+                <PagBankCheckout token={token} amountLabel={money(due)} isTest={isTest} />
                 <ManualPixCopy pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d" amountLabel={money(due)} />
                 {sub || sent ? (
                   <details className="manual-payment">
