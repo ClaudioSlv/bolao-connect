@@ -183,7 +183,7 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
   height: 18px;
   border-radius: 2px;
   opacity: 0;
-  animation: reservationConfettiFall 2.4s ease-in forwards;
+  animation: reservationConfettiFall 4.2s ease-in-out forwards;
 }
 .reservation-confetti span:nth-child(3n) { width: 8px; height: 8px; border-radius: 50%; }
 .reservation-confetti span:nth-child(4n) { width: 14px; height: 7px; }

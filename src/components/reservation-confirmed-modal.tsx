@@ -46,13 +46,13 @@ export function ReservationConfirmedModal({
       aria-labelledby="reservation-confirmed-title"
     >
       <div className="reservation-confetti" aria-hidden="true">
-        {Array.from({ length: 30 }, (_, index) => (
+        {Array.from({ length: 42 }, (_, index) => (
           <span
             key={index}
             style={{
               left: `${(index * 37) % 100}%`,
               backgroundColor: CONFETTI_COLORS[index % CONFETTI_COLORS.length],
-              animationDelay: `${((index * 7) % 6) / 10}s`,
+              animationDelay: `${((index * 7) % 9) / 10}s`,
               transform: `rotate(${index * 29}deg)`,
             }}
           />
