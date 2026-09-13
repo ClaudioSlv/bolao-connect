@@ -4,7 +4,17 @@ const productionUrl = "https://api.pagseguro.com";
 export const pagBankBaseUrl = () =>
   process.env.PAGBANK_ENVIRONMENT === "production" ? productionUrl : sandboxUrl;
 
-export const pagBankToken = () => process.env.PAGBANK_TOKEN?.trim() || "";
+export const pagBankToken = () => {
+  const environment = process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase();
+  if (environment !== "production") {
+    return (
+      process.env.PAGBANK_SANDBOX_TOKEN?.trim() ||
+      process.env.PAGBANK_TOKEN?.trim() ||
+      ""
+    );
+  }
+  return process.env.PAGBANK_TOKEN?.trim() || "";
+};
 
 export async function fetchPagBank(path: string, init?: RequestInit) {
   const token = pagBankToken();
