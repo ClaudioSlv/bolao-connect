@@ -1,21 +1,30 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export function ReservationConfirmedModal({
   token,
-  open,
+  accepted,
+  justAccepted,
 }: {
   token: string;
-  open: boolean;
+  accepted: boolean;
+  justAccepted: boolean;
 }) {
   const router = useRouter();
-  const [visible, setVisible] = useState(open);
+  const [visible, setVisible] = useState(justAccepted);
+
+  useEffect(() => {
+    if (!accepted) return;
+    const key = `reservation-confirmed:${token}`;
+    if (justAccepted || !window.localStorage.getItem(key)) setVisible(true);
+  }, [accepted, justAccepted, token]);
 
   if (!visible) return null;
 
   function close() {
+    window.localStorage.setItem(`reservation-confirmed:${token}`, "1");
     setVisible(false);
     router.replace(`/p/${token}`, { scroll: false });
   }

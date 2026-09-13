@@ -205,7 +205,8 @@ export default async function Page({
     <main className="shell">
       <ReservationConfirmedModal
         token={token}
-        open={Boolean(acceptance && rulesStatus === "accepted")}
+        accepted={Boolean(acceptance)}
+        justAccepted={rulesStatus === "accepted"}
       />
       <section className="section">
         <p className="eyebrow">
