@@ -2,15 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ReminderOptIn } from "@/components/reminder-opt-in";
-import { ParticipantSelfie } from "@/components/participant-selfie";
+import { ReservationConfirmedModal } from "@/components/reservation-confirmed-modal";
 import { PagBankCheckout } from "@/components/pagbank-checkout";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
-  SELFIE_CONSENT_TEXT,
-  SELFIE_CONSENT_VERSION,
 } from "@/lib/pool-rules";
 export const dynamic = "force-dynamic";
 const money = (c: number) =>
@@ -48,48 +46,6 @@ async function acceptRules(f: FormData) {
   );
   if (error) throw error;
   redirect(`/p/${token}?rules=accepted`);
-}
-async function saveSelfie(f: FormData) {
-  "use server";
-  const token = String(f.get("token") ?? ""),
-    file = f.get("selfie");
-  if (!(file instanceof File) || file.size < 1)
-    redirect(`/p/${token}?selfie=skipped`);
-  if (f.get("selfieConsent") !== "on")
-    throw new Error("Autorize o armazenamento da selfie para salvar a foto.");
-  if (file.size > 5 * 1024 * 1024)
-    throw new Error("A selfie deve ter no máximo 5 MB.");
-  const allowed = ["image/jpeg", "image/png", "image/webp"];
-  if (!allowed.includes(file.type))
-    throw new Error("Use uma foto JPG, PNG ou WebP.");
-  const s = createAdminClient();
-  const { data: p } = await s
-    .from("participants")
-    .select("id,pool_id,status,selfie_path")
-    .eq("access_token", token)
-    .maybeSingle();
-  if (!p || p.status === "cancelled") throw new Error("Participante inválido.");
-  const ext = file.type.split("/")[1].replace("jpeg", "jpg"),
-    path = `${p.pool_id}/${p.id}/${crypto.randomUUID()}.${ext}`;
-  const { error: uploadError } = await s.storage
-    .from("participant-selfies")
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) throw uploadError;
-  const { error } = await s
-    .from("participants")
-    .update({
-      selfie_path: path,
-      selfie_consent_at: new Date().toISOString(),
-      selfie_consent_version: SELFIE_CONSENT_VERSION,
-    })
-    .eq("id", p.id);
-  if (error) {
-    await s.storage.from("participant-selfies").remove([path]);
-    throw error;
-  }
-  if (p.selfie_path)
-    await s.storage.from("participant-selfies").remove([p.selfie_path]);
-  redirect(`/p/${token}?selfie=saved`);
 }
 async function submitReceipt(f: FormData) {
   "use server";
@@ -164,17 +120,17 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ token: string }>;
-  searchParams: Promise<{ sent?: string; selfie?: string }>;
+  searchParams: Promise<{ sent?: string; rules?: string }>;
 }) {
   const { token } = await params;
-  const { sent, selfie } = await searchParams;
+  const { sent, rules: rulesStatus } = await searchParams;
   let data: any = null;
   try {
     const s = createAdminClient();
     const { data: p } = await s
       .from("participants")
       .select(
-        "id,pool_id,name,phone,shares,status,payment_status,selfie_path,selfie_consent_at,is_test,test_amount_cents",
+        "id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents",
       )
       .eq("access_token", token)
       .maybeSingle();
@@ -232,9 +188,7 @@ export default async function Page({
     due = Math.max(0, amount - applied),
     remaining = Math.max(0, credit - amount),
     paid = p.payment_status === "confirmed",
-    rules = pool.rules_text || DEFAULT_POOL_RULES,
-    selfieDone = Boolean(p.selfie_path),
-    selfieSkipped = selfie === "skipped";
+    rules = pool.rules_text || DEFAULT_POOL_RULES;
   const now = Date.now(),
     opens = pool.payment_opens_at
       ? new Date(pool.payment_opens_at).getTime()
@@ -246,10 +200,13 @@ export default async function Page({
       isTest || ((!opens || now >= opens) && (!closes || now <= closes)),
     paymentNotStarted = !isTest && Boolean(opens && now < opens),
     paymentClosed = !isTest && Boolean(closes && now > closes),
-    identificationComplete = selfieDone || selfieSkipped,
     isWaitlisted = p.status === "waitlisted";
   return (
     <main className="shell">
+      <ReservationConfirmedModal
+        token={token}
+        open={Boolean(acceptance && rulesStatus === "accepted")}
+      />
       <section className="section">
         <p className="eyebrow">
           {isTest ? "PARTICIPAR DO BOLÃO · MODO TESTE" : "BOLÃO AMIGOS BTP"}
@@ -313,7 +270,7 @@ export default async function Page({
           })}
         </p>
       </section>
-      <ReminderOptIn token={token} paid={paid} />
+      {acceptance && <ReminderOptIn token={token} paid={paid} />}
       <section className="section">
         <h2>📜 Regras do Bolão</h2>
         {acceptance ? (
@@ -351,36 +308,7 @@ export default async function Page({
           </>
         )}
       </section>
-      {acceptance && (
-        <section className="section">
-          <h2>
-            📷 Selfie de identificação <span className="muted">(opcional)</span>
-          </h2>
-          {selfieDone ? (
-            <>
-              <p className="status">✓ Selfie cadastrada e protegida</p>
-              <p className="muted">
-                A imagem fica em armazenamento privado e não é exibida aos
-                demais participantes.
-              </p>
-            </>
-          ) : selfieSkipped ? (
-            <p className="muted">Você optou por continuar sem selfie.</p>
-          ) : (
-            <form action={saveSelfie}>
-              <ParticipantSelfie
-                token={token}
-                consentText={SELFIE_CONSENT_TEXT}
-              />
-              <button className="button primary">Salvar selfie</button>
-              <button className="button secondary" type="submit" formNoValidate>
-                Continuar sem selfie
-              </button>
-            </form>
-          )}
-        </section>
-      )}
-      {acceptance && identificationComplete && paid && (
+      {acceptance && paid && (
         <section className="section">
           <h2>✅ Cota quitada</h2>
           <p className="status">PAGAMENTO CONFIRMADO</p>
@@ -390,7 +318,7 @@ export default async function Page({
           </p>
         </section>
       )}
-      {acceptance && identificationComplete && !paid && isWaitlisted && (
+      {acceptance && !paid && isWaitlisted && (
         <section className="section">
           <h2>⏳ Lista de espera</h2>
           <p className="muted">
@@ -400,7 +328,6 @@ export default async function Page({
         </section>
       )}
       {acceptance &&
-        identificationComplete &&
         !paid &&
         !isWaitlisted &&
         paymentNotStarted && (
@@ -425,7 +352,6 @@ export default async function Page({
           </section>
         )}
       {acceptance &&
-        identificationComplete &&
         !paid &&
         !isWaitlisted &&
         paymentClosed && (
@@ -438,7 +364,6 @@ export default async function Page({
           </section>
         )}
       {acceptance &&
-        identificationComplete &&
         !paid &&
         !isWaitlisted &&
         paymentOpen && (
@@ -501,11 +426,13 @@ export default async function Page({
             )}
           </section>
         )}
-      <section className="section participant-area">
-        <p className="eyebrow">ÁREA DO PARTICIPANTE</p>
-        <h2>Acesse suas opções</h2>
-        <ParticipantActionGrid token={token} poolSlug={pool.public_slug} />
-      </section>
+      {acceptance && (
+        <section className="section participant-area">
+          <p className="eyebrow">ÁREA DO PARTICIPANTE</p>
+          <h2>Acesse suas opções</h2>
+          <ParticipantActionGrid token={token} poolSlug={pool.public_slug} />
+        </section>
+      )}
       <Link className="back" href="/">
         Bolão Amigos BTP
       </Link>
