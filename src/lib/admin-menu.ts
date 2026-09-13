@@ -1,5 +1,12 @@
 export const adminMenu = [
   {
+    slug: "conta-recebimento",
+    title: "Conta para receber pagamentos",
+    category: "Pagamentos",
+    href: "/menu/conta-recebimento",
+    icon: "🏦",
+  },
+  {
     slug: "pesquisar-participantes",
     title: "Pesquisar participantes",
     category: "Participantes",

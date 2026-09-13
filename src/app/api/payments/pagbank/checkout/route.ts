@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_POOL_RULES_VERSION } from "@/lib/pool-rules";
 import { fetchPagBank, pagBankToken } from "@/lib/pagbank";
+import { logAppError } from "@/lib/app-error-log";
 
 const phoneKey = (value: string) => value.replace(/\D/g, "");
 
@@ -11,14 +12,18 @@ function validCpf(value: string) {
   if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
   const digit = (length: number) => {
     let sum = 0;
-    for (let index = 0; index < length; index++) sum += Number(cpf[index]) * (length + 1 - index);
+    for (let index = 0; index < length; index++)
+      sum += Number(cpf[index]) * (length + 1 - index);
     const remainder = (sum * 10) % 11;
     return remainder === 10 ? 0 : remainder;
   };
   return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
 }
 
-function pagBankFailureMessage(status: number, result: Record<string, any> | null) {
+function pagBankFailureMessage(
+  status: number,
+  result: Record<string, any> | null,
+) {
   const errors = Array.isArray(result?.error_messages)
     ? result.error_messages
     : Array.isArray(result?.errors)
@@ -41,49 +46,294 @@ function pagBankFailureMessage(status: number, result: Record<string, any> | nul
 }
 
 export async function POST(request: Request) {
-  if (!pagBankToken()) return NextResponse.json({error:"O PagBank ainda não está configurado."},{status:503});
-  const body=await request.json().catch(()=>null) as {token?:string;customer?:{taxId?:string;email?:string;phone?:string}}|null, token=String(body?.token||"");
-  if(!token)return NextResponse.json({error:"Participante inválido."},{status:400});
-  const s=createAdminClient(),{data:p}=await s.from("participants").select("id,pool_id,name,phone,email,shares,status,payment_status,is_test,test_amount_cents").eq("access_token",token).maybeSingle();
-  if(!p||p.status!=="confirmed")return NextResponse.json({error:"Esta participação não está disponível para pagamento."},{status:404});
-  if(p.payment_status==="confirmed")return NextResponse.json({error:"Esta cota já está paga."},{status:409});
-  const{data:pool}=await s.from("pools").select("id,owner_id,title,share_price_cents,payment_opens_at,payment_deadline,rules_version").eq("id",p.pool_id).maybeSingle();
-  if(!pool)return NextResponse.json({error:"Bolão não encontrado."},{status:404});
-  const now=Date.now(),opens=pool.payment_opens_at?new Date(pool.payment_opens_at).getTime():0,closes=pool.payment_deadline?new Date(pool.payment_deadline).getTime():0;
-  if(!p.is_test&&opens&&now<opens)return NextResponse.json({error:"Os pagamentos deste bolão ainda não foram abertos."},{status:403});
-  if(!p.is_test&&closes&&now>closes)return NextResponse.json({error:"O prazo de pagamento foi encerrado."},{status:403});
-  const version=Number(pool.rules_version||DEFAULT_POOL_RULES_VERSION),{data:acceptance}=await s.from("pool_rule_acceptances").select("id").eq("pool_id",pool.id).eq("participant_id",p.id).eq("rules_version",version).maybeSingle();
-  if(!acceptance)return NextResponse.json({error:"Aceite as Regras do Bolão antes de gerar o pagamento."},{status:403});
-  const{data:existing}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at").eq("participant_id",p.id).eq("provider","pagbank").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  if(existing?.qr_code_text&&(!existing.qr_code_expires_at||new Date(existing.qr_code_expires_at).getTime()>now))return NextResponse.json({orderId:existing.provider_order_id,qrCodeText:existing.qr_code_text,qrCodeImage:await QRCode.toDataURL(existing.qr_code_text,{width:360,margin:1}),expiresAt:existing.qr_code_expires_at,reused:true});
-  const gross=p.is_test?Number(p.test_amount_cents||100):Number(p.shares)*Number(pool.share_price_cents);let credit=0;
-  if(!p.is_test&&p.phone){const{data:a}=await s.from("participant_credit_accounts").select("balance_cents").eq("owner_id",pool.owner_id).eq("phone",phoneKey(p.phone)).maybeSingle();credit=Number(a?.balance_cents||0)}
-  const creditUsed=Math.min(gross,credit),due=gross-creditUsed;
-  if(due<=0)return NextResponse.json({error:"Sua participação está totalmente coberta pelo crédito. O organizador fará a confirmação."},{status:409});
-  let customerPhone=phoneKey(p.phone||"");
-  if((customerPhone.length===12||customerPhone.length===13)&&customerPhone.startsWith("55"))customerPhone=customerPhone.slice(2);
-  const sandboxTest=p.is_test&&process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase()!=="production";
-  const isProduction=process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase()==="production";
-  const payerTaxId=phoneKey(body?.customer?.taxId||"");
-  const payerEmail=String(body?.customer?.email||"").trim().toLowerCase();
-  let payerPhone=phoneKey(body?.customer?.phone||"");
-  if((payerPhone.length===12||payerPhone.length===13)&&payerPhone.startsWith("55"))payerPhone=payerPhone.slice(2);
-  if(isProduction){
-    if(!validCpf(payerTaxId))return NextResponse.json({error:"Informe um CPF válido para gerar o Pix."},{status:400});
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail))return NextResponse.json({error:"Informe um e-mail válido para gerar o Pix."},{status:400});
-    if(payerPhone.length<10||payerPhone.length>11)return NextResponse.json({error:"Informe um celular válido com DDD."},{status:400});
+  if (!pagBankToken())
+    return NextResponse.json(
+      { error: "O PagBank ainda não está configurado." },
+      { status: 503 },
+    );
+  const body = (await request.json().catch(() => null)) as {
+      token?: string;
+      customer?: { taxId?: string; email?: string; phone?: string };
+    } | null,
+    token = String(body?.token || "");
+  if (!token)
+    return NextResponse.json(
+      { error: "Participante inválido." },
+      { status: 400 },
+    );
+  const s = createAdminClient(),
+    { data: p } = await s
+      .from("participants")
+      .select(
+        "id,pool_id,name,phone,email,shares,status,payment_status,is_test,test_amount_cents",
+      )
+      .eq("access_token", token)
+      .maybeSingle();
+  if (!p || p.status !== "confirmed")
+    return NextResponse.json(
+      { error: "Esta participação não está disponível para pagamento." },
+      { status: 404 },
+    );
+  if (p.payment_status === "confirmed")
+    return NextResponse.json(
+      { error: "Esta cota já está paga." },
+      { status: 409 },
+    );
+  const { data: pool } = await s
+    .from("pools")
+    .select(
+      "id,owner_id,title,share_price_cents,payment_opens_at,payment_deadline,rules_version",
+    )
+    .eq("id", p.pool_id)
+    .maybeSingle();
+  if (!pool)
+    return NextResponse.json(
+      { error: "Bolão não encontrado." },
+      { status: 404 },
+    );
+  const now = Date.now(),
+    opens = pool.payment_opens_at
+      ? new Date(pool.payment_opens_at).getTime()
+      : 0,
+    closes = pool.payment_deadline
+      ? new Date(pool.payment_deadline).getTime()
+      : 0;
+  if (!p.is_test && opens && now < opens)
+    return NextResponse.json(
+      { error: "Os pagamentos deste bolão ainda não foram abertos." },
+      { status: 403 },
+    );
+  if (!p.is_test && closes && now > closes)
+    return NextResponse.json(
+      { error: "O prazo de pagamento foi encerrado." },
+      { status: 403 },
+    );
+  const version = Number(pool.rules_version || DEFAULT_POOL_RULES_VERSION),
+    { data: acceptance } = await s
+      .from("pool_rule_acceptances")
+      .select("id")
+      .eq("pool_id", pool.id)
+      .eq("participant_id", p.id)
+      .eq("rules_version", version)
+      .maybeSingle();
+  if (!acceptance)
+    return NextResponse.json(
+      { error: "Aceite as Regras do Bolão antes de gerar o pagamento." },
+      { status: 403 },
+    );
+  const { data: existing } = await s
+    .from("payment_checkout_sessions")
+    .select("provider_order_id,qr_code_text,qr_code_expires_at")
+    .eq("participant_id", p.id)
+    .eq("provider", "pagbank")
+    .in("status", ["creating", "pending", "processing"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (
+    existing?.qr_code_text &&
+    (!existing.qr_code_expires_at ||
+      new Date(existing.qr_code_expires_at).getTime() > now)
+  )
+    return NextResponse.json({
+      orderId: existing.provider_order_id,
+      qrCodeText: existing.qr_code_text,
+      qrCodeImage: await QRCode.toDataURL(existing.qr_code_text, {
+        width: 360,
+        margin: 1,
+      }),
+      expiresAt: existing.qr_code_expires_at,
+      reused: true,
+    });
+  const gross = p.is_test
+    ? Number(p.test_amount_cents || 100)
+    : Number(p.shares) * Number(pool.share_price_cents);
+  let credit = 0;
+  if (!p.is_test && p.phone) {
+    const { data: a } = await s
+      .from("participant_credit_accounts")
+      .select("balance_cents")
+      .eq("owner_id", pool.owner_id)
+      .eq("phone", phoneKey(p.phone))
+      .maybeSingle();
+    credit = Number(a?.balance_cents || 0);
   }
-  const customer=sandboxTest
-    ?{name:"Jose da Silva",email:"jose.silva@example.com",tax_id:"12345678909",phones:[{country:"55",area:"11",number:"999999999",type:"MOBILE"}]}
-    :isProduction
-      ?{name:p.name,email:payerEmail,tax_id:payerTaxId,phones:[{country:"55",area:payerPhone.slice(0,2),number:payerPhone.slice(2),type:"MOBILE"}]}
-      :{name:p.name,...(p.email?{email:p.email}:{}),...(customerPhone.length>=10&&customerPhone.length<=11?{phones:[{country:"55",area:customerPhone.slice(0,2),number:customerPhone.slice(2),type:"MOBILE"}]}:{})};
-  const referenceId=`bolao-${p.id}-${crypto.randomUUID().slice(0,12)}`,origin=new URL(request.url).origin,expiration=new Date(Date.now()+30*60*1000).toISOString();
-  const{error:insertError}=await s.from("payment_checkout_sessions").insert({pool_id:pool.id,participant_id:p.id,provider:"pagbank",order_nsu:referenceId,gross_amount_cents:gross,credit_used_cents:creditUsed,expected_amount_cents:due,status:"creating",is_test:p.is_test});
-  if(insertError)return NextResponse.json({error:"Já existe uma cobrança ativa. Atualize a página e tente novamente."},{status:409});
-  const response=await fetchPagBank("/orders",{method:"POST",body:JSON.stringify({reference_id:referenceId,customer,items:[{reference_id:`cota-${p.id}`,name:p.is_test?"Teste Bolão Amigos BTP":`${p.shares} cota(s) - ${pool.title}`,quantity:1,unit_amount:due}],qr_codes:[{amount:{value:due},expiration_date:expiration}],notification_urls:[`${origin}/api/webhooks/pagbank`]}),headers:{"x-idempotency-key":referenceId}});
-  const result=await response.json().catch(()=>null) as Record<string,any>|null,qr=Array.isArray(result?.qr_codes)?result!.qr_codes[0]:null;
-  if(!response.ok||!result?.id||!qr?.text){const failureMessage=pagBankFailureMessage(response.status,result);await s.from("payment_checkout_sessions").update({status:"failed",failure_reason:`pagbank_${response.status}`,updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);console.error("PagBank order failed",{status:response.status,error:failureMessage});return NextResponse.json({error:failureMessage},{status:502})}
-  await s.from("payment_checkout_sessions").update({provider_order_id:result.id,qr_code_text:qr.text,qr_code_expires_at:qr.expiration_date||expiration,status:"pending",updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);
-  return NextResponse.json({orderId:result.id,qrCodeText:qr.text,qrCodeImage:await QRCode.toDataURL(qr.text,{width:360,margin:1}),expiresAt:qr.expiration_date||expiration});
+  const creditUsed = Math.min(gross, credit),
+    due = gross - creditUsed;
+  if (due <= 0)
+    return NextResponse.json(
+      {
+        error:
+          "Sua participação está totalmente coberta pelo crédito. O organizador fará a confirmação.",
+      },
+      { status: 409 },
+    );
+  let customerPhone = phoneKey(p.phone || "");
+  if (
+    (customerPhone.length === 12 || customerPhone.length === 13) &&
+    customerPhone.startsWith("55")
+  )
+    customerPhone = customerPhone.slice(2);
+  const sandboxTest =
+    p.is_test &&
+    process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase() !== "production";
+  const isProduction =
+    process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase() === "production";
+  const payerTaxId = phoneKey(body?.customer?.taxId || "");
+  const payerEmail = String(body?.customer?.email || "")
+    .trim()
+    .toLowerCase();
+  let payerPhone = phoneKey(body?.customer?.phone || "");
+  if (
+    (payerPhone.length === 12 || payerPhone.length === 13) &&
+    payerPhone.startsWith("55")
+  )
+    payerPhone = payerPhone.slice(2);
+  if (isProduction) {
+    if (!validCpf(payerTaxId))
+      return NextResponse.json(
+        { error: "Informe um CPF válido para gerar o Pix." },
+        { status: 400 },
+      );
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail))
+      return NextResponse.json(
+        { error: "Informe um e-mail válido para gerar o Pix." },
+        { status: 400 },
+      );
+    if (payerPhone.length < 10 || payerPhone.length > 11)
+      return NextResponse.json(
+        { error: "Informe um celular válido com DDD." },
+        { status: 400 },
+      );
+  }
+  const customer = sandboxTest
+    ? {
+        name: "Jose da Silva",
+        email: "jose.silva@example.com",
+        tax_id: "12345678909",
+        phones: [
+          { country: "55", area: "11", number: "999999999", type: "MOBILE" },
+        ],
+      }
+    : isProduction
+      ? {
+          name: p.name,
+          email: payerEmail,
+          tax_id: payerTaxId,
+          phones: [
+            {
+              country: "55",
+              area: payerPhone.slice(0, 2),
+              number: payerPhone.slice(2),
+              type: "MOBILE",
+            },
+          ],
+        }
+      : {
+          name: p.name,
+          ...(p.email ? { email: p.email } : {}),
+          ...(customerPhone.length >= 10 && customerPhone.length <= 11
+            ? {
+                phones: [
+                  {
+                    country: "55",
+                    area: customerPhone.slice(0, 2),
+                    number: customerPhone.slice(2),
+                    type: "MOBILE",
+                  },
+                ],
+              }
+            : {}),
+        };
+  const referenceId = `bolao-${p.id}-${crypto.randomUUID().slice(0, 12)}`,
+    origin = new URL(request.url).origin,
+    expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const { error: insertError } = await s
+    .from("payment_checkout_sessions")
+    .insert({
+      pool_id: pool.id,
+      participant_id: p.id,
+      provider: "pagbank",
+      order_nsu: referenceId,
+      gross_amount_cents: gross,
+      credit_used_cents: creditUsed,
+      expected_amount_cents: due,
+      status: "creating",
+      is_test: p.is_test,
+    });
+  if (insertError)
+    return NextResponse.json(
+      {
+        error:
+          "Já existe uma cobrança ativa. Atualize a página e tente novamente.",
+      },
+      { status: 409 },
+    );
+  const response = await fetchPagBank("/orders", {
+    method: "POST",
+    body: JSON.stringify({
+      reference_id: referenceId,
+      customer,
+      items: [
+        {
+          reference_id: `cota-${p.id}`,
+          name: p.is_test
+            ? "Teste Bolão Amigos BTP"
+            : `${p.shares} cota(s) - ${pool.title}`,
+          quantity: 1,
+          unit_amount: due,
+        },
+      ],
+      qr_codes: [{ amount: { value: due }, expiration_date: expiration }],
+      notification_urls: [`${origin}/api/webhooks/pagbank`],
+    }),
+    headers: { "x-idempotency-key": referenceId },
+  });
+  const result = (await response.json().catch(() => null)) as Record<
+      string,
+      any
+    > | null,
+    qr = Array.isArray(result?.qr_codes) ? result!.qr_codes[0] : null;
+  if (!response.ok || !result?.id || !qr?.text) {
+    const failureMessage = pagBankFailureMessage(response.status, result);
+    await s
+      .from("payment_checkout_sessions")
+      .update({
+        status: "failed",
+        failure_reason: `pagbank_${response.status}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("order_nsu", referenceId);
+    await logAppError({
+      source: "PagBank - gerar Pix",
+      message: failureMessage,
+      poolId: pool.id,
+      details: {
+        http_status: response.status,
+        participant_id: p.id,
+        reference_id: referenceId,
+      },
+    });
+    console.error("PagBank order failed", {
+      status: response.status,
+      error: failureMessage,
+    });
+    return NextResponse.json({ error: failureMessage }, { status: 502 });
+  }
+  await s
+    .from("payment_checkout_sessions")
+    .update({
+      provider_order_id: result.id,
+      qr_code_text: qr.text,
+      qr_code_expires_at: qr.expiration_date || expiration,
+      status: "pending",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("order_nsu", referenceId);
+  return NextResponse.json({
+    orderId: result.id,
+    qrCodeText: qr.text,
+    qrCodeImage: await QRCode.toDataURL(qr.text, { width: 360, margin: 1 }),
+    expiresAt: qr.expiration_date || expiration,
+  });
 }

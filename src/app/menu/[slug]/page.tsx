@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { PoolSwitcher } from "@/components/pool-switcher";
 import { BackupRestoreForm } from "@/components/backup-restore-form";
+import { saveManualPix } from "@/app/actions/payment-settings";
 import { adminMenu } from "@/lib/admin-menu";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -156,6 +157,16 @@ export default async function Page({
       .select("id,kind,title,content,version")
       .eq("owner_id", auth.user.id);
     moduleRows = data ?? [];
+  } else if (slug === "conta-recebimento") {
+    const { data } = await s
+      .from("organizer_payment_accounts")
+      .select(
+        "connection_status,merchant_id,manual_pix_key,manual_pix_key_type,connected_at",
+      )
+      .eq("owner_id", auth.user.id)
+      .eq("provider", "pagbank")
+      .maybeSingle();
+    moduleRows = data ? [data] : [];
   }
   return (
     <main className="shell">
@@ -173,7 +184,51 @@ export default async function Page({
           basePath={`/menu/${slug}`}
         />
       </section>
-      {participantTool ? (
+      {slug === "conta-recebimento" ? (
+        <section className="section list">
+          <div className="card">
+            <strong>PagBank Connect</strong>
+            <span>
+              Status:{" "}
+              {moduleRows[0]?.connection_status === "connected"
+                ? "Conta conectada"
+                : "Aguardando liberação do PagBank"}
+            </span>
+            <p className="muted">
+              Quando o Connect for liberado, cada organizador autorizará a
+              própria conta e receberá diretamente nela.
+            </p>
+            <button className="button secondary" disabled>
+              CONECTAR CONTA PAGBANK — EM BREVE
+            </button>
+          </div>
+          <form className="card form" action={saveManualPix}>
+            <strong>Chave Pix para confirmação manual</strong>
+            <div className="field">
+              <label>Tipo da chave</label>
+              <select
+                name="pixKeyType"
+                defaultValue={moduleRows[0]?.manual_pix_key_type || "phone"}
+              >
+                <option value="cpf">CPF</option>
+                <option value="cnpj">CNPJ</option>
+                <option value="email">E-mail</option>
+                <option value="phone">Celular</option>
+                <option value="random">Chave aleatória</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Chave Pix do organizador</label>
+              <input
+                name="pixKey"
+                defaultValue={moduleRows[0]?.manual_pix_key || ""}
+                required
+              />
+            </div>
+            <button className="button primary">SALVAR CHAVE PIX</button>
+          </form>
+        </section>
+      ) : participantTool ? (
         <section className="section">
           <form className="form" method="get">
             <input type="hidden" name="pool" value={pool.id} />

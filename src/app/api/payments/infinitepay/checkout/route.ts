@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_POOL_RULES_VERSION } from "@/lib/pool-rules";
+import { logAppError } from "@/lib/app-error-log";
 
 const phoneKey = (v: string) => v.replace(/\D/g, "");
 
@@ -177,6 +178,16 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("order_nsu", orderNsu);
+    await logAppError({
+      source: "InfinitePay - gerar checkout",
+      message: "A InfinitePay não conseguiu gerar o pagamento.",
+      poolId: pool.id,
+      details: {
+        http_status: payment.status,
+        participant_id: p.id,
+        order_nsu: orderNsu,
+      },
+    });
     return NextResponse.json(
       { error: "A InfinitePay não conseguiu gerar o pagamento agora." },
       { status: 502 },

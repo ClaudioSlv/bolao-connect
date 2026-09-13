@@ -1,4 +1,71 @@
 "use server";
-import {redirect} from "next/navigation";import {createClient} from "@/lib/supabase/server";import {createAdminClient} from "@/lib/supabase/admin";
-const allowed=new Set(["image/jpeg","image/png","image/webp"]),max=15*1024*1024;
-export async function uploadGameReceipt(form:FormData){const poolId=String(form.get("poolId")??""),title=String(form.get("title")??"").trim().slice(0,100),file=form.get("receipt");if(!poolId||!(file instanceof File)||!file.size)throw new Error("Selecione a foto inteira do comprovante.");if(!allowed.has(file.type))throw new Error("Use JPG, PNG ou WebP.");if(file.size>max)throw new Error("A foto deve ter no máximo 15 MB.");const client=await createClient(),{data:auth}=await client.auth.getUser();if(!auth.user)throw new Error("Faça login.");const{data:pool}=await client.from("pools").select("owner_id,contest_number").eq("id",poolId).single();if(!pool||pool.owner_id!==auth.user.id)throw new Error("Você não pode publicar neste bolão.");const admin=createAdminClient(),ext=file.type.split("/")[1].replace("jpeg","jpg"),id=crypto.randomUUID(),path=`${poolId}/${id}.${ext}`;const{error:u}=await admin.storage.from("game-receipts").upload(path,file,{contentType:file.type,upsert:false});if(u)throw u;const{error}=await admin.from("game_receipts").insert({id,pool_id:poolId,title:title||"Comprovante dos jogos",contest_number:pool.contest_number,storage_path:path,mime_type:file.type,original_name:file.name,file_size:file.size,status:"published",published_by:auth.user.id});if(error){await admin.storage.from("game-receipts").remove([path]);throw error}redirect(`/jogos/comprovantes?pool=${encodeURIComponent(poolId)}&published=1`)}
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { logAppError } from "@/lib/app-error-log";
+const allowed = new Set(["image/jpeg", "image/png", "image/webp"]),
+  max = 15 * 1024 * 1024;
+export async function uploadGameReceipt(form: FormData) {
+  const poolId = String(form.get("poolId") ?? ""),
+    title = String(form.get("title") ?? "")
+      .trim()
+      .slice(0, 100),
+    file = form.get("receipt");
+  if (!poolId || !(file instanceof File) || !file.size)
+    throw new Error("Selecione a foto inteira do comprovante.");
+  if (!allowed.has(file.type)) throw new Error("Use JPG, PNG ou WebP.");
+  if (file.size > max) throw new Error("A foto deve ter no máximo 15 MB.");
+  const client = await createClient(),
+    { data: auth } = await client.auth.getUser();
+  if (!auth.user) throw new Error("Faça login.");
+  const { data: pool } = await client
+    .from("pools")
+    .select("owner_id,contest_number")
+    .eq("id", poolId)
+    .single();
+  if (!pool || pool.owner_id !== auth.user.id)
+    throw new Error("Você não pode publicar neste bolão.");
+  const admin = createAdminClient(),
+    ext = file.type.split("/")[1].replace("jpeg", "jpg"),
+    id = crypto.randomUUID(),
+    path = `${poolId}/${id}.${ext}`;
+  const { error: u } = await admin.storage
+    .from("game-receipts")
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (u) {
+    await logAppError({
+      source: "Comprovantes - enviar imagem",
+      message: u.message,
+      poolId,
+      details: { mime_type: file.type, file_size: file.size },
+    });
+    throw u;
+  }
+  const { error } = await admin
+    .from("game_receipts")
+    .insert({
+      id,
+      pool_id: poolId,
+      title: title || "Comprovante dos jogos",
+      contest_number: pool.contest_number,
+      storage_path: path,
+      mime_type: file.type,
+      original_name: file.name,
+      file_size: file.size,
+      status: "published",
+      published_by: auth.user.id,
+    });
+  if (error) {
+    await admin.storage.from("game-receipts").remove([path]);
+    await logAppError({
+      source: "Comprovantes - salvar registro",
+      message: error.message,
+      poolId,
+      details: { receipt_id: id },
+    });
+    throw error;
+  }
+  redirect(
+    `/jogos/comprovantes?pool=${encodeURIComponent(poolId)}&published=1`,
+  );
+}
