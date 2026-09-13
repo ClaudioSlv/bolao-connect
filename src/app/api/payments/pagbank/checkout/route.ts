@@ -13,7 +13,11 @@ function pagBankFailureMessage(status: number, result: Record<string, any> | nul
       ? result.errors
       : [];
   const details = errors
-    .map((error: any) => error?.description || error?.message || error?.code)
+    .map((error: any) => {
+      const field = error?.parameter_name || error?.parameter || error?.field;
+      const message = error?.description || error?.message || error?.code;
+      return field && message ? `${field}: ${message}` : message;
+    })
     .filter(Boolean)
     .join("; ")
     .slice(0, 300);
@@ -47,8 +51,13 @@ export async function POST(request: Request) {
   const referenceId=`bolao-${p.id}-${crypto.randomUUID().slice(0,12)}`,origin=new URL(request.url).origin,expiration=new Date(Date.now()+30*60*1000).toISOString();
   const{error:insertError}=await s.from("payment_checkout_sessions").insert({pool_id:pool.id,participant_id:p.id,provider:"pagbank",order_nsu:referenceId,gross_amount_cents:gross,credit_used_cents:creditUsed,expected_amount_cents:due,status:"creating",is_test:p.is_test});
   if(insertError)return NextResponse.json({error:"Já existe uma cobrança ativa. Atualize a página e tente novamente."},{status:409});
-  const customerPhone=phoneKey(p.phone||"");
-  const response=await fetchPagBank("/orders",{method:"POST",body:JSON.stringify({reference_id:referenceId,customer:{name:p.name,...(p.email?{email:p.email}:{}),...(customerPhone.length>=10?{phones:[{country:"55",area:customerPhone.slice(0,2),number:customerPhone.slice(2),type:"MOBILE"}]}:{})},items:[{reference_id:`cota-${p.id}`,name:p.is_test?"Teste Bolão Amigos BTP":`${p.shares} cota(s) - ${pool.title}`,quantity:1,unit_amount:due}],qr_codes:[{amount:{value:due},expiration_date:expiration}],notification_urls:[`${origin}/api/webhooks/pagbank`]}),headers:{"x-idempotency-key":referenceId}});
+  let customerPhone=phoneKey(p.phone||"");
+  if((customerPhone.length===12||customerPhone.length===13)&&customerPhone.startsWith("55"))customerPhone=customerPhone.slice(2);
+  const sandboxTest=p.is_test&&process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase()!=="production";
+  const customer=sandboxTest
+    ?{name:"Jose da Silva",email:"jose.silva@example.com",tax_id:"12345678909",phones:[{country:"55",area:"11",number:"999999999",type:"MOBILE"}]}
+    :{name:p.name,...(p.email?{email:p.email}:{}),...(customerPhone.length>=10&&customerPhone.length<=11?{phones:[{country:"55",area:customerPhone.slice(0,2),number:customerPhone.slice(2),type:"MOBILE"}]}:{})};
+  const response=await fetchPagBank("/orders",{method:"POST",body:JSON.stringify({reference_id:referenceId,customer,items:[{reference_id:`cota-${p.id}`,name:p.is_test?"Teste Bolão Amigos BTP":`${p.shares} cota(s) - ${pool.title}`,quantity:1,unit_amount:due}],qr_codes:[{amount:{value:due},expiration_date:expiration}],notification_urls:[`${origin}/api/webhooks/pagbank`]}),headers:{"x-idempotency-key":referenceId}});
   const result=await response.json().catch(()=>null) as Record<string,any>|null,qr=Array.isArray(result?.qr_codes)?result!.qr_codes[0]:null;
   if(!response.ok||!result?.id||!qr?.text){const failureMessage=pagBankFailureMessage(response.status,result);await s.from("payment_checkout_sessions").update({status:"failed",failure_reason:`pagbank_${response.status}`,updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);console.error("PagBank order failed",{status:response.status,result});return NextResponse.json({error:failureMessage},{status:502})}
   await s.from("payment_checkout_sessions").update({provider_order_id:result.id,qr_code_text:qr.text,qr_code_expires_at:qr.expiration_date||expiration,status:"pending",updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);
