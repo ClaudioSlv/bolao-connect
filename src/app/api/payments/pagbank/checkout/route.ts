@@ -6,6 +6,24 @@ import { fetchPagBank, pagBankToken } from "@/lib/pagbank";
 
 const phoneKey = (value: string) => value.replace(/\D/g, "");
 
+function pagBankFailureMessage(status: number, result: Record<string, any> | null) {
+  const errors = Array.isArray(result?.error_messages)
+    ? result.error_messages
+    : Array.isArray(result?.errors)
+      ? result.errors
+      : [];
+  const details = errors
+    .map((error: any) => error?.description || error?.message || error?.code)
+    .filter(Boolean)
+    .join("; ")
+    .slice(0, 300);
+  if (status === 401 || status === 403)
+    return `O PagBank recusou o token ou o ambiente configurado (HTTP ${status}).`;
+  return details
+    ? `O PagBank recusou a cobrança: ${details}`
+    : `O PagBank não conseguiu gerar o QR Code (HTTP ${status}).`;
+}
+
 export async function POST(request: Request) {
   if (!pagBankToken()) return NextResponse.json({error:"O PagBank ainda não está configurado."},{status:503});
   const body=await request.json().catch(()=>null) as {token?:string}|null, token=String(body?.token||"");
@@ -32,7 +50,7 @@ export async function POST(request: Request) {
   const customerPhone=phoneKey(p.phone||"");
   const response=await fetchPagBank("/orders",{method:"POST",body:JSON.stringify({reference_id:referenceId,customer:{name:p.name,...(p.email?{email:p.email}:{}),...(customerPhone.length>=10?{phones:[{country:"55",area:customerPhone.slice(0,2),number:customerPhone.slice(2),type:"MOBILE"}]}:{})},items:[{reference_id:`cota-${p.id}`,name:p.is_test?"Teste Bolão Amigos BTP":`${p.shares} cota(s) - ${pool.title}`,quantity:1,unit_amount:due}],qr_codes:[{amount:{value:due},expiration_date:expiration}],notification_urls:[`${origin}/api/webhooks/pagbank`]}),headers:{"x-idempotency-key":referenceId}});
   const result=await response.json().catch(()=>null) as Record<string,any>|null,qr=Array.isArray(result?.qr_codes)?result!.qr_codes[0]:null;
-  if(!response.ok||!result?.id||!qr?.text){await s.from("payment_checkout_sessions").update({status:"failed",failure_reason:`pagbank_${response.status}`,updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);console.error("PagBank order failed",{status:response.status,result});return NextResponse.json({error:"O PagBank não conseguiu gerar o QR Code agora."},{status:502})}
+  if(!response.ok||!result?.id||!qr?.text){const failureMessage=pagBankFailureMessage(response.status,result);await s.from("payment_checkout_sessions").update({status:"failed",failure_reason:`pagbank_${response.status}`,updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);console.error("PagBank order failed",{status:response.status,result});return NextResponse.json({error:failureMessage},{status:502})}
   await s.from("payment_checkout_sessions").update({provider_order_id:result.id,qr_code_text:qr.text,qr_code_expires_at:qr.expiration_date||expiration,status:"pending",updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);
   return NextResponse.json({orderId:result.id,qrCodeText:qr.text,qrCodeImage:await QRCode.toDataURL(qr.text,{width:360,margin:1}),expiresAt:qr.expiration_date||expiration});
 }
