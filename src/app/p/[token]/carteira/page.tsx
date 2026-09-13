@@ -21,11 +21,14 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
   }
   const isTest=Boolean(p.is_test);
   const amount=isTest?Number(p.test_amount_cents||100):Number(p.shares)*Number(pool.share_price_cents);
-  const{data:payment}=await s.from("payments").select("gross_amount_cents,credit_used_cents,amount_cents,confirmed_at").eq("participant_id",p.id).eq("status","confirmed").order("confirmed_at",{ascending:false}).limit(1).maybeSingle();
+  const{data:payments}=await s.from("payments").select("credit_used_cents,amount_cents").eq("participant_id",p.id).in("status",["partial","confirmed"]);
   const balance=Number(account?.balance_cents||0);
   const paid=p.payment_status==="confirmed";
-  const applied=paid?Number(payment?.credit_used_cents||0):(isTest?0:Math.min(amount,balance));
-  const due=paid?0:Math.max(0,amount-applied);
+  const received=(payments??[]).reduce((sum,row)=>sum+Number(row.amount_cents||0),0);
+  const appliedPayments=(payments??[]).reduce((sum,row)=>sum+Number(row.credit_used_cents||0),0);
+  const availableCredit=paid?0:(isTest?0:Math.min(Math.max(0,amount-received-appliedPayments),balance));
+  const applied=appliedPayments+availableCredit;
+  const due=paid?0:Math.max(0,amount-received-applied);
   const afterPayment=paid?balance:Math.max(0,balance-applied);
   return <main className="shell">
     <Link className="back" href={`/p/${token}`}>← Voltar</Link>
@@ -37,11 +40,13 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
       <div className="wallet">
         <div className="wallet-row"><span>Saldo disponível</span><strong>{money(balance)}</strong></div>
         <div className="wallet-row"><span>Valor desta participação</span><strong>{money(amount)}</strong></div>
+        <div className="wallet-row"><span>Valor já pago</span><strong>{money(received)}</strong></div>
         <div className="wallet-row"><span>Crédito aplicado</span><strong>{money(applied)}</strong></div>
         <div className="wallet-row"><span>Valor a pagar</span><strong>{money(due)}</strong></div>
         <div className="wallet-row"><span>Saldo após esta participação</span><strong>{money(afterPayment)}</strong></div>
       </div>
       {paid&&<p className="status">✓ Pagamento confirmado</p>}
+      {!paid&&received>0&&<p className="status">Pagamento parcial confirmado · falta {money(due)}</p>}
       <Link className="button secondary" href={`/p/${token}/comprovantes`}>
         📷 VER COMPROVANTES DOS JOGOS
       </Link>
