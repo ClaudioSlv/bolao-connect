@@ -130,8 +130,11 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
   padding: 20px;
   background: rgba(0, 0, 0, .72);
   backdrop-filter: blur(4px);
+  overflow: hidden;
 }
 .reservation-confirmed-card {
+  position: relative;
+  z-index: 2;
   width: min(100%, 390px);
   padding: 28px 22px 24px;
   border: 2px solid #f7c948;
@@ -165,6 +168,32 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .reservation-confirmed-card .button {
   width: 100%;
   font-size: 17px;
+}
+.reservation-confetti {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.reservation-confetti span {
+  position: absolute;
+  top: -24px;
+  width: 10px;
+  height: 18px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: reservationConfettiFall 2.4s ease-in forwards;
+}
+.reservation-confetti span:nth-child(3n) { width: 8px; height: 8px; border-radius: 50%; }
+.reservation-confetti span:nth-child(4n) { width: 14px; height: 7px; }
+@keyframes reservationConfettiFall {
+  0% { opacity: 1; translate: 0 -5vh; rotate: 0deg; }
+  70% { opacity: 1; }
+  100% { opacity: 0; translate: 35px 105vh; rotate: 720deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reservation-confetti { display: none; }
 }
 .participant-area {
   padding-top: 1.2rem;
