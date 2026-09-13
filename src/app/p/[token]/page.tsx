@@ -6,6 +6,7 @@ import { ReservationConfirmedModal } from "@/components/reservation-confirmed-mo
 import { PagBankCheckout } from "@/components/pagbank-checkout";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
+import { RulesAcceptanceForm } from "@/components/rules-acceptance-form";
 import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
@@ -295,16 +296,7 @@ export default async function Page({
               <div className="card">
                 <span style={{ whiteSpace: "pre-line" }}>{rules}</span>
               </div>
-              <form className="form" action={acceptRules}>
-                <input type="hidden" name="token" value={token} />
-                <label>
-                  <input type="checkbox" name="agreed" required /> Li e estou de
-                  acordo com as Regras do Grupo.
-                </label>
-                <button className="button primary">
-                  ACEITAR AS REGRAS
-                </button>
-              </form>
+              <RulesAcceptanceForm token={token} action={acceptRules} />
             </details>
           </>
         )}
@@ -328,105 +320,106 @@ export default async function Page({
           </p>
         </section>
       )}
-      {acceptance &&
-        !paid &&
-        !isWaitlisted &&
-        paymentNotStarted && (
-          <section className="section">
-            <h2>🔒 Pagamento ainda fechado</h2>
-            <p className="muted">
-              Você ainda não precisa pagar. Os pagamentos serão liberados
-              automaticamente em{" "}
-              <strong>
-                {new Date(pool.payment_opens_at).toLocaleString("pt-BR", {
-                  timeZone: "America/Sao_Paulo",
-                })}
-              </strong>
-              .
+      {acceptance && !paid && !isWaitlisted && paymentNotStarted && (
+        <section className="section">
+          <h2>🔒 Pagamento ainda fechado</h2>
+          <p className="muted">
+            Você ainda não precisa pagar. Os pagamentos serão liberados
+            automaticamente em{" "}
+            <strong>
+              {new Date(pool.payment_opens_at).toLocaleString("pt-BR", {
+                timeZone: "America/Sao_Paulo",
+              })}
+            </strong>
+            .
+          </p>
+          <Link
+            className="button secondary"
+            href={`/temporizador/${pool.public_slug}`}
+          >
+            Ver temporizador
+          </Link>
+        </section>
+      )}
+      {acceptance && !paid && !isWaitlisted && paymentClosed && (
+        <section className="section">
+          <h2>🔴 Pagamentos encerrados</h2>
+          <p className="muted">
+            O prazo para enviar um novo comprovante terminou. Fale com o
+            organizador se precisar de ajuda.
+          </p>
+        </section>
+      )}
+      {acceptance && !paid && !isWaitlisted && paymentOpen && (
+        <section className="section">
+          <h2>Pagamento automático por Pix</h2>
+          <div className="card">
+            <strong>Valor do Pix: {money(due)}</strong>
+            <span>Pagamento seguro pelo PagBank</span>
+            <span>
+              O QR Code será vinculado automaticamente ao seu cadastro.
+            </span>
+          </div>
+          {due === 0 ? (
+            <p className="status">
+              ✓ Sua participação foi totalmente coberta pelo crédito. Não faça
+              Pix.
             </p>
-            <Link
-              className="button secondary"
-              href={`/temporizador/${pool.public_slug}`}
-            >
-              Ver temporizador
-            </Link>
-          </section>
-        )}
-      {acceptance &&
-        !paid &&
-        !isWaitlisted &&
-        paymentClosed && (
-          <section className="section">
-            <h2>🔴 Pagamentos encerrados</h2>
-            <p className="muted">
-              O prazo para enviar um novo comprovante terminou. Fale com o
-              organizador se precisar de ajuda.
-            </p>
-          </section>
-        )}
-      {acceptance &&
-        !paid &&
-        !isWaitlisted &&
-        paymentOpen && (
-          <section className="section">
-            <h2>Pagamento automático por Pix</h2>
-            <div className="card">
-              <strong>Valor do Pix: {money(due)}</strong>
-              <span>Pagamento seguro pelo PagBank</span>
-              <span>
-                O QR Code será vinculado automaticamente ao seu cadastro.
-              </span>
-            </div>
-            {due === 0 ? (
-              <p className="status">
-                ✓ Sua participação foi totalmente coberta pelo crédito. Não faça
-                Pix.
+          ) : (
+            <>
+              <p className="muted">
+                Gere sua cobrança individual. Assim que o PagBank confirmar o
+                Pix, sua cota mudará automaticamente para <strong>Pago</strong>.
               </p>
-            ) : (
-              <>
-                <p className="muted">
-                  Gere sua cobrança individual. Assim que o PagBank
-                  confirmar o Pix, sua cota mudará automaticamente para{" "}
-                  <strong>Pago</strong>.
-                </p>
-                <PagBankCheckout token={token} amountLabel={money(due)} isTest={isTest} requiresCustomerData={process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase()==="production"} />
-                <ManualPixCopy pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d" amountLabel={money(due)} />
-                {sub || sent ? (
-                  <details className="manual-payment">
-                    <summary>Já paguei por outra chave Pix</summary>
-                    <p className="status">COMPROVANTE RECEBIDO</p>
-                    <p className="muted">
-                      Aguardando confirmação do organizador.
-                    </p>
-                  </details>
-                ) : (
-                  <details className="manual-payment">
-                    <summary>Prefiro enviar um comprovante manual</summary>
-                    <p className="muted">
-                      Use esta opção somente se você pagou fora da cobrança
-                      PagBank.
-                    </p>
-                    <form className="form" action={submitReceipt}>
-                      <input type="hidden" name="token" value={token} />
-                      <div className="field">
-                        <label>Enviar comprovante</label>
-                        <input
-                          name="receipt"
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp,application/pdf"
-                          required
-                        />
-                      </div>
-                      <button className="button secondary">
-                        Enviar comprovante
-                      </button>
-                    </form>
-                  </details>
-                )}
-              </>
-            )}
-          </section>
-        )}
+              <PagBankCheckout
+                token={token}
+                amountLabel={money(due)}
+                isTest={isTest}
+                requiresCustomerData={
+                  process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase() ===
+                  "production"
+                }
+              />
+              <ManualPixCopy
+                pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d"
+                amountLabel={money(due)}
+              />
+              {sub || sent ? (
+                <details className="manual-payment">
+                  <summary>Já paguei por outra chave Pix</summary>
+                  <p className="status">COMPROVANTE RECEBIDO</p>
+                  <p className="muted">
+                    Aguardando confirmação do organizador.
+                  </p>
+                </details>
+              ) : (
+                <details className="manual-payment">
+                  <summary>Prefiro enviar um comprovante manual</summary>
+                  <p className="muted">
+                    Use esta opção somente se você pagou fora da cobrança
+                    PagBank.
+                  </p>
+                  <form className="form" action={submitReceipt}>
+                    <input type="hidden" name="token" value={token} />
+                    <div className="field">
+                      <label>Enviar comprovante</label>
+                      <input
+                        name="receipt"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
+                        required
+                      />
+                    </div>
+                    <button className="button secondary">
+                      Enviar comprovante
+                    </button>
+                  </form>
+                </details>
+              )}
+            </>
+          )}
+        </section>
+      )}
       {acceptance && (
         <section className="section participant-area">
           <p className="eyebrow">ÁREA DO PARTICIPANTE</p>

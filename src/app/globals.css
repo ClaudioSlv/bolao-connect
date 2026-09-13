@@ -328,3 +328,6 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .pagbank-qr { display: grid; justify-items: center; gap: .45rem; padding: 1rem; border-radius: 18px; background: #fff; color: #111; text-align: center; }
 .pagbank-qr img { display: block; width: min(280px, 100%); height: auto; }
 .pagbank-pix-code { width: 100%; min-height: 86px; resize: none; overflow-wrap: anywhere; font-size: .75rem; }
+.rules-validation-status { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 13px; border: 1px solid #f7c948; border-radius: 15px; background: rgba(247,201,72,.1); color: #f7c948; text-align: center; }
+.rules-validation-spinner { width: 20px; height: 20px; flex: 0 0 20px; border: 3px solid rgba(247,201,72,.3); border-top-color: #f7c948; border-radius: 50%; animation: rulesValidationSpin .8s linear infinite; }
+@keyframes rulesValidationSpin { to { transform: rotate(360deg); } }
