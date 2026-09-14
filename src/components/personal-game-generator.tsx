@@ -262,19 +262,28 @@ export function PersonalGameGenerator({
     resetFeedback();
     showGenerated();
   };
-  const toggle = (n: number) =>
-    !pickIsValid
-      ? undefined
-      : setManual((v) => {
-          const next = v.includes(n)
-            ? v.filter((x) => x !== n)
-            : v.length < pick
-              ? [...v, n].sort((a, b) => a - b)
-              : v;
-          if (next.length === pick) buildManualGames(next);
-          else setGames([]);
-          return next;
-        });
+  const requestPickQuantity = () => {
+    alert("Você precisa primeiro selecionar a quantidade de números desejada.");
+    const input = document.getElementById("pick-quantity-input") as HTMLInputElement | null;
+    input?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => input?.focus(), 450);
+  };
+  const toggle = (n: number) => {
+    if (!pickIsValid) {
+      requestPickQuantity();
+      return;
+    }
+    setManual((v) => {
+      const next = v.includes(n)
+        ? v.filter((x) => x !== n)
+        : v.length < pick
+          ? [...v, n].sort((a, b) => a - b)
+          : v;
+      if (next.length === pick) buildManualGames(next);
+      else setGames([]);
+      return next;
+    });
+  };
   const toggleTrevo = (n: number) => {
     setManualTrevos((v) =>
       v.includes(n)
@@ -388,6 +397,7 @@ export function PersonalGameGenerator({
           </small>
         </label>
         <input
+          id="pick-quantity-input"
           type="number"
           inputMode="numeric"
           min={r.minPick}
