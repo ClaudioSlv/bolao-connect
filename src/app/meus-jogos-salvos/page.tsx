@@ -1,6 +1,375 @@
 "use client";
+
 import Link from "next/link";
-import {useEffect,useState} from "react";
-type Game={numbers:number[];trevos?:number[]};type Saved={id:string;lottery:string;label:string;games:Game[];createdAt:string};
-const KEY="bolao-amigos-btp:jogos-salvos";
-export default function SavedGamesPage(){const[items,setItems]=useState<Saved[]>([]);useEffect(()=>{try{const value=JSON.parse(localStorage.getItem(KEY)||"[]");setItems(Array.isArray(value)?value:[])}catch{setItems([])}},[]);const remove=(id:string)=>{const next=items.filter(x=>x.id!==id);setItems(next);localStorage.setItem(KEY,JSON.stringify(next))};return <main className="shell"><Link className="back" href="/meu-jogo">← Voltar</Link><section className="section"><p className="eyebrow">JOGOS PESSOAIS</p><h1>💾 Meus Jogos Salvos</h1><p className="muted">Aqui ficam os jogos que você salvou neste aparelho.</p></section>{items.length===0?<section className="section"><p>Nenhum jogo salvo neste aparelho.</p><Link className="button primary" href="/meu-jogo">🎲 CRIAR UM JOGO</Link></section>:items.map(item=><section className="section" key={item.id}><div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"start"}}><div><h2 style={{marginTop:0}}>{item.label}</h2><p className="muted">{new Date(item.createdAt).toLocaleString("pt-BR")}</p></div><button className="button secondary" type="button" onClick={()=>remove(item.id)}>🗑️ Excluir</button></div><div className="list">{item.games.map((g,i)=><div className="list-item" key={i}><strong>Jogo {i+1}</strong><span>{g.numbers.map(n=>String(n).padStart(2,"0")).join(" · ")}{g.trevos?.length?` | Trevos: ${g.trevos.map(n=>String(n).padStart(2,"0")).join(" · ")}`:""}</span></div>)}</div></section>)}</main>}
+import { useEffect, useMemo, useState } from "react";
+
+type Game = { numbers: number[]; trevos?: number[] };
+type Saved = {
+  id: string;
+  lottery: string;
+  label: string;
+  games: Game[];
+  createdAt: string;
+  targetContest?: number | null;
+};
+type Prize = {
+  tier: number;
+  label: string;
+  winners: number;
+  value: number;
+};
+type Draw = {
+  available: boolean;
+  lottery: string;
+  contest: number;
+  drawDate?: string | null;
+  numbers?: number[];
+  secondDrawNumbers?: number[];
+  trevos?: number[];
+  special?: string | null;
+  prizes?: Prize[];
+};
+
+const KEY = "bolao-amigos-btp:jogos-salvos";
+const money = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+const normalize = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+function gameHits(lottery: string, game: Game, numbers: number[]) {
+  if (lottery === "super-sete") {
+    return game.numbers.reduce(
+      (total, number, index) => total + (Number(numbers[index]) === Number(number) ? 1 : 0),
+      0,
+    );
+  }
+  const drawn = new Set(numbers.map(Number));
+  return game.numbers.filter((number) => drawn.has(Number(number))).length;
+}
+
+function matchedNumbers(lottery: string, game: Game, numbers: number[]) {
+  if (lottery === "super-sete") {
+    return game.numbers.filter(
+      (number, index) => Number(numbers[index]) === Number(number),
+    );
+  }
+  const drawn = new Set(numbers.map(Number));
+  return game.numbers.filter((number) => drawn.has(Number(number)));
+}
+
+function findPrize(
+  lottery: string,
+  prizes: Prize[],
+  hits: number,
+  trevoHits: number,
+  drawIndex: number,
+) {
+  return prizes.find((prize) => {
+    const label = normalize(prize.label);
+    if (!label.includes(`${hits} acerto`)) return false;
+    if (lottery === "mais-milionaria" && !label.includes(`${trevoHits} trevo`))
+      return false;
+    if (lottery === "dupla-sena") {
+      const mentionsFirst = /1.? sorteio|primeiro sorteio/.test(label);
+      const mentionsSecond = /2.? sorteio|segundo sorteio/.test(label);
+      if (drawIndex === 1 && mentionsSecond) return false;
+      if (drawIndex === 2 && mentionsFirst) return false;
+    }
+    return true;
+  });
+}
+
+function checkGame(item: Saved, game: Game, draw: Draw) {
+  const draws = [draw.numbers ?? []];
+  if (draw.secondDrawNumbers?.length) draws.push(draw.secondDrawNumbers);
+
+  const trevoHits =
+    item.lottery === "mais-milionaria"
+      ? (game.trevos ?? []).filter((number) =>
+          (draw.trevos ?? []).map(Number).includes(Number(number)),
+        ).length
+      : 0;
+
+  const checks = draws.map((numbers, index) => {
+    const hits = gameHits(item.lottery, game, numbers);
+    const matched = matchedNumbers(item.lottery, game, numbers);
+    const prize = findPrize(
+      item.lottery,
+      draw.prizes ?? [],
+      hits,
+      trevoHits,
+      index + 1,
+    );
+    return { hits, matched, prize, drawIndex: index + 1 };
+  });
+
+  return checks.reduce((best, current) => {
+    if (current.prize && !best.prize) return current;
+    if (current.prize && best.prize && current.prize.value > best.prize.value)
+      return current;
+    return current.hits > best.hits ? current : best;
+  }, checks[0]);
+}
+
+export default function SavedGamesPage() {
+  const [items, setItems] = useState<Saved[]>([]);
+  const [selectedLottery, setSelectedLottery] = useState("");
+  const [draws, setDraws] = useState<Record<string, Draw>>({});
+  const [checking, setChecking] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+
+  useEffect(() => {
+    try {
+      const value = JSON.parse(localStorage.getItem(KEY) || "[]");
+      const saved = Array.isArray(value) ? (value as Saved[]) : [];
+      setItems(saved);
+      setSelectedLottery(saved[0]?.lottery ?? "");
+    } catch {
+      setItems([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!items.length) return;
+    let cancelled = false;
+
+    async function checkResults() {
+      const targets = Array.from(
+        new Map(
+          items
+            .filter((item) => Number(item.targetContest) > 0)
+            .map((item) => [
+              `${item.lottery}:${item.targetContest}`,
+              { lottery: item.lottery, contest: Number(item.targetContest) },
+            ]),
+        ).values(),
+      );
+      if (!targets.length) return;
+
+      setChecking(true);
+      const settled = await Promise.allSettled(
+        targets.map(async ({ lottery, contest }) => {
+          const response = await fetch(
+            `/api/personal-game-result?lottery=${encodeURIComponent(lottery)}&contest=${contest}`,
+            { cache: "no-store" },
+          );
+          if (!response.ok) throw new Error("resultado indisponível");
+          return (await response.json()) as Draw;
+        }),
+      );
+
+      if (!cancelled) {
+        setDraws((current) => {
+          const next = { ...current };
+          settled.forEach((result, index) => {
+            if (result.status === "fulfilled") {
+              const target = targets[index];
+              next[`${target.lottery}:${target.contest}`] = result.value;
+            }
+          });
+          return next;
+        });
+        setLastCheckedAt(new Date());
+        setChecking(false);
+      }
+    }
+
+    checkResults();
+    const timer = window.setInterval(checkResults, 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [items]);
+
+  const lotteries = useMemo(
+    () =>
+      Array.from(
+        new Map(items.map((item) => [item.lottery, item.label])).entries(),
+      ),
+    [items],
+  );
+  const visible = items.filter((item) => item.lottery === selectedLottery);
+
+  const remove = (id: string) => {
+    const next = items.filter((item) => item.id !== id);
+    setItems(next);
+    localStorage.setItem(KEY, JSON.stringify(next));
+    if (!next.some((item) => item.lottery === selectedLottery))
+      setSelectedLottery(next[0]?.lottery ?? "");
+  };
+
+  return (
+    <main className="shell">
+      <Link className="back" href="/meu-jogo">
+        ← Voltar
+      </Link>
+
+      <section className="section">
+        <p className="eyebrow">JOGOS PESSOAIS</p>
+        <h1>✅ Conferir resultado</h1>
+        <p className="muted">
+          O sistema confere automaticamente os jogos deste aparelho usando o
+          resultado oficial da CAIXA.
+        </p>
+        {items.length > 0 && (
+          <div className="field">
+            <label>Escolha a modalidade</label>
+            <select
+              value={selectedLottery}
+              onChange={(event) => setSelectedLottery(event.target.value)}
+            >
+              {lotteries.map(([lottery, label]) => (
+                <option value={lottery} key={lottery}>
+                  {label} ({items.filter((item) => item.lottery === lottery).reduce((sum, item) => sum + item.games.length, 0)} jogos)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="status" role="status" aria-live="polite">
+          {checking
+            ? "Consultando os resultados..."
+            : lastCheckedAt
+              ? `Conferência atualizada às ${lastCheckedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Nova verificação automática em até 5 minutos.`
+              : "Aguardando a primeira conferência."}
+        </div>
+      </section>
+
+      {items.length === 0 ? (
+        <section className="section">
+          <p>Nenhum jogo salvo neste aparelho.</p>
+          <Link className="button primary" href="/meu-jogo">
+            🎲 CRIAR UM JOGO
+          </Link>
+        </section>
+      ) : (
+        visible.map((item) => {
+          const contest = Number(item.targetContest);
+          const draw = contest
+            ? draws[`${item.lottery}:${contest}`]
+            : undefined;
+
+          return (
+            <section className="section" key={item.id}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "start",
+                }}
+              >
+                <div>
+                  <h2 style={{ marginTop: 0 }}>{item.label}</h2>
+                  <p className="muted">
+                    {new Date(item.createdAt).toLocaleString("pt-BR")}
+                  </p>
+                  {contest ? (
+                    <strong>Concurso {contest}</strong>
+                  ) : (
+                    <span className="status">
+                      Concurso não identificado — salve novamente para ativar a
+                      conferência automática.
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={() => remove(item.id)}
+                >
+                  🗑️ Excluir
+                </button>
+              </div>
+
+              {contest && draw && !draw.available && (
+                <div className="status">Aguardando resultado do concurso {contest}.</div>
+              )}
+
+              <div className="list">
+                {item.games.map((game, index) => {
+                  const checked =
+                    contest && draw?.available
+                      ? checkGame(item, game, draw)
+                      : null;
+                  const matched = new Set(checked?.matched.map(Number) ?? []);
+
+                  return (
+                    <div className="list-item" key={index}>
+                      <strong>Jogo {index + 1}</strong>
+                      <span>
+                        {game.numbers.map((number, numberIndex) => (
+                          <b
+                            key={numberIndex}
+                            style={{
+                              color: matched.has(Number(number))
+                                ? "#55f27a"
+                                : "inherit",
+                              textShadow: matched.has(Number(number))
+                                ? "0 0 8px rgba(85,242,122,.6)"
+                                : "none",
+                            }}
+                          >
+                            {String(number).padStart(2, "0")}
+                            {numberIndex < game.numbers.length - 1 ? " · " : ""}
+                          </b>
+                        ))}
+                        {game.trevos?.length
+                          ? ` | Trevos: ${game.trevos.map((number) => String(number).padStart(2, "0")).join(" · ")}`
+                          : ""}
+                      </span>
+
+                      {!contest ? null : !draw?.available ? (
+                        <span className="muted">Aguardando resultado.</span>
+                      ) : checked ? (
+                        checked.prize ? (
+                          <div
+                            className="status"
+                            style={{
+                              borderColor: "#36e56b",
+                              color: "#7cff9c",
+                              marginTop: 8,
+                            }}
+                          >
+                            PREMIADO — {checked.hits} acertos
+                            {item.lottery === "mais-milionaria"
+                              ? ` · ${(game.trevos ?? []).filter((number) => (draw.trevos ?? []).map(Number).includes(Number(number))).length} trevo(s)`
+                              : ""}
+                            {" · "}
+                            {checked.prize.label}
+                            {checked.prize.value > 0
+                              ? ` · ${money.format(checked.prize.value)}`
+                              : ""}
+                          </div>
+                        ) : (
+                          <div className="muted" style={{ marginTop: 8 }}>
+                            Não premiado — {checked.hits} acertos.
+                          </div>
+                        )
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {draw?.available && (
+                <p className="muted" style={{ fontSize: 12 }}>
+                  Resultado oficial do concurso {draw.contest}
+                  {draw.drawDate ? ` · ${draw.drawDate}` : ""}. Em apostas com
+                  mais dezenas, o valor exibido corresponde ao rateio oficial da
+                  faixa e deve ser validado no comprovante.
+                </p>
+              )}
+            </section>
+          );
+        })
+      )}
+    </main>
+  );
+}
