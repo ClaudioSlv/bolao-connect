@@ -67,11 +67,13 @@ export function PersonalGameGenerator({
   results,
   latestContest,
   participantToken,
+  returnHref,
 }: {
   lottery: Lottery;
   results: Result[];
   latestContest: number | null;
   participantToken: string | null;
+  returnHref: string;
 }) {
   const r = rules[lottery];
   const [pick, setPick] = useState(r.minPick),
@@ -80,12 +82,14 @@ export function PersonalGameGenerator({
     [qtyInput, setQtyInput] = useState(""),
     [manual, setManual] = useState<number[]>([]),
     [games, setGames] = useState<Game[]>([]),
+    [savedGamesOnPage, setSavedGamesOnPage] = useState<Game[]>([]),
     [excludedOdd, setExcludedOdd] = useState<number[]>([]),
     [excludedEven, setExcludedEven] = useState<number[]>([]),
     [trevoPick, setTrevoPick] = useState(2),
     [manualTrevos, setManualTrevos] = useState<number[]>([]),
     [saved, setSaved] = useState(false),
-    [shared, setShared] = useState(false);
+    [shared, setShared] = useState(false),
+    [showSaveDialog, setShowSaveDialog] = useState(false);
   const allNumbers = useMemo(
     () => Array.from({ length: r.max - r.min + 1 }, (_, i) => r.min + i),
     [r.min, r.max],
@@ -99,6 +103,7 @@ export function PersonalGameGenerator({
     [allNumbers],
   );
   const exclusionLimit = Math.max(1, Math.floor((r.max - r.min + 1) / 4));
+  const visibleGames = [...savedGamesOnPage, ...games];
   const excluded = new Set([...excludedOdd, ...excludedEven]);
   const available = allNumbers.filter((n) => !excluded.has(n));
   const fibSet = useMemo(() => fibonacciUpTo(r.max), [r.max]);
@@ -361,10 +366,19 @@ export function PersonalGameGenerator({
       }
 
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      setShowSaveDialog(true);
     } catch {
       alert("Não foi possível salvar este jogo neste aparelho.");
     }
+  };
+  const createAnotherGame = () => {
+    setSavedGamesOnPage((current) => [...current, ...games]);
+    setGames([]);
+    setManual([]);
+    setManualTrevos([]);
+    setSaved(false);
+    setShowSaveDialog(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const shareGames = async () => {
     const text = shareText();
@@ -646,7 +660,7 @@ export function PersonalGameGenerator({
         salvos · números quentes · frios · atrasados · Fibonacci. Os números
         excluídos nunca entram nos jogos gerados.
       </p>
-      {games.length > 0 && (
+      {visibleGames.length > 0 && (
         <div
           className="section"
           id="generated-games"
@@ -654,7 +668,7 @@ export function PersonalGameGenerator({
         >
           <h2>Seus jogos</h2>
           <div className="list">
-            {games.map((g, i) => (
+            {visibleGames.map((g, i) => (
               <div className="list-item" key={i}>
                 <strong>Jogo {i + 1}</strong>
                 <span>
@@ -672,26 +686,62 @@ export function PersonalGameGenerator({
               </div>
             ))}
           </div>
-          <div className="actions" style={{ marginTop: "16px" }}>
-            <button
-              className="button primary"
-              type="button"
-              onClick={saveGames}
-            >
-              {saved ? "✅ JOGO SALVO" : "💾 SALVAR JOGO"}
-            </button>
-            <button
-              className="button secondary"
-              type="button"
-              onClick={shareGames}
-            >
-              {shared ? "✅ PRONTO" : "📲 COMPARTILHAR JOGO"}
-            </button>
+          {games.length > 0 && (
+            <>
+              <div className="actions" style={{ marginTop: "16px" }}>
+                <button
+                  className="button primary"
+                  type="button"
+                  onClick={saveGames}
+                >
+                  {saved ? "✅ JOGO SALVO" : "💾 SALVAR JOGO"}
+                </button>
+                <button
+                  className="button secondary"
+                  type="button"
+                  onClick={shareGames}
+                >
+                  {shared ? "✅ PRONTO" : "📲 COMPARTILHAR JOGO"}
+                </button>
+              </div>
+              <p className="muted" style={{ fontSize: "12px" }}>
+                Salvar guarda os jogos neste aparelho. Compartilhar abre o menu do
+                celular para enviar pelo WhatsApp ou outro aplicativo.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+      {showSaveDialog && (
+        <div
+          className="reservation-confirmed-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="save-game-dialog-title"
+        >
+          <div className="reservation-confirmed-card">
+            <div className="reservation-confirmed-icon" aria-hidden="true">
+              ✓
+            </div>
+            <h2 id="save-game-dialog-title">Jogo salvo!</h2>
+            <p>Você deseja criar outro jogo?</p>
+            <div className="save-game-dialog-actions">
+              <button
+                className="button primary"
+                type="button"
+                onClick={createAnotherGame}
+              >
+                Sim
+              </button>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() => window.location.assign(returnHref)}
+              >
+                Não
+              </button>
+            </div>
           </div>
-          <p className="muted" style={{ fontSize: "12px" }}>
-            Salvar guarda os jogos neste aparelho. Compartilhar abre o menu do
-            celular para enviar pelo WhatsApp ou outro aplicativo.
-          </p>
         </div>
       )}
     </div>
