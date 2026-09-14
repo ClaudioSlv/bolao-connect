@@ -4,6 +4,7 @@ import { AppNav } from "@/components/app-nav";
 import { PoolSwitcher } from "@/components/pool-switcher";
 import { CopyParticipantLink } from "@/components/copy-participant-link";
 import { ParticipantPaymentForm } from "@/components/participant-payment-form";
+import { CapacityForm } from "@/components/capacity-form";
 import { addParticipant, cancelParticipant } from "@/app/actions/participants";
 import { increasePoolCapacity } from "@/app/actions/pools";
 import { createClient } from "@/lib/supabase/server";
@@ -54,13 +55,28 @@ async function cancelF(f: FormData) {
 async function capacityF(f: FormData) {
   "use server";
   const poolId = String(f.get("poolId") ?? "");
-  if (f.get("confirmCapacity") !== "on")
-    throw new Error("Confirme a alteração do total de cotas.");
-  await increasePoolCapacity({
-    poolId,
-    totalShares: Number(f.get("totalShares")),
-  });
-  redirect(`/participantes?pool=${poolId}`);
+  if (f.get("confirmCapacity") !== "on") {
+    return {
+      ok: false,
+      message: "Confirme a alteração do total de cotas.",
+    };
+  }
+
+  try {
+    await increasePoolCapacity({
+      poolId,
+      totalShares: Number(f.get("totalShares")),
+    });
+    return { ok: true, message: "Alteração salva com sucesso." };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar a alteração.",
+    };
+  }
 }
 function initials(name: string) {
   return (
@@ -215,29 +231,12 @@ export default async function Page({
                 + Adicionar participante
               </button>
             </form>
-            <form className="form" action={capacityF}>
-              <input type="hidden" name="poolId" value={pool.id} />
-              <div className="field">
-                <label>Corrigir total de cotas</label>
-                <input
-                  name="totalShares"
-                  type="number"
-                  min={used}
-                  max="100000"
-                  placeholder={`Total atual: ${pool.total_shares}`}
-                  required
-                />
-                <span className="muted">
-                  Atual: {pool.total_shares}. O total nunca poderá ficar abaixo
-                  das {used} cotas ocupadas.
-                </span>
-              </div>
-              <label>
-                <input type="checkbox" name="confirmCapacity" required /> Eu
-                confirmo a alteração do total de cotas.
-              </label>
-              <button className="button primary">Salvar total de cotas</button>
-            </form>
+            <CapacityForm
+              poolId={pool.id}
+              currentTotal={Number(pool.total_shares)}
+              occupiedShares={used}
+              action={capacityF}
+            />
           </>
         )}
       </section>
