@@ -174,6 +174,12 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+.performance-card{padding:18px;border:1px solid #294c35;border-radius:20px;background:linear-gradient(160deg,#102719,#07130d)}
+.performance-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.performance-heading h2{margin:3px 0 0}.performance-heading>strong{font-size:23px;white-space:nowrap}
+.performance-positive{color:#55f27a}.performance-negative{color:#ff6868}
+.performance-totals{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:16px 0}.performance-totals>div{display:grid;gap:5px;min-width:0;padding:10px 7px;border:1px solid #294231;border-radius:12px;background:#09170f;text-align:center}.performance-totals span{color:#aebbb2;font-size:10px}.performance-totals strong{font-size:12px;overflow-wrap:anywhere}
+.performance-chart-scroll{overflow-x:auto;padding:5px 0 10px}.performance-chart{position:relative;display:flex;height:250px;align-items:stretch;padding:0 10px}.performance-zero-line{position:absolute;left:0;right:0;top:94px;border-top:2px solid #647168}.performance-zero-line span{position:absolute;left:4px;top:-17px;color:#aebbb2;font-size:10px}
+.performance-bar-column{position:relative;z-index:1;display:grid;grid-template-rows:188px 28px 20px;justify-items:center;width:62px;flex:0 0 62px}.performance-bar-area{position:relative;width:22px;height:188px}.performance-bar{position:absolute;left:0;width:100%;border-radius:6px 6px 2px 2px;box-shadow:0 0 9px currentColor}.performance-bar.is-positive{bottom:94px;color:#39e875;background:linear-gradient(180deg,#7cff9f,#159b4a)}.performance-bar.is-negative{top:94px;color:#ff5252;background:linear-gradient(180deg,#a61d2a,#ff6464);border-radius:2px 2px 6px 6px}.performance-bar-column small{max-width:58px;color:#c8d2cb;font-size:9px;line-height:1.2;text-align:center}.performance-bar-column b{font-size:9px;color:#f4f6f4}.performance-note{margin-bottom:0;font-size:11px}
 .reservation-confetti {
   position: absolute;
   inset: 0;
