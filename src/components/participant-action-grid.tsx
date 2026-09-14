@@ -52,14 +52,35 @@ function WalletIcon({ className }: IconProps) {
 function GameIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 96 96" aria-hidden="true">
-      <path d="M15 14h58v68H15z" rx="4" fill="#f7f5e8" stroke="#d4a81e" strokeWidth="3" />
-      <path d="M15 14h58v17H15z" fill="#168249" />
-      <path d="M25 22h38" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-      {[0,1,2,3].map(row => [0,1,2,3].map(col => (
-        <circle key={`${row}-${col}`} cx={26 + col * 12} cy={42 + row * 10} r="3.5" fill="#f6c734" stroke="#a87500" />
-      )))}
-      <path d="M67 73 80 42l7 3-13 31-8 5z" fill="#e3a129" stroke="#6d390d" strokeWidth="2" />
-      <path d="m80 42 3-7 7 3-3 7z" fill="#181818" />
+      <defs>
+        <radialGradient id="gameGlobe" cx="35%" cy="24%" r="76%">
+          <stop stopColor="#3c8f64" stopOpacity=".72" />
+          <stop offset=".62" stopColor="#123d27" stopOpacity=".9" />
+          <stop offset="1" stopColor="#06170e" />
+        </radialGradient>
+        <linearGradient id="gameGold" x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor="#fff19a" />
+          <stop offset=".48" stopColor="#f6c52f" />
+          <stop offset="1" stopColor="#9d6500" />
+        </linearGradient>
+      </defs>
+      <circle cx="48" cy="41" r="30" fill="url(#gameGlobe)" stroke="#f6cf4a" strokeWidth="4" />
+      <path d="M23 24c12 7 38 7 50 0M20 42c14 7 42 7 56 0M27 60c11-5 31-5 42 0" fill="none" stroke="#dff9e7" strokeWidth="1.6" opacity=".46" />
+      <ellipse cx="48" cy="41" rx="14" ry="30" fill="none" stroke="#dff9e7" strokeWidth="1.6" opacity=".42" />
+      {[
+        [34, 31, "01"], [52, 27, "07"], [64, 39, "13"],
+        [42, 43, "21"], [29, 49, "32"], [55, 53, "45"],
+      ].map(([cx, cy, number]) => (
+        <g key={String(number)}>
+          <circle cx={cx} cy={cy} r="7.2" fill="url(#gameGold)" stroke="#fff4ad" strokeWidth="1.5" />
+          <text x={cx} y={Number(cy) + 2.5} textAnchor="middle" fontSize="6.5" fontWeight="900" fill="#17311f">{number}</text>
+        </g>
+      ))}
+      <path d="M34 70h28l5 13H29z" fill="#147340" stroke="#61ef8d" strokeWidth="2.5" />
+      <path d="M25 84h46" stroke="#f6cf4a" strokeWidth="5" strokeLinecap="round" />
+      <path d="M18 41h-6M84 41h-6" stroke="#f6cf4a" strokeWidth="4" strokeLinecap="round" />
+      <circle cx="12" cy="41" r="3.5" fill="#f6c52f" />
+      <circle cx="84" cy="41" r="3.5" fill="#f6c52f" />
     </svg>
   );
 }
