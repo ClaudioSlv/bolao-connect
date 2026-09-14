@@ -228,6 +228,41 @@ export default async function Page({
             <button className="button primary">SALVAR CHAVE PIX</button>
           </form>
         </section>
+      ) : slug === "homologacao-pagbank" ? (
+        <section className="section list">
+          <div className="card">
+            <strong>Arquivo solicitado pelo PagBank</strong>
+            <p className="muted">
+              Executa no Sandbox a criação de uma cobrança Pix de R$ 1,00 e a
+              consulta do pedido. O token é ocultado automaticamente.
+            </p>
+            <p className="status">
+              Chamado PagBank: <strong>444486651</strong>
+            </p>
+          </div>
+          <form
+            className="card form"
+            action="/api/admin/pagbank-homologation"
+            method="post"
+          >
+            <strong>Gerar testes de homologação</strong>
+            <span>
+              O download começará depois que o PagBank responder aos dois
+              testes.
+            </span>
+            <button className="button primary" type="submit">
+              GERAR E BAIXAR ARQUIVO .TXT
+            </button>
+          </form>
+          <div className="card">
+            <strong>Antes de enviar</strong>
+            <span>
+              Abra o arquivo e confirme que os testes apresentam status HTTP
+              de sucesso. Depois, responda ao e-mail do PagBank anexando o
+              arquivo.
+            </span>
+          </div>
+        </section>
       ) : participantTool ? (
         <section className="section">
           <form className="form" method="get">
