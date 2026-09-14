@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupportedLottery, type PersonalGame } from "@/lib/personal-game-prizes";
+import { syncLatestLotteryResult } from "@/lib/lottery-results/sync";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const token = String(body.token ?? "");
     const lottery = String(body.lottery ?? "");
-    const contest = Number(body.contest);
+    const requestedContest = Number(body.contest);
     const games = body.games as PersonalGame[];
 
     if (
       !token ||
       !isSupportedLottery(lottery) ||
-      !Number.isInteger(contest) ||
-      contest < 1 ||
       !Array.isArray(games) ||
       games.length < 1 ||
       games.length > 1000 ||
@@ -45,11 +44,23 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
-    const expectedContest = Number(latest?.contest_number ?? 0) + 1;
-    if (expectedContest > 1 && contest !== expectedContest)
+    let latestContest = Number(latest?.contest_number ?? 0);
+    try {
+      latestContest = Math.max(latestContest, await syncLatestLotteryResult(lottery));
+    } catch (error) {
+      console.error("sync-latest-before-save:", error);
+    }
+
+    const contest =
+      latestContest > 0
+        ? latestContest + 1
+        : Number.isInteger(requestedContest) && requestedContest > 0
+          ? requestedContest
+          : null;
+    if (!contest)
       return NextResponse.json(
-        { error: `Este jogo deve ser vinculado ao concurso atual ${expectedContest}.` },
-        { status: 409 },
+        { error: "Não foi possível identificar o próximo concurso. Tente novamente." },
+        { status: 503 },
       );
 
     const { data, error } = await admin
@@ -65,7 +76,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ ok: true, id: data.id });
+    return NextResponse.json({ ok: true, id: data.id, contest });
   } catch (error) {
     console.error("save-personal-game:", error);
     return NextResponse.json(
