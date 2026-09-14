@@ -54,6 +54,8 @@ async function cancelF(f: FormData) {
 async function capacityF(f: FormData) {
   "use server";
   const poolId = String(f.get("poolId") ?? "");
+  if (f.get("confirmCapacity") !== "on")
+    throw new Error("Confirme a alteração do total de cotas.");
   await increasePoolCapacity({
     poolId,
     totalShares: Number(f.get("totalShares")),
@@ -216,22 +218,25 @@ export default async function Page({
             <form className="form" action={capacityF}>
               <input type="hidden" name="poolId" value={pool.id} />
               <div className="field">
-                <label>➕ Aumentar total de vagas</label>
+                <label>Corrigir total de cotas</label>
                 <input
                   name="totalShares"
                   type="number"
-                  min={Number(pool.total_shares) + 1}
+                  min={used}
                   max="100000"
-                  defaultValue={Number(pool.total_shares) + 1}
+                  placeholder={`Total atual: ${pool.total_shares}`}
                   required
                 />
                 <span className="muted">
-                  Atual: {pool.total_shares}. Ao salvar, o sistema chama
-                  automaticamente os primeiros da lista de espera até preencher
-                  as novas vagas.
+                  Atual: {pool.total_shares}. O total nunca poderá ficar abaixo
+                  das {used} cotas ocupadas.
                 </span>
               </div>
-              <button className="button primary">Salvar novas vagas</button>
+              <label>
+                <input type="checkbox" name="confirmCapacity" required /> Eu
+                confirmo a alteração do total de cotas.
+              </label>
+              <button className="button primary">Salvar total de cotas</button>
             </form>
           </>
         )}
