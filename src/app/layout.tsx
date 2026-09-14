@@ -38,5 +38,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="pt-BR"><body><header className="app-brandbar"><Link href="/" aria-label="Bolão Amigos BTP - início"><img src="/icon.svg" alt=""/><span>Bolão Amigos BTP</span></Link></header><LotteryResultsTicker/>{children}<PdfGameShare/><PwaRegister /></body></html>;
+  return <html lang="pt-BR"><body><div className="app-fixed-header"><header className="app-brandbar"><Link href="/" aria-label="Bolão Amigos BTP - início"><img src="/icon.svg" alt=""/><span>Bolão Amigos BTP</span></Link></header><LotteryResultsTicker/></div>{children}<PdfGameShare/><PwaRegister /></body></html>;
 }
