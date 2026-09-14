@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
+import { BtpIcon } from "@/components/btp-icon";
 import { adminMenu } from "@/lib/admin-menu";
 import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
@@ -23,10 +24,14 @@ export default async function Page() {
       </Link>
       <section className="section">
         <p className="eyebrow">PAINEL DO ORGANIZADOR</p>
-        <h1>☰ Menu</h1>
+        <h1 className="menu-page-title">
+          <BtpIcon name="menu" size={38} />
+          <span>Menu</span>
+        </h1>
         <p className="muted">Cada função abre uma tela específica.</p>
-        <Link className="button secondary" href="/teste-pagamento">
-          🧪 Testar PagBank
+        <Link className="button secondary menu-test-button" href="/teste-pagamento">
+          <BtpIcon name="testar-pagbank" size={27} />
+          <span>Testar PagBank</span>
         </Link>
       </section>
       {categories.map((category) => (
@@ -36,11 +41,12 @@ export default async function Page() {
             {adminMenu
               .filter((x) => x.category === category)
               .map((x) => (
-                <Link className="card" href={x.href} key={x.slug}>
-                  <strong>
-                    {x.icon} {x.title}
-                  </strong>
-                  <span>Abrir função →</span>
+                <Link className="card menu-function-card" href={x.href} key={x.slug}>
+                  <BtpIcon name={x.slug} size={36} />
+                  <span className="menu-function-copy">
+                    <strong>{x.title}</strong>
+                    <span>Abrir função →</span>
+                  </span>
                 </Link>
               ))}
           </div>
