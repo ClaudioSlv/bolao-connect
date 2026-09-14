@@ -169,6 +169,11 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
   width: 100%;
   font-size: 17px;
 }
+.save-game-dialog-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
 .reservation-confetti {
   position: absolute;
   inset: 0;
