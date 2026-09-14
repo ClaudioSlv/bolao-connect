@@ -10,7 +10,9 @@ export async function uploadGameReceipt(form: FormData) {
     title = String(form.get("title") ?? "")
       .trim()
       .slice(0, 100),
-    file = form.get("receipt");
+    file = form
+      .getAll("receipt")
+      .find((value): value is File => value instanceof File && value.size > 0);
   if (!poolId || !(file instanceof File) || !file.size)
     throw new Error("Selecione a foto inteira do comprovante.");
   if (!allowed.has(file.type)) throw new Error("Use JPG, PNG ou WebP.");
