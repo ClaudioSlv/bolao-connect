@@ -61,6 +61,12 @@ async function upsertResult(lottery: SupportedLottery, result: CaixaResult) {
   if (error) throw error;
 }
 
+export async function syncLatestLotteryResult(lottery: SupportedLottery) {
+  const latest = await fetchCaixa(lottery);
+  await upsertResult(lottery, latest);
+  return latest.numero;
+}
+
 async function inBatches<T>(items: T[], size: number, work: (item: T) => Promise<void>) {
   for (let index = 0; index < items.length; index += size) {
     await Promise.all(items.slice(index, index + size).map(work));
