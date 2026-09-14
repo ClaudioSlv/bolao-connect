@@ -10,7 +10,7 @@ type Lottery =
   | "dia-de-sorte"
   | "super-sete"
   | "mais-milionaria";
-type Result = { numbers: number[]; special_value?: unknown };
+type Result = { numbers: number[]; special_value?: unknown; contest_number: number };
 type Game = { numbers: number[]; trevos: number[] };
 const rules: Record<
   Lottery,
@@ -65,9 +65,11 @@ const fibonacciUpTo = (max: number) => {
 export function PersonalGameGenerator({
   lottery,
   results,
+  latestContest,
 }: {
   lottery: Lottery;
   results: Result[];
+  latestContest: number | null;
 }) {
   const r = rules[lottery];
   const [pick, setPick] = useState(r.minPick),
@@ -320,6 +322,7 @@ export function PersonalGameGenerator({
         lottery,
         label: r.label,
         games,
+        targetContest: latestContest ? latestContest + 1 : null,
         createdAt: new Date().toISOString(),
       };
       localStorage.setItem(
