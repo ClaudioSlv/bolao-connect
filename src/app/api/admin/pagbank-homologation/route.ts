@@ -96,7 +96,10 @@ export async function POST(request: Request) {
   }
 
   const generatedAt = new Date().toISOString();
-  const report = [
+  // O BOM ajuda visualizadores de texto de celulares a reconhecer UTF-8.
+  const report =
+    "\uFEFF" +
+    [
     "HOMOLOGAÇÃO PAGBANK — BOLÃO AMIGOS BTP",
     "Chamado PagBank: 444486651",
     `Gerado em: ${generatedAt}`,
@@ -147,7 +150,7 @@ export async function POST(request: Request) {
     "O webhook recebe as atualizações enviadas pelo PagBank.",
     "",
     "FIM DO ARQUIVO",
-  ].join("\n");
+    ].join("\n");
 
   const date = generatedAt.slice(0, 10);
   return new NextResponse(report, {
