@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { officialGamesCostCents } from "@/lib/lottery-pricing";
 type Lottery =
   | "mega-sena"
   | "lotofacil"
@@ -62,6 +63,20 @@ const fibonacciUpTo = (max: number) => {
   }
   return out;
 };
+const primesUpTo = (max: number) => {
+  const out = new Set<number>();
+  for (let n = 2; n <= max; n++) {
+    let prime = true;
+    for (let divisor = 2; divisor * divisor <= n; divisor++) {
+      if (n % divisor === 0) {
+        prime = false;
+        break;
+      }
+    }
+    if (prime) out.add(n);
+  }
+  return out;
+};
 export function PersonalGameGenerator({
   lottery,
   results,
@@ -107,6 +122,7 @@ export function PersonalGameGenerator({
   const excluded = new Set([...excludedOdd, ...excludedEven]);
   const available = allNumbers.filter((n) => !excluded.has(n));
   const fibSet = useMemo(() => fibonacciUpTo(r.max), [r.max]);
+  const primeSet = useMemo(() => primesUpTo(r.max), [r.max]);
   const stats = useMemo(() => {
     if (lottery === "super-sete") {
       const cols = Array.from({ length: 7 }, () => Array(10).fill(0));
@@ -166,6 +182,7 @@ export function PersonalGameGenerator({
         .filter((n) => allowed.has(n))
         .slice(0, Math.max(1, Math.ceil(available.length * 0.33))),
       fibs = available.filter((n) => fibSet.has(n)),
+      primes = available.filter((n) => primeSet.has(n)),
       chosen = new Set<number>();
     const take = (a: number[], c: number) =>
       shuffle(a.filter((n) => !chosen.has(n)))
@@ -175,8 +192,12 @@ export function PersonalGameGenerator({
       take(hot, Math.max(1, Math.round(pick * 0.3)));
       take(cold, Math.max(1, Math.round(pick * 0.18)));
       take(late, Math.max(1, Math.round(pick * 0.18)));
+      take(primes, Math.max(1, Math.round(pick * 0.18)));
       take(fibs, Math.max(1, Math.round(pick * 0.2)));
-    } else take(fibs, Math.max(1, Math.round(pick * 0.2)));
+    } else {
+      take(fibs, Math.max(1, Math.round(pick * 0.2)));
+      take(primes, Math.max(1, Math.round(pick * 0.18)));
+    }
     for (const n of shuffle(available)) if (chosen.size < pick) chosen.add(n);
     return [...chosen].slice(0, pick).sort((a, b) => a - b);
   };
@@ -273,6 +294,22 @@ export function PersonalGameGenerator({
     input?.scrollIntoView({ behavior: "smooth", block: "center" });
     setTimeout(() => input?.focus(), 450);
   };
+  const focusGameQuantity = () => {
+    const input = document.getElementById("game-quantity-input") as HTMLInputElement | null;
+    input?.focus();
+    input?.select();
+  };
+  const advanceToNumberSelection = (input: HTMLInputElement) => {
+    if (!qtyIsValid) return;
+    input.blur();
+    setTimeout(
+      () =>
+        document
+          .getElementById("manual-number-selection")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      180,
+    );
+  };
   const toggle = (n: number) => {
     if (!pickIsValid) {
       requestPickQuantity();
@@ -339,6 +376,7 @@ export function PersonalGameGenerator({
         label: r.label,
         games,
         targetContest: latestContest ? latestContest + 1 : null,
+        totalCostCents: officialGamesCostCents(lottery, games),
         createdAt: new Date().toISOString(),
       };
       localStorage.setItem(
@@ -414,12 +452,18 @@ export function PersonalGameGenerator({
           id="pick-quantity-input"
           type="number"
           inputMode="numeric"
+          enterKeyHint="next"
           min={r.minPick}
           max={r.maxPick}
           step="1"
           value={pickInput}
           placeholder={`Digite de ${r.minPick} a ${r.maxPick}`}
           onChange={(e) => setValidPick(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || !pickIsValid) return;
+            e.preventDefault();
+            focusGameQuantity();
+          }}
           aria-invalid={Boolean(pickError)}
           aria-describedby={pickError ? "pick-error" : undefined}
         />
@@ -528,8 +572,10 @@ export function PersonalGameGenerator({
           Quantidade de jogos <small className="muted">(máx. 1000)</small>
         </label>
         <input
+          id="game-quantity-input"
           type="number"
           inputMode="numeric"
+          enterKeyHint="done"
           min="1"
           max="1000"
           value={qtyInput}
@@ -544,6 +590,11 @@ export function PersonalGameGenerator({
               n <= 1000
             )
               setQty(n);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            e.preventDefault();
+            advanceToNumberSelection(e.currentTarget);
           }}
           aria-invalid={Boolean(qtyError)}
           aria-describedby={qtyError ? "qty-error" : undefined}
@@ -639,7 +690,7 @@ export function PersonalGameGenerator({
         )}
       </div>
       {lottery !== "super-sete" && (
-        <div>
+        <div id="manual-number-selection" style={{ scrollMarginTop: "150px" }}>
           <p className="muted">Escolha manualmente {pick} números:</p>
           <div className="number-grid">
             {available.map((n) => (
@@ -657,7 +708,7 @@ export function PersonalGameGenerator({
       )}
       <p className="muted">
         Base do fechamento: últimos {Math.min(50, results.length)} resultados
-        salvos · números quentes · frios · atrasados · Fibonacci. Os números
+        salvos · números quentes · frios · atrasados · Fibonacci · primos. Os números
         excluídos nunca entram nos jogos gerados.
       </p>
       {visibleGames.length > 0 && (
