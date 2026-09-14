@@ -361,6 +361,13 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .rules-validation-spinner { width: 20px; height: 20px; flex: 0 0 20px; border: 3px solid rgba(247,201,72,.3); border-top-color: #f7c948; border-radius: 50%; animation: rulesValidationSpin .8s linear infinite; }
 @keyframes rulesValidationSpin { to { transform: rotate(360deg); } }
 
+/* Cabeçalho e resultados permanecem em uma única camada durante a rolagem */
+.app-fixed-header { position: fixed; inset: 0 0 auto; z-index: 200; height: 136px; background: #07110b; transform: translate3d(0,0,0); backface-visibility: hidden; isolation: isolate; }
+.app-fixed-header .app-brandbar { position: absolute; top: 0; left: 0; right: 0; z-index: 2; }
+.app-fixed-header .lottery-ticker { position: absolute; top: 58px; left: 0; right: 0; z-index: 1; }
+@media (max-width: 520px) { .app-fixed-header { height: 132px; } }
+@media print { .app-fixed-header { display: none; } }
+
 /* BTP Icons: identidade vetorial exclusiva do menu */
 .btp-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; color: #f7c948; filter: drop-shadow(0 2px 1px rgba(0,0,0,.7)) drop-shadow(0 0 5px rgba(247,201,72,.13)); }
 .btp-icon svg { display: block; overflow: visible; }
