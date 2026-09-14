@@ -24,16 +24,18 @@ export async function increasePoolCapacity(input:{poolId:string;totalShares:numb
   const totalShares=Number(input.totalShares);if(!input.poolId||!Number.isInteger(totalShares)||totalShares<1||totalShares>100000)throw new Error("Informe uma quantidade válida de vagas.");
   const supabase=await createClient();const{data:auth,error:authError}=await supabase.auth.getUser();if(authError||!auth.user)throw new Error("Faça login para alterar o bolão.");
   const{data:pool,error:poolError}=await supabase.from("pools").select("id,owner_id,total_shares,title").eq("id",input.poolId).maybeSingle();if(poolError||!pool||pool.owner_id!==auth.user.id)throw new Error("Você não pode alterar este bolão.");
-  const oldTotal=Number(pool.total_shares)||0;if(totalShares<=oldTotal)throw new Error(`Para esta função, informe um total maior que ${oldTotal} vagas.`);
+  const{data:participants,error:participantsError}=await supabase.from("participants").select("shares,status,is_test").eq("pool_id",input.poolId);if(participantsError)throw new Error("Não foi possível conferir as cotas ocupadas.");
+  const usedShares=(participants??[]).filter(p=>p.status==="confirmed"&&!p.is_test).reduce((sum,p)=>sum+(Number(p.shares)||0),0);
+  const oldTotal=Number(pool.total_shares)||0;if(totalShares<usedShares)throw new Error(`O total não pode ser menor que as ${usedShares} cotas ocupadas.`);if(totalShares===oldTotal)return {oldTotal,newTotal:totalShares,promoted:0,promotedIds:[]};
   const{error:updateError}=await supabase.from("pools").update({total_shares:totalShares}).eq("id",input.poolId).eq("owner_id",auth.user.id);if(updateError)throw new Error(updateError.message);
   const promotedIds:string[]=[];
   // A função do banco recalcula a capacidade a cada chamada. Assim, qualquer aumento
   // (5, 10, 20 ou mais vagas) promove somente quem realmente couber, sempre pela ordem da fila.
-  for(let i=0;i<totalShares-oldTotal;i++){
+  for(let i=0;i<Math.max(0,totalShares-oldTotal);i++){
     const{data:promoted,error:promotionError}=await supabase.rpc("promote_next_waitlisted",{p_pool_id:input.poolId});if(promotionError){console.error("Falha ao promover lista de espera",promotionError);break}if(!promoted)break;promotedIds.push(String(promoted));
   }
   for(const participantId of promotedIds){try{await sendWaitlistPromotionPush(participantId)}catch(e){console.error("Falha ao enviar push de promoção",e)}}
-  await supabase.from("audit_events").insert({pool_id:input.poolId,actor_id:auth.user.id,event_type:"pool_capacity_increased",entity_type:"pool",entity_id:input.poolId,details:{from:oldTotal,to:totalShares,promoted_participant_ids:promotedIds}});
+  await supabase.from("audit_events").insert({pool_id:input.poolId,actor_id:auth.user.id,event_type:"pool_capacity_adjusted",entity_type:"pool",entity_id:input.poolId,details:{from:oldTotal,to:totalShares,occupied_shares:usedShares,promoted_participant_ids:promotedIds}});
   revalidatePath("/");revalidatePath("/participantes");revalidatePath("/carteira");revalidatePath(`/bolao`);return {oldTotal,newTotal:totalShares,promoted:promotedIds.length,promotedIds};
 }
 
