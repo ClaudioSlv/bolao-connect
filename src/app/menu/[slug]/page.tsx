@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { PoolSwitcher } from "@/components/pool-switcher";
 import { BackupRestoreForm } from "@/components/backup-restore-form";
+import { BtpIcon } from "@/components/btp-icon";
 import { saveManualPix } from "@/app/actions/payment-settings";
 import { adminMenu } from "@/lib/admin-menu";
 import { createClient } from "@/lib/supabase/server";
@@ -175,8 +176,9 @@ export default async function Page({
       </Link>
       <section className="section">
         <p className="eyebrow">{item.category.toUpperCase()}</p>
-        <h1>
-          {item.icon} {item.title}
+        <h1 className="menu-page-title">
+          <BtpIcon name={item.slug} size={38} />
+          <span>{item.title}</span>
         </h1>
         <PoolSwitcher
           pools={pools}
