@@ -24,6 +24,16 @@ function configurePush() {
   return true;
 }
 
+export async function HEAD(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`)
+    return new Response(null, { status: 401 });
+  return new Response(null, {
+    status: 204,
+    headers: { "x-cron-secret": "configured" },
+  });
+}
+
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`)
