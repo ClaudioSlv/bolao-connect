@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { officialGamesCostCents } from "@/lib/lottery-pricing";
 
 type Game = { numbers: number[]; trevos?: number[] };
 type Saved = {
@@ -11,6 +12,7 @@ type Saved = {
   games: Game[];
   createdAt: string;
   targetContest?: number | null;
+  totalCostCents?: number;
 };
 type Prize = {
   tier: number;
@@ -199,6 +201,50 @@ export default function SavedGamesPage() {
   );
   const visible = items.filter((item) => item.lottery === selectedLottery);
 
+  const performance = useMemo(() => {
+    const bars = items
+      .flatMap((item) => {
+        const contest = Number(item.targetContest);
+        const draw = contest ? draws[`${item.lottery}:${contest}`] : undefined;
+        if (!draw?.available || !item.games.length) return [];
+        const totalItemCostCents =
+          item.totalCostCents ?? officialGamesCostCents(item.lottery, item.games);
+        const costPerGame = Math.floor(totalItemCostCents / item.games.length);
+        const costRemainder = totalItemCostCents % item.games.length;
+
+        return item.games.map((game, index) => {
+          const checked = checkGame(item, game, draw);
+          const costCents = costPerGame + (index < costRemainder ? 1 : 0);
+          const prizeCents = Math.round(Number(checked?.prize?.value ?? 0) * 100);
+          return {
+            id: `${item.id}-${index}`,
+            label: `${item.label.replace("Mega-Sena", "Mega").replace("Lotofácil", "Loto")} ${contest}`,
+            detail: `Jogo ${index + 1}`,
+            createdAt: item.createdAt,
+            costCents,
+            prizeCents,
+            balanceCents: prizeCents - costCents,
+          };
+        });
+      })
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const totalCostCents = bars.reduce((total, bar) => total + bar.costCents, 0);
+    const totalPrizeCents = bars.reduce((total, bar) => total + bar.prizeCents, 0);
+    const maxAbsoluteCents = Math.max(
+      1,
+      ...bars.map((bar) => Math.abs(bar.balanceCents)),
+    );
+
+    return {
+      bars,
+      totalCostCents,
+      totalPrizeCents,
+      balanceCents: totalPrizeCents - totalCostCents,
+      maxAbsoluteCents,
+    };
+  }, [draws, items]);
+
   const remove = (id: string) => {
     const next = items.filter((item) => item.id !== id);
     setItems(next);
@@ -243,6 +289,94 @@ export default function SavedGamesPage() {
               : "Aguardando a primeira conferência."}
         </div>
       </section>
+
+      {items.length > 0 && (
+        <section className="section performance-card">
+          <div className="performance-heading">
+            <div>
+              <p className="eyebrow">DESEMPENHO GERAL</p>
+              <h2>Lucro ou prejuízo</h2>
+            </div>
+            <strong
+              className={
+                performance.balanceCents >= 0
+                  ? "performance-positive"
+                  : "performance-negative"
+              }
+            >
+              {money.format(performance.balanceCents / 100)}
+            </strong>
+          </div>
+
+          <div className="performance-totals">
+            <div>
+              <span>Total apostado</span>
+              <strong>{money.format(performance.totalCostCents / 100)}</strong>
+            </div>
+            <div>
+              <span>Total recebido</span>
+              <strong>{money.format(performance.totalPrizeCents / 100)}</strong>
+            </div>
+            <div>
+              <span>Saldo</span>
+              <strong
+                className={
+                  performance.balanceCents >= 0
+                    ? "performance-positive"
+                    : "performance-negative"
+                }
+              >
+                {money.format(performance.balanceCents / 100)}
+              </strong>
+            </div>
+          </div>
+
+          {performance.bars.length ? (
+            <div className="performance-chart-scroll">
+              <div
+                className="performance-chart"
+                style={{ minWidth: `${Math.max(100, performance.bars.length * 62)}px` }}
+                role="img"
+                aria-label="Gráfico do lucro ou prejuízo de todos os jogos conferidos"
+              >
+                <div className="performance-zero-line">
+                  <span>R$ 0</span>
+                </div>
+                {performance.bars.map((bar) => {
+                  const positive = bar.balanceCents >= 0;
+                  const height = Math.max(
+                    5,
+                    Math.round(
+                      (Math.abs(bar.balanceCents) / performance.maxAbsoluteCents) * 82,
+                    ),
+                  );
+                  return (
+                    <div className="performance-bar-column" key={bar.id}>
+                      <div className="performance-bar-area">
+                        <div
+                          className={`performance-bar ${positive ? "is-positive" : "is-negative"}`}
+                          style={{ height: `${height}px` }}
+                          title={`${bar.label} · ${bar.detail}: ${money.format(bar.balanceCents / 100)}`}
+                        />
+                      </div>
+                      <small>{bar.label}</small>
+                      <b>{money.format(bar.balanceCents / 100)}</b>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="muted">
+              O gráfico aparecerá assim que sair o resultado dos jogos salvos.
+            </p>
+          )}
+          <p className="muted performance-note">
+            Verde indica lucro e vermelho indica prejuízo. O custo usa o preço
+            oficial da CAIXA registrado quando o jogo é salvo.
+          </p>
+        </section>
+      )}
 
       {items.length === 0 ? (
         <section className="section">
