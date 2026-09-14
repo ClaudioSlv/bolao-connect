@@ -27,6 +27,9 @@ export default async function Page({searchParams}:{searchParams:Promise<{lottery
   const query = await searchParams;
   const q = query.lottery;
   const backHref = query.voltar?.startsWith("/p/") ? query.voltar : "/";
+  const participantToken = backHref.startsWith("/p/")
+    ? backHref.slice(3).split("/")[0]
+    : null;
   const lottery = (lotteries.includes(q as Lottery) ? q : "lotofacil") as Lottery;
   let results: Array<{numbers:number[];special_value?:unknown;contest_number:number}> = [];
 
@@ -42,5 +45,5 @@ export default async function Page({searchParams}:{searchParams:Promise<{lottery
     // Mantém o gerador manual disponível se o serviço externo estiver indisponível.
   }
 
-  return <main className="shell"><Link className="back" href={backHref}>← Voltar</Link><section className="section"><p className="eyebrow">JOGO PESSOAL</p><h1>🍀 Fazer meu próprio jogo</h1><p className="muted">Escolha a modalidade, monte seus próprios números ou use o gerador estatístico.</p><LotterySelector value={lottery} options={lotteries.map(value=>({value,label:labels[value]}))}/></section><section className="section"><h2>{labels[lottery]}</h2><PersonalGameGenerator key={lottery} lottery={lottery} results={results} latestContest={results.length ? Math.max(...results.map((row) => Number(row.contest_number) || 0)) : null}/></section></main>;
+  return <main className="shell"><Link className="back" href={backHref}>← Voltar</Link><section className="section"><p className="eyebrow">JOGO PESSOAL</p><h1>🍀 Fazer meu próprio jogo</h1><p className="muted">Escolha a modalidade, monte seus próprios números ou use o gerador estatístico.</p><LotterySelector value={lottery} options={lotteries.map(value=>({value,label:labels[value]}))}/></section><section className="section"><h2>{labels[lottery]}</h2><PersonalGameGenerator key={lottery} lottery={lottery} results={results} latestContest={results.length ? Math.max(...results.map((row) => Number(row.contest_number) || 0)) : null} participantToken={participantToken}/></section></main>;
 }
