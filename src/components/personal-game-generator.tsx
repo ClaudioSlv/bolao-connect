@@ -66,10 +66,12 @@ export function PersonalGameGenerator({
   lottery,
   results,
   latestContest,
+  participantToken,
 }: {
   lottery: Lottery;
   results: Result[];
   latestContest: number | null;
+  participantToken: string | null;
 }) {
   const r = rules[lottery];
   const [pick, setPick] = useState(r.minPick),
@@ -313,7 +315,7 @@ export function PersonalGameGenerator({
     `Jogo ${i + 1}: ${game.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}${lottery === "mais-milionaria" ? ` | Trevos: ${game.trevos.map((n) => String(n).padStart(2, "0")).join(" · ")}` : ""}`;
   const shareText = () =>
     `🍀 ${r.label} — Bolão Amigos BTP\n\n${games.map(gameText).join("\n")}\n\nJogo gerado pelo Bolão Amigos BTP.`;
-  const saveGames = () => {
+  const saveGames = async () => {
     try {
       const key = "bolao-amigos-btp:jogos-salvos";
       const current = JSON.parse(localStorage.getItem(key) || "[]");
@@ -329,6 +331,26 @@ export function PersonalGameGenerator({
         key,
         JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
       );
+
+      if (participantToken && entry.targetContest) {
+        const response = await fetch("/api/personal-games", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: participantToken,
+            lottery,
+            contest: entry.targetContest,
+            games,
+          }),
+        });
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { error?: string } | null;
+          alert(
+            `${data?.error ?? "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
+          );
+        }
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
