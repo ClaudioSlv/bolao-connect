@@ -367,6 +367,20 @@ export function PersonalGameGenerator({
       const current = JSON.parse(localStorage.getItem(key) || "[]");
       let targetContest = latestContest ? latestContest + 1 : null;
 
+      if (!targetContest) {
+        try {
+          const response = await fetch("/api/lottery-ticker", { cache: "no-store" });
+          const data = (await response.json().catch(() => null)) as {
+            results?: Array<{ lottery?: string; contest?: number }>;
+          } | null;
+          const latest = data?.results?.find((result) => result.lottery === lottery);
+          if (response.ok && Number(latest?.contest) > 0)
+            targetContest = Number(latest?.contest) + 1;
+        } catch {
+          // A validação abaixo impede salvar um jogo sem concurso.
+        }
+      }
+
       if (participantToken) {
         try {
           const response = await fetch("/api/personal-games", {
@@ -391,6 +405,13 @@ export function PersonalGameGenerator({
             `${error instanceof Error && error.message ? error.message : "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
           );
         }
+      }
+
+      if (!targetContest) {
+        alert(
+          "Não foi possível identificar o próximo concurso. Verifique sua conexão e tente salvar novamente.",
+        );
+        return;
       }
 
       const entry = {
