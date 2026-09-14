@@ -122,8 +122,11 @@ export default function SavedGamesPage() {
   const [draws, setDraws] = useState<Record<string, Draw>>({});
   const [checking, setChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [backHref, setBackHref] = useState("/meu-jogo");
 
   useEffect(() => {
+    const requestedBack = new URLSearchParams(window.location.search).get("voltar");
+    if (requestedBack?.startsWith("/p/")) setBackHref(requestedBack);
     try {
       const value = JSON.parse(localStorage.getItem(KEY) || "[]");
       const saved = Array.isArray(value) ? (value as Saved[]) : [];
@@ -206,7 +209,7 @@ export default function SavedGamesPage() {
 
   return (
     <main className="shell">
-      <Link className="back" href="/meu-jogo">
+      <Link className="back" href={backHref}>
         ← Voltar
       </Link>
 
