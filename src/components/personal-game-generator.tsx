@@ -610,13 +610,15 @@ export function PersonalGameGenerator({
                         : "0 0 7px rgba(69,214,107,.45)",
                     }}
                   >
-                    ☘
+                    🍀
                     <b
                       style={{
                         position: "absolute",
                         fontSize: "15px",
-                        color: selected ? "#111" : "white",
-                        textShadow: selected ? "none" : "0 1px 3px #000",
+                        color: "#ffd84d",
+                        textShadow: selected
+                          ? "0 0 7px rgba(255,216,77,.95), 0 1px 3px #000"
+                          : "0 1px 3px #000",
                       }}
                     >
                       {String(n).padStart(2, "0")}
