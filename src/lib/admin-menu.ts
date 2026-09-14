@@ -7,6 +7,13 @@ export const adminMenu = [
     icon: "🏦",
   },
   {
+    slug: "homologacao-pagbank",
+    title: "Homologação PagBank",
+    category: "Pagamentos",
+    href: "/menu/homologacao-pagbank",
+    icon: "🧪",
+  },
+  {
     slug: "pesquisar-participantes",
     title: "Pesquisar participantes",
     category: "Participantes",
