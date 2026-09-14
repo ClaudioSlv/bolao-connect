@@ -100,6 +100,8 @@ export function PersonalGameGenerator({
     [savedGamesOnPage, setSavedGamesOnPage] = useState<Game[]>([]),
     [excludedOdd, setExcludedOdd] = useState<number[]>([]),
     [excludedEven, setExcludedEven] = useState<number[]>([]),
+    [excludedPrimes, setExcludedPrimes] = useState<number[]>([]),
+    [exclusionError, setExclusionError] = useState(""),
     [trevoPick, setTrevoPick] = useState(2),
     [manualTrevos, setManualTrevos] = useState<number[]>([]),
     [saved, setSaved] = useState(false),
@@ -119,10 +121,14 @@ export function PersonalGameGenerator({
   );
   const exclusionLimit = Math.max(1, Math.floor((r.max - r.min + 1) / 4));
   const visibleGames = [...savedGamesOnPage, ...games];
-  const excluded = new Set([...excludedOdd, ...excludedEven]);
+  const excluded = new Set([...excludedOdd, ...excludedEven, ...excludedPrimes]);
   const available = allNumbers.filter((n) => !excluded.has(n));
   const fibSet = useMemo(() => fibonacciUpTo(r.max), [r.max]);
   const primeSet = useMemo(() => primesUpTo(r.max), [r.max]);
+  const primeNumbers = useMemo(
+    () => allNumbers.filter((n) => primeSet.has(n)),
+    [allNumbers, primeSet],
+  );
   const stats = useMemo(() => {
     if (lottery === "super-sete") {
       const cols = Array.from({ length: 7 }, () => Array(10).fill(0));
@@ -166,14 +172,17 @@ export function PersonalGameGenerator({
     [stats, lottery],
   );
   const oneNumbers = () => {
-    if (lottery === "super-sete")
+    if (lottery === "super-sete") {
+      const allowedDigits = allNumbers.filter((n) => !excluded.has(n));
       return stats.cols.map((c) => {
-        const m = Math.max(...c, 1),
+        const candidates = allowedDigits.length ? allowedDigits : allNumbers;
+        const m = Math.max(...candidates.map((digit) => c[digit]), 1),
           w: number[] = [];
-        for (let d = 0; d <= 9; d++)
+        for (const d of candidates)
           for (let i = 0; i < 1 + Math.round((c[d] / m) * 5); i++) w.push(d);
         return w[Math.floor(Math.random() * w.length)];
       });
+    }
     const allowed = new Set(available),
       ranked = ordered.filter((n) => allowed.has(n)),
       hot = ranked.slice(0, Math.max(1, Math.ceil(ranked.length * 0.33))),
@@ -337,11 +346,39 @@ export function PersonalGameGenerator({
     const setter = odd ? setExcludedOdd : setExcludedEven;
     if (current.includes(n)) {
       setter(current.filter((x) => x !== n));
+      setExclusionError("");
       return;
     }
-    if (current.length >= exclusionLimit || available.length - 1 < pick) return;
+    if (current.length >= exclusionLimit) return;
+    if (!excluded.has(n) && available.length - 1 < pick) {
+      setExclusionError(
+        "Não sobraram dezenas suficientes. Desmarque algum número para criar o jogo.",
+      );
+      return;
+    }
     setter([...current, n].sort((a, b) => a - b));
+    setExclusionError("");
     setManual((v) => v.filter((x) => x !== n));
+    setGames([]);
+    resetFeedback();
+  };
+  const togglePrimeExclude = (n: number) => {
+    if (excludedPrimes.includes(n)) {
+      setExcludedPrimes((current) => current.filter((x) => x !== n));
+      setExclusionError("");
+      setGames([]);
+      resetFeedback();
+      return;
+    }
+    if (!excluded.has(n) && lottery !== "super-sete" && available.length - 1 < pick) {
+      setExclusionError(
+        "Não sobraram dezenas suficientes. Desmarque algum número para criar o jogo.",
+      );
+      return;
+    }
+    setExcludedPrimes((current) => [...current, n].sort((a, b) => a - b));
+    setExclusionError("");
+    setManual((current) => current.filter((x) => x !== n));
     setGames([]);
     resetFeedback();
   };
@@ -355,6 +392,8 @@ export function PersonalGameGenerator({
     setGames([]);
     setExcludedOdd([]);
     setExcludedEven([]);
+    setExcludedPrimes([]);
+    setExclusionError("");
     resetFeedback();
   };
   const gameText = (game: Game, i: number) =>
@@ -694,6 +733,34 @@ export function PersonalGameGenerator({
             </div>
           </div>
         </div>
+      )}
+      <div className="section">
+        <h3>🔢 Números primos que NÃO quero nos jogos</h3>
+        <p className="muted">
+          Opcional e sem limite. Marque os números primos que devem ficar fora
+          {lottery === "super-sete" ? " de todas as colunas" : " de todos os jogos"}.
+        </p>
+        <div className="number-grid">
+          {primeNumbers.map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={`number-button ${excludedPrimes.includes(n) ? "selected" : ""}`}
+              onClick={() => togglePrimeExclude(n)}
+              aria-pressed={excludedPrimes.includes(n)}
+            >
+              {String(n).padStart(2, "0")}
+            </button>
+          ))}
+        </div>
+        <p className="muted">
+          Primos excluídos: {excludedPrimes.length}
+        </p>
+      </div>
+      {exclusionError && (
+        <p className="status" role="alert" style={{ color: "#facc15" }}>
+          ⚠️ {exclusionError}
+        </p>
       )}
       <div className="actions">
         <button
