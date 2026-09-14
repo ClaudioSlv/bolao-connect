@@ -64,6 +64,20 @@ function GameIcon({ className }: IconProps) {
   );
 }
 
+function CheckGameIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 96 96" aria-hidden="true">
+      <path d="M15 14h53v67H15z" fill="#f7f5e8" stroke="#d4a81e" strokeWidth="3" />
+      <path d="M15 14h53v16H15z" fill="#168249" />
+      {[0,1,2].map(row => [0,1,2,3].map(col => (
+        <circle key={`${row}-${col}`} cx={25 + col * 11} cy={42 + row * 11} r="3.2" fill="#f6c734" stroke="#a87500" />
+      )))}
+      <circle cx="68" cy="65" r="17" fill="#113b25" stroke="#55ef7a" strokeWidth="4" />
+      <path d="m58 65 7 7 13-16" fill="none" stroke="#55ef7a" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function HomeIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 96 96" aria-hidden="true">
@@ -101,6 +115,12 @@ export function ParticipantActionGrid({
       label: "CRIAR MEU JOGO",
       icon: GameIcon,
       aria: "Criar meu jogo individual",
+    },
+    {
+      href: `/meus-jogos-salvos?voltar=${encodeURIComponent(`/p/${token}`)}`,
+      label: "CONFERIR MEUS JOGOS",
+      icon: CheckGameIcon,
+      aria: "Conferir automaticamente meus jogos salvos",
     },
     {
       href: `/bolao/${poolSlug}`,
