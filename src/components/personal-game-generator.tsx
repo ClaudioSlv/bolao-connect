@@ -370,12 +370,40 @@ export function PersonalGameGenerator({
     try {
       const key = "bolao-amigos-btp:jogos-salvos";
       const current = JSON.parse(localStorage.getItem(key) || "[]");
+      let targetContest = latestContest ? latestContest + 1 : null;
+
+      if (participantToken) {
+        try {
+          const response = await fetch("/api/personal-games", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: participantToken,
+              lottery,
+              contest: targetContest,
+              games,
+            }),
+          });
+          const data = (await response.json().catch(() => null)) as {
+            contest?: number;
+            error?: string;
+          } | null;
+          if (!response.ok) throw new Error(data?.error);
+          if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
+            targetContest = Number(data?.contest);
+        } catch (error) {
+          alert(
+            `${error instanceof Error && error.message ? error.message : "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
+          );
+        }
+      }
+
       const entry = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         lottery,
         label: r.label,
         games,
-        targetContest: latestContest ? latestContest + 1 : null,
+        targetContest,
         totalCostCents: officialGamesCostCents(lottery, games),
         createdAt: new Date().toISOString(),
       };
@@ -383,25 +411,6 @@ export function PersonalGameGenerator({
         key,
         JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
       );
-
-      if (participantToken && entry.targetContest) {
-        const response = await fetch("/api/personal-games", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token: participantToken,
-            lottery,
-            contest: entry.targetContest,
-            games,
-          }),
-        });
-        if (!response.ok) {
-          const data = (await response.json().catch(() => null)) as { error?: string } | null;
-          alert(
-            `${data?.error ?? "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
-          );
-        }
-      }
 
       setSaved(true);
       setShowSaveDialog(true);
