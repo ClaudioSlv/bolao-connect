@@ -295,29 +295,33 @@ export default function SavedGamesPage() {
           <div className="performance-heading">
             <div>
               <p className="eyebrow">DESEMPENHO GERAL</p>
-              <h2>Lucro ou prejuízo</h2>
+              <h2>Resultado financeiro</h2>
             </div>
-            <strong
-              className={
+            <div
+              className={`performance-status ${
                 performance.balanceCents >= 0
-                  ? "performance-positive"
-                  : "performance-negative"
-              }
+                  ? "is-positive"
+                  : "is-negative"
+              }`}
             >
-              {money.format(performance.balanceCents / 100)}
-            </strong>
+              <span>{performance.balanceCents >= 0 ? "LUCRO" : "PREJUÍZO"}</span>
+              <strong>{money.format(Math.abs(performance.balanceCents) / 100)}</strong>
+            </div>
           </div>
 
           <div className="performance-totals">
             <div>
+              <i className="performance-kpi-dot invested" aria-hidden="true" />
               <span>Total apostado</span>
               <strong>{money.format(performance.totalCostCents / 100)}</strong>
             </div>
             <div>
+              <i className="performance-kpi-dot received" aria-hidden="true" />
               <span>Total recebido</span>
               <strong>{money.format(performance.totalPrizeCents / 100)}</strong>
             </div>
             <div>
+              <i className={`performance-kpi-dot ${performance.balanceCents >= 0 ? "positive" : "negative"}`} aria-hidden="true" />
               <span>Saldo</span>
               <strong
                 className={
@@ -332,38 +336,53 @@ export default function SavedGamesPage() {
           </div>
 
           {performance.bars.length ? (
-            <div className="performance-chart-scroll">
-              <div
-                className="performance-chart"
-                style={{ minWidth: `${Math.max(100, performance.bars.length * 62)}px` }}
-                role="img"
-                aria-label="Gráfico do lucro ou prejuízo de todos os jogos conferidos"
-              >
-                <div className="performance-zero-line">
-                  <span>R$ 0</span>
+            <div className="performance-chart-frame">
+              <div className="performance-chart-caption">
+                <strong>Evolução por jogo</strong>
+                <div className="performance-legend" aria-label="Legenda">
+                  <span><i className="positive" /> Lucro</span>
+                  <span><i className="negative" /> Prejuízo</span>
                 </div>
-                {performance.bars.map((bar) => {
-                  const positive = bar.balanceCents >= 0;
-                  const height = Math.max(
-                    5,
-                    Math.round(
-                      (Math.abs(bar.balanceCents) / performance.maxAbsoluteCents) * 82,
-                    ),
-                  );
-                  return (
-                    <div className="performance-bar-column" key={bar.id}>
-                      <div className="performance-bar-area">
-                        <div
-                          className={`performance-bar ${positive ? "is-positive" : "is-negative"}`}
-                          style={{ height: `${height}px` }}
-                          title={`${bar.label} · ${bar.detail}: ${money.format(bar.balanceCents / 100)}`}
-                        />
+              </div>
+              <div className="performance-chart-scroll">
+                <div
+                  className="performance-chart"
+                  style={{ minWidth: `${Math.max(100, performance.bars.length * 66)}px` }}
+                  role="img"
+                  aria-label="Gráfico do lucro ou prejuízo de todos os jogos conferidos"
+                >
+                  <div className="performance-grid-line line-25" />
+                  <div className="performance-zero-line"><span>ZERO</span></div>
+                  <div className="performance-grid-line line-75" />
+                  {performance.bars.map((bar) => {
+                    const positive = bar.balanceCents >= 0;
+                    const height = Math.max(
+                      6,
+                      Math.round(
+                        (Math.abs(bar.balanceCents) / performance.maxAbsoluteCents) * 76,
+                      ),
+                    );
+                    return (
+                      <div className="performance-bar-column" key={bar.id}>
+                        <div className="performance-bar-area">
+                          <span
+                            className={`performance-bar-value ${positive ? "is-positive" : "is-negative"}`}
+                            style={positive ? { bottom: `${108 + height}px` } : { top: `${108 + height}px` }}
+                          >
+                            {bar.balanceCents > 0 ? "+" : ""}{money.format(bar.balanceCents / 100)}
+                          </span>
+                          <div
+                            className={`performance-bar ${positive ? "is-positive" : "is-negative"}`}
+                            style={{ height: `${height}px` }}
+                            title={`${bar.label} · ${bar.detail}: ${money.format(bar.balanceCents / 100)}`}
+                          />
+                        </div>
+                        <small>{bar.label}</small>
+                        <b>{bar.detail}</b>
                       </div>
-                      <small>{bar.label}</small>
-                      <b>{money.format(bar.balanceCents / 100)}</b>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           ) : (
