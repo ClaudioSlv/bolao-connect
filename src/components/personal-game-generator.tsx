@@ -279,12 +279,7 @@ export function PersonalGameGenerator({
   };
   const buildManualGames = (numbers: number[]) => {
     if (numbers.length !== pick) return;
-    setGames(
-      Array.from({ length: Math.max(1, Math.min(1000, qty)) }, () => ({
-        numbers: [...numbers],
-        trevos: oneTrevos(),
-      })),
-    );
+    setGames([{ numbers: [...numbers], trevos: oneTrevos() }]);
     resetFeedback();
     showGenerated();
   };
@@ -578,7 +573,8 @@ export function PersonalGameGenerator({
       )}
       <div className="field">
         <label>
-          Quantidade de jogos <small className="muted">(máx. 1000)</small>
+          Quantidade de jogos automáticos{" "}
+          <small className="muted">(máx. 1000)</small>
         </label>
         <input
           id="game-quantity-input"
