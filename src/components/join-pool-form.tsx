@@ -22,6 +22,7 @@ export function JoinPoolForm({
   isWaitlist,
 }: JoinPoolFormProps) {
   const [rulesOpened, setRulesOpened] = useState(false);
+  const [rulesAgreed, setRulesAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   return (
@@ -85,33 +86,39 @@ export function JoinPoolForm({
         <div className="card">
           <span style={{ whiteSpace: "pre-line" }}>{rules}</span>
         </div>
+        {rulesOpened && (
+          <label style={{ marginTop: "1rem" }}>
+            <input
+              type="checkbox"
+              name="rules_agreed"
+              required
+              disabled={submitting}
+              checked={rulesAgreed}
+              onChange={(event) => setRulesAgreed(event.target.checked)}
+            />{" "}
+            Li e estou de acordo com as Regras do Grupo.
+          </label>
+        )}
       </details>
-      <label>
-        <input
-          type="checkbox"
-          name="rules_agreed"
-          required
-          disabled={!rulesOpened || submitting}
-        />{" "}
-        Li e estou de acordo com as Regras do Grupo.
-      </label>
       {!rulesOpened && (
         <p className="muted">
           Abra as regras acima para liberar a confirmação.
         </p>
       )}
-
-      <button
-        className="button primary"
-        type="submit"
-        disabled={!rulesOpened || submitting}
-      >
-        {submitting
-          ? "AGUARDE..."
-          : isWaitlist
-            ? "CONTINUAR"
-            : "CONFIRMAR VAGA"}
-      </button>
+      {rulesOpened && !rulesAgreed && (
+        <p className="muted">
+          Leia até o final e marque a caixa para liberar a reserva.
+        </p>
+      )}
+      {rulesAgreed && (
+        <button className="button primary" type="submit" disabled={submitting}>
+          {submitting
+            ? "AGUARDE..."
+            : isWaitlist
+              ? "CONTINUAR"
+              : "CONFIRMAR VAGA"}
+        </button>
+      )}
     </form>
   );
 }
