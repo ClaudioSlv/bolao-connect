@@ -16,10 +16,7 @@ function keysMatch(current:ArrayBuffer|null,target:Uint8Array){
 export async function ensureCurrentPushSubscription(registration:ServiceWorkerRegistration,publicKey:string){
   const targetKey=keyToBytes(publicKey);
   let subscription=await registration.pushManager.getSubscription();
-  let storedKey:string|null=null;
-  try{storedKey=window.localStorage.getItem(VAPID_STORAGE_KEY)}catch{}
-
-  if(subscription&&!keysMatch(subscription.options.applicationServerKey,targetKey)&&storedKey!==publicKey){
+  if(subscription&&!keysMatch(subscription.options.applicationServerKey,targetKey)){
     await subscription.unsubscribe();
     subscription=null;
   }
