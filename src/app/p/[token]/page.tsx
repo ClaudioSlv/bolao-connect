@@ -6,6 +6,7 @@ import { ReservationConfirmedModal } from "@/components/reservation-confirmed-mo
 import { PagBankCheckout } from "@/components/pagbank-checkout";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
+import { AvailablePoolsNotice } from "@/components/available-pools-notice";
 import { RulesAcceptanceForm } from "@/components/rules-acceptance-form";
 import {
   DEFAULT_POOL_RULES,
@@ -169,7 +170,27 @@ export default async function Page({
           .maybeSingle();
         credit = Number(account?.balance_cents || 0);
       }
-      data = { p, pool, sub, acceptance, credit };
+      let availablePools: any[] = [];
+      if (pool?.owner_id && p.phone) {
+        const normalizedPhone = phoneKey(p.phone);
+        const { data: memberships } = await s
+          .from("participants")
+          .select("pool_id")
+          .eq("phone", normalizedPhone)
+          .neq("status", "cancelled");
+        const joined = new Set((memberships ?? []).map((item) => item.pool_id));
+        const { data: openPools } = await s
+          .from("pools")
+          .select("id,lottery,public_slug")
+          .eq("owner_id", pool.owner_id)
+          .eq("status", "open")
+          .gt("payment_deadline", new Date().toISOString())
+          .order("created_at", { ascending: false });
+        availablePools = (openPools ?? []).filter(
+          (item) => item.public_slug && !joined.has(item.id),
+        );
+      }
+      data = { p, pool, sub, acceptance, credit, availablePools };
     }
   } catch {}
   if (!data?.p || !data?.pool)
@@ -180,7 +201,7 @@ export default async function Page({
         </section>
       </main>
     );
-  const { p, pool, sub, acceptance, credit } = data,
+  const { p, pool, sub, acceptance, credit, availablePools } = data,
     isTest = Boolean(p.is_test),
     amount = isTest
       ? Number(p.test_amount_cents || 100)
@@ -208,6 +229,10 @@ export default async function Page({
         token={token}
         accepted={Boolean(acceptance)}
         justAccepted={rulesStatus === "accepted"}
+      />
+      <AvailablePoolsNotice
+        pools={availablePools}
+        participant={{ token, name: p.name, phone: p.phone }}
       />
       <section className="section">
         <p className="eyebrow">
