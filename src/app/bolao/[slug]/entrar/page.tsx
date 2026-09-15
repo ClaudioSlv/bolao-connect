@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { JoinPoolForm } from "@/components/join-pool-form";
+import {
+  DEFAULT_POOL_RULES,
+  DEFAULT_POOL_RULES_VERSION,
+} from "@/lib/pool-rules";
 export const dynamic = "force-dynamic";
 function normalizePhone(value: string) {
   return value.replace(/\D/g, "");
@@ -13,19 +18,20 @@ async function joinPool(form: FormData) {
       .replace(/\s+/g, " "),
     phone = normalizePhone(String(form.get("phone") ?? "")),
     shares = Number(form.get("shares") || 1),
-    acceptWaitlist = form.get("accept_waitlist") === "on";
+    acceptWaitlist = form.get("accept_waitlist") === "on",
+    rulesAgreed = form.get("rules_agreed") === "on";
   if (!slug || name.length < 2 || name.length > 120)
     throw new Error("Informe seu nome corretamente.");
   if (phone.length < 10 || phone.length > 13)
     throw new Error("Informe um WhatsApp válido com DDD.");
   if (!Number.isInteger(shares) || shares < 1 || shares > 2)
     throw new Error("Cada participante pode adquirir no máximo 2 cotas.");
-  if (form.get("confirm") !== "on")
-    throw new Error("Confirme sua participação para continuar.");
+  if (!rulesAgreed)
+    throw new Error("Abra, leia e aceite as Regras do Grupo para continuar.");
   const s = createAdminClient();
   const { data: pool } = await s
     .from("pools")
-    .select("id,title,total_shares")
+    .select("id,title,total_shares,rules_text,rules_version")
     .eq("public_slug", slug)
     .maybeSingle();
   if (!pool) throw new Error("Bolão não encontrado.");
@@ -68,6 +74,25 @@ async function joinPool(form: FormData) {
   const participant = Array.isArray(data) ? data[0] : data;
   if (!participant?.access_token)
     throw new Error("Não foi possível gerar o acesso do participante.");
+  const rulesText = pool.rules_text || DEFAULT_POOL_RULES,
+    rulesVersion = Number(pool.rules_version || DEFAULT_POOL_RULES_VERSION);
+  const { error: acceptanceError } = await s
+    .from("pool_rule_acceptances")
+    .upsert(
+      {
+        pool_id: pool.id,
+        participant_id: participant.participant_id,
+        rules_version: rulesVersion,
+        rules_text: rulesText,
+      },
+      { onConflict: "pool_id,participant_id,rules_version" },
+    );
+  if (acceptanceError) {
+    await s.from("participants").delete().eq("id", participant.participant_id);
+    throw new Error(
+      "Não foi possível registrar o aceite das regras. A vaga não foi reservada.",
+    );
+  }
   const confirmedShares = Number(participant.confirmed_shares || 0),
     waitlistedShares = Number(participant.waitlisted_shares || 0);
   await s.from("audit_events").insert({
@@ -103,7 +128,7 @@ export default async function JoinPool({
   const { data: pool } = await s
     .from("pools")
     .select(
-      "id,title,lottery,total_shares,share_price_cents,payment_deadline,status",
+      "id,title,lottery,total_shares,share_price_cents,payment_deadline,status,rules_text,rules_version",
     )
     .eq("public_slug", slug)
     .maybeSingle();
@@ -176,7 +201,7 @@ export default async function JoinPool({
               <input type="hidden" name="name" value={q.name || ""} />
               <input type="hidden" name="phone" value={q.phone || ""} />
               <input type="hidden" name="shares" value={requested} />
-              <input type="hidden" name="confirm" value="on" />
+              <input type="hidden" name="rules_agreed" value="on" />
               <label>
                 <input type="checkbox" name="accept_waitlist" required /> Sim,
                 quero colocar {waiting} cota(s) na lista de espera.
@@ -206,45 +231,15 @@ export default async function JoinPool({
                 ? "As vagas principais estão preenchidas. Você pode entrar na fila por ordem de inscrição e só paga se ganhar uma vaga."
                 : "Cada participante pode adquirir no máximo 2 cotas no mesmo cadastro."}
             </p>
-            <form className="form" action={joinPool}>
-              <input type="hidden" name="slug" value={slug} />
-              <div className="field">
-                <label>Seu nome</label>
-                <input
-                  name="name"
-                  required
-                  maxLength={120}
-                  autoComplete="name"
-                  defaultValue={q.name || ""}
-                  placeholder="Nome completo"
-                />
-              </div>
-              <div className="field">
-                <label>WhatsApp com DDD</label>
-                <input
-                  name="phone"
-                  required
-                  inputMode="tel"
-                  autoComplete="tel"
-                  defaultValue={q.phone || ""}
-                  placeholder="(13) 99999-9999"
-                />
-              </div>
-              <div className="field">
-                <label>Quantidade de cotas (máximo 2)</label>
-                <select name="shares" defaultValue={q.shares || "1"}>
-                  <option value="1">1 cota</option>
-                  <option value="2">2 cotas</option>
-                </select>
-              </div>
-              <label>
-                <input type="checkbox" name="confirm" required /> Confirmo minha
-                participação com a quantidade de cotas escolhida.
-              </label>
-              <button className="button primary">
-                {isWaitlist ? "CONTINUAR" : "CONFIRMAR PARTICIPAÇÃO"}
-              </button>
-            </form>
+            <JoinPoolForm
+              action={joinPool}
+              slug={slug}
+              rules={pool.rules_text || DEFAULT_POOL_RULES}
+              defaultName={q.name}
+              defaultPhone={q.phone}
+              defaultShares={q.shares}
+              isWaitlist={isWaitlist}
+            />
           </>
         )}
       </section>
