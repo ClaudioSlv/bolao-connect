@@ -115,6 +115,32 @@ async function fetchAll(base: string, paths: Record<SupportedLottery, string>, s
   };
 }
 
+async function fetchNextContest(lottery: SupportedLottery, currentContest: number) {
+  const targetContest = currentContest + 1;
+  const data = await fetchJson(`${CAIXA_BASE}/${caixaPaths[lottery]}/${targetContest}`, 5000);
+  const result = normalize(lottery, data as HomeResult);
+  if (result.contest !== targetContest || result.numbers.length === 0) {
+    throw new Error("concurso seguinte ainda indisponível");
+  }
+  return result;
+}
+
+async function probeNextContests(currentResults: NormalizedResult[]) {
+  const currentByLottery = new Map(currentResults.map(result => [result.lottery, result]));
+  const settled = await Promise.allSettled(
+    supportedLotteries.map(async lottery => {
+      const current = currentByLottery.get(lottery);
+      if (!current) return null;
+      try {
+        return await fetchNextContest(lottery, current.contest);
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return settled.flatMap(item => item.status === "fulfilled" && item.value ? [item.value] : []);
+}
+
 function newestResults(...groups: NormalizedResult[][]) {
   const latest = new Map<SupportedLottery, NormalizedResult>();
   for (const group of groups) {
@@ -162,10 +188,12 @@ export async function GET(request: NextRequest) {
 
     const caixaResults = caixaOutcome.status === "fulfilled" ? caixaOutcome.value.results : [];
     const backupResults = backupOutcome.status === "fulfilled" ? backupOutcome.value.results : [];
-    const results = newestResults(homeResults, caixaResults, backupResults);
+    const baseResults = newestResults(homeResults, caixaResults, backupResults);
+    const nextResults = await probeNextContests(baseResults);
+    const results = newestResults(baseResults, nextResults);
 
     if (results.length) {
-      return json({ results, errors, source: "fresh-best-of-all", updatedAt: new Date().toISOString() });
+      return json({ results, errors, source: nextResults.length ? "fresh-next-contest-probe" : "fresh-best-of-all", updatedAt: new Date().toISOString() });
     }
   } else {
     const [homeOutcome, backupOutcome] = await Promise.allSettled([
@@ -180,10 +208,12 @@ export async function GET(request: NextRequest) {
 
     appendFetchAllErrors(errors, backupOutcome, "Falha fonte alternativa");
     const backupResults = backupOutcome.status === "fulfilled" ? backupOutcome.value.results : [];
-    const results = newestResults(homeResults, backupResults);
+    const baseResults = newestResults(homeResults, backupResults);
+    const nextResults = await probeNextContests(baseResults);
+    const results = newestResults(baseResults, nextResults);
 
     if (results.length) {
-      return json({ results, errors, source: "best-of-caixa-and-backup", updatedAt: new Date().toISOString() });
+      return json({ results, errors, source: nextResults.length ? "next-contest-probe" : "best-of-caixa-and-backup", updatedAt: new Date().toISOString() });
     }
   }
 
