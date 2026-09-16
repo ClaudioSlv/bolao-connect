@@ -29,20 +29,18 @@ type ManualCheck = {
   lottery: string;
   label: string;
   contest: number;
+  sourceContest: number;
   games: CheckedGame[];
   totalCostCents: number;
-  drawNumbers: number[];
   secondDrawNumbers: number[];
-  drawTrevos: number[];
 };
 
-const KEY = "bolao-amigos-btp:jogos-salvos";
-const money = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
+type DrawRule = { count: number; min: number; max: number; repeat?: boolean };
 
-const drawRules: Record<string, { count: number; min: number; max: number; repeat?: boolean }> = {
+const KEY = "bolao-amigos-btp:jogos-salvos";
+const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+const drawRules: Record<string, DrawRule> = {
   "mega-sena": { count: 6, min: 1, max: 60 },
   lotofacil: { count: 15, min: 1, max: 25 },
   quina: { count: 5, min: 1, max: 80 },
@@ -55,19 +53,14 @@ const drawRules: Record<string, { count: number; min: number; max: number; repea
 };
 
 function parseNumbers(raw: string) {
-  if (!raw.trim()) return [];
-  return raw
-    .trim()
-    .split(/[\s,;]+/)
-    .filter(Boolean)
-    .map((value) => Number(value));
+  return (raw.match(/\d+/g) ?? []).map(Number);
 }
 
 function validateDraw(lottery: string, numbers: number[], label: string) {
   const rule = drawRules[lottery];
   if (!rule) return "Modalidade não reconhecida.";
   if (numbers.length !== rule.count)
-    return `${label}: informe exatamente ${rule.count} números.`;
+    return `${label}: encontrei ${numbers.length} número(s). Informe exatamente ${rule.count}.`;
   if (numbers.some((number) => !Number.isInteger(number) || number < rule.min || number > rule.max))
     return `${label}: use somente números de ${String(rule.min).padStart(2, "0")} a ${String(rule.max).padStart(2, "0")}.`;
   if (!rule.repeat && new Set(numbers).size !== numbers.length)
@@ -75,12 +68,7 @@ function validateDraw(lottery: string, numbers: number[], label: string) {
   return "";
 }
 
-function compareGame(
-  lottery: string,
-  game: Game,
-  draws: number[][],
-  drawTrevos: number[],
-) {
+function compareGame(lottery: string, game: Game, draws: number[][], drawTrevos: number[]) {
   const trevoHits =
     lottery === "mais-milionaria"
       ? (game.trevos ?? []).filter((number) => drawTrevos.includes(Number(number))).length
@@ -128,7 +116,8 @@ function parseMoneyToCents(raw: string) {
 export default function ManualConferencePage() {
   const [items, setItems] = useState<Saved[]>([]);
   const [lottery, setLottery] = useState("");
-  const [contest, setContest] = useState("");
+  const [savedContest, setSavedContest] = useState("");
+  const [resultContest, setResultContest] = useState("");
   const [numbersInput, setNumbersInput] = useState("");
   const [secondDrawInput, setSecondDrawInput] = useState("");
   const [trevosInput, setTrevosInput] = useState("");
@@ -141,10 +130,14 @@ export default function ManualConferencePage() {
       const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
       const saved = Array.isArray(parsed) ? (parsed as Saved[]) : [];
       setItems(saved);
-      const first = saved[0];
+      const first = saved.find((item) => Number(item.targetContest) > 0) ?? saved[0];
       if (first) {
         setLottery(first.lottery);
-        if (Number(first.targetContest) > 0) setContest(String(first.targetContest));
+        if (Number(first.targetContest) > 0) {
+          const contest = String(first.targetContest);
+          setSavedContest(contest);
+          setResultContest(contest);
+        }
       }
     } catch {
       setItems([]);
@@ -156,20 +149,29 @@ export default function ManualConferencePage() {
     [items],
   );
 
-  const matchingItems = useMemo(() => {
-    const contestNumber = Number(contest);
-    return items.filter(
-      (item) => item.lottery === lottery && Number(item.targetContest) === contestNumber,
-    );
-  }, [contest, items, lottery]);
+  const savedContests = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .filter((item) => item.lottery === lottery)
+            .map((item) => Number(item.targetContest))
+            .filter((contest) => Number.isInteger(contest) && contest > 0),
+        ),
+      ).sort((a, b) => b - a),
+    [items, lottery],
+  );
 
-  const selectLottery = (value: string) => {
-    setLottery(value);
-    const contests = items
-      .filter((item) => item.lottery === value)
-      .map((item) => Number(item.targetContest))
-      .filter((value) => value > 0);
-    setContest(contests.length ? String(Math.max(...contests)) : "");
+  const matchingItems = useMemo(() => {
+    const contest = Number(savedContest);
+    return items.filter(
+      (item) => item.lottery === lottery && Number(item.targetContest) === contest,
+    );
+  }, [items, lottery, savedContest]);
+
+  const gameCount = matchingItems.reduce((sum, item) => sum + item.games.length, 0);
+
+  const resetResult = () => {
     setNumbersInput("");
     setSecondDrawInput("");
     setTrevosInput("");
@@ -178,18 +180,38 @@ export default function ManualConferencePage() {
     setError("");
   };
 
+  const selectLottery = (value: string) => {
+    setLottery(value);
+    const contests = items
+      .filter((item) => item.lottery === value)
+      .map((item) => Number(item.targetContest))
+      .filter((contest) => Number.isInteger(contest) && contest > 0)
+      .sort((a, b) => b - a);
+    const nextContest = contests[0] ? String(contests[0]) : "";
+    setSavedContest(nextContest);
+    setResultContest(nextContest);
+    resetResult();
+  };
+
+  const selectSavedContest = (value: string) => {
+    setSavedContest(value);
+    setResultContest(value);
+    resetResult();
+  };
+
   const runCheck = () => {
     setError("");
     setChecked(null);
     setReceivedInput("");
 
-    const contestNumber = Number(contest);
-    if (!Number.isInteger(contestNumber) || contestNumber <= 0) {
-      setError("Informe um número de concurso válido.");
+    const sourceContest = Number(savedContest);
+    const contest = Number(resultContest);
+    if (!Number.isInteger(sourceContest) || sourceContest <= 0 || !matchingItems.length) {
+      setError("Selecione primeiro um concurso que exista nos Jogos Salvos.");
       return;
     }
-    if (!matchingItems.length) {
-      setError("Não encontrei jogos salvos dessa modalidade para esse concurso neste aparelho.");
+    if (!Number.isInteger(contest) || contest <= 0) {
+      setError("Informe o número real do concurso do resultado.");
       return;
     }
 
@@ -223,9 +245,7 @@ export default function ManualConferencePage() {
       }
     }
 
-    const draws = secondDrawNumbers.length
-      ? [drawNumbers, secondDrawNumbers]
-      : [drawNumbers];
+    const draws = secondDrawNumbers.length ? [drawNumbers, secondDrawNumbers] : [drawNumbers];
     const games: CheckedGame[] = [];
     let totalCostCents = 0;
 
@@ -251,12 +271,11 @@ export default function ManualConferencePage() {
     setChecked({
       lottery,
       label,
-      contest: contestNumber,
+      contest,
+      sourceContest,
       games,
       totalCostCents,
-      drawNumbers,
       secondDrawNumbers,
-      drawTrevos,
     });
   };
 
@@ -277,15 +296,13 @@ export default function ManualConferencePage() {
 
   return (
     <main className="shell">
-      <Link className="back" href="/jogos-salvos">
-        ← Voltar
-      </Link>
+      <Link className="back" href="/jogos-salvos">← Voltar</Link>
 
       <section className="section">
         <p className="eyebrow">JOGOS SALVOS</p>
         <h1>Conferir resultado manual</h1>
         <p className="muted">
-          Use esta opção quando o resultado automático estiver atrasado. Ela confere somente os jogos salvos neste aparelho e não altera o widget de resultados.
+          Escolha os jogos já salvos, informe o concurso real e cole as dezenas sorteadas. Esta função não altera o widget de resultados.
         </p>
       </section>
 
@@ -300,26 +317,43 @@ export default function ManualConferencePage() {
             <div className="field">
               <label>Modalidade</label>
               <select value={lottery} onChange={(event) => selectLottery(event.target.value)}>
-                {lotteries.map(([id, label]) => (
-                  <option key={id} value={id}>{label}</option>
-                ))}
+                {lotteries.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
               </select>
             </div>
 
             <div className="field">
-              <label>Número do concurso</label>
+              <label>Jogos salvos do concurso</label>
+              {savedContests.length ? (
+                <select value={savedContest} onChange={(event) => selectSavedContest(event.target.value)}>
+                  {savedContests.map((contest) => (
+                    <option key={contest} value={contest}>Concurso {contest}</option>
+                  ))}
+                </select>
+              ) : (
+                <div className="status">Não há concurso identificado nos jogos salvos desta modalidade.</div>
+              )}
+              <small className="muted">Este campo escolhe quais jogos do seu histórico serão conferidos.</small>
+            </div>
+
+            <div className="field">
+              <label>Concurso do resultado</label>
               <input
                 type="number"
                 inputMode="numeric"
                 min="1"
-                value={contest}
+                value={resultContest}
                 onChange={(event) => {
-                  setContest(event.target.value);
+                  setResultContest(event.target.value);
                   setChecked(null);
                   setError("");
                 }}
                 placeholder="Ex.: 3780"
               />
+              {savedContest && resultContest && savedContest !== resultContest && (
+                <small className="muted">
+                  Os jogos foram gravados como concurso {savedContest}, mas serão conferidos com o resultado do concurso {resultContest}.
+                </small>
+              )}
             </div>
 
             <div className="field">
@@ -330,7 +364,7 @@ export default function ManualConferencePage() {
                 rows={3}
                 placeholder="Ex.: 01 02 03 04 05 06 ..."
               />
-              <small className="muted">Separe os números por espaço, vírgula ou ponto e vírgula.</small>
+              <small className="muted">Pode colar com espaços, vírgulas, pontos ou hífens.</small>
             </div>
 
             {lottery === "dupla-sena" && (
@@ -357,13 +391,10 @@ export default function ManualConferencePage() {
               </div>
             )}
 
-            <div className="status">
-              Jogos encontrados para esta seleção: {matchingItems.reduce((sum, item) => sum + item.games.length, 0)}
-            </div>
-
+            <div className="status">Jogos encontrados: {gameCount}</div>
             {error && <p className="status" role="alert" style={{ color: "#facc15" }}>{error}</p>}
 
-            <button className="button primary" type="button" onClick={runCheck}>
+            <button className="button primary" type="button" onClick={runCheck} disabled={!gameCount}>
               Conferir jogos agora
             </button>
           </section>
@@ -373,19 +404,15 @@ export default function ManualConferencePage() {
               <section className="section">
                 <p className="eyebrow">CONCURSO {checked.contest}</p>
                 <h2>{checked.label} — resumo</h2>
+                {checked.sourceContest !== checked.contest && (
+                  <p className="status">
+                    Conferência manual: jogos salvos como concurso {checked.sourceContest} comparados com o resultado do concurso {checked.contest}.
+                  </p>
+                )}
                 <div className="performance-totals">
-                  <div>
-                    <span>Jogos conferidos</span>
-                    <strong>{checked.games.length}</strong>
-                  </div>
-                  <div>
-                    <span>Total apostado</span>
-                    <strong>{money.format(checked.totalCostCents / 100)}</strong>
-                  </div>
-                  <div>
-                    <span>Maior acerto</span>
-                    <strong>{Math.max(0, ...checked.games.map((game) => game.hits))}</strong>
-                  </div>
+                  <div><span>Jogos conferidos</span><strong>{checked.games.length}</strong></div>
+                  <div><span>Total apostado</span><strong>{money.format(checked.totalCostCents / 100)}</strong></div>
+                  <div><span>Maior acerto</span><strong>{Math.max(0, ...checked.games.map((game) => game.hits))}</strong></div>
                 </div>
 
                 <div className="list" style={{ marginTop: 16 }}>
@@ -419,14 +446,8 @@ export default function ManualConferencePage() {
 
                 {balanceCents != null && receivedCents != null && (
                   <div className="performance-totals">
-                    <div>
-                      <span>Total apostado</span>
-                      <strong>{money.format(checked.totalCostCents / 100)}</strong>
-                    </div>
-                    <div>
-                      <span>Total recebido</span>
-                      <strong>{money.format(receivedCents / 100)}</strong>
-                    </div>
+                    <div><span>Total apostado</span><strong>{money.format(checked.totalCostCents / 100)}</strong></div>
+                    <div><span>Total recebido</span><strong>{money.format(receivedCents / 100)}</strong></div>
                     <div>
                       <span>{balanceCents >= 0 ? "Lucro" : "Prejuízo"}</span>
                       <strong className={balanceCents >= 0 ? "performance-positive" : "performance-negative"}>
