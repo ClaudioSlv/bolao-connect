@@ -138,16 +138,24 @@ export async function GET(request: NextRequest) {
   const forceFresh = request.nextUrl.searchParams.get("fresh") === "1";
 
   if (forceFresh) {
-    let homeResults: NormalizedResult[] = [];
-    try {
-      homeResults = await fetchHomeResults();
-    } catch (error) {
-      errors.push({ lottery: "all", message: error instanceof Error ? error.message : "Falha CAIXA home" });
+    const [homeOutcome, caixaOutcome] = await Promise.allSettled([
+      fetchHomeResults(),
+      fetchAll(CAIXA_BASE, caixaPaths),
+    ]);
+
+    const homeResults = homeOutcome.status === "fulfilled" ? homeOutcome.value : [];
+    if (homeOutcome.status === "rejected") {
+      errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA home" });
     }
 
-    const caixa = await fetchAll(CAIXA_BASE, caixaPaths);
-    errors.push(...caixa.errors);
-    const freshResults = newestResults(homeResults, caixa.results);
+    const caixaResults = caixaOutcome.status === "fulfilled" ? caixaOutcome.value.results : [];
+    if (caixaOutcome.status === "fulfilled") {
+      errors.push(...caixaOutcome.value.errors);
+    } else {
+      errors.push({ lottery: "all", message: caixaOutcome.reason instanceof Error ? caixaOutcome.reason.message : "Falha CAIXA individual" });
+    }
+
+    const freshResults = newestResults(homeResults, caixaResults);
     if (freshResults.length) {
       return json({ results: freshResults, errors, source: "caixa-fresh", updatedAt: new Date().toISOString() });
     }
