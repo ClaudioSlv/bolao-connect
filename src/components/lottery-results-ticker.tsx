@@ -36,7 +36,57 @@ export function LotteryResultsTicker(){
  const[results,setResults]=useState<Result[]>(fallback);
  const[status,setStatus]=useState<"loading"|"online"|"error">("loading");
  const[live,setLive]=useState<LiveStatus>({live:false});
- useEffect(()=>{let cancelled=false;let resultTick=0;const testMode=new URLSearchParams(window.location.search).get("testeSorteio")==="1";async function load(){try{const requests:Promise<Response>[]=[fetch("/api/lottery-live",{cache:"no-store"})];const shouldRefreshResults=resultTick===0||isResultRushWindow()||resultTick%10===0;if(shouldRefreshResults)requests.push(fetch("/api/lottery-ticker",{cache:"no-store"}));const responses=await Promise.all(requests);const liveData=(await responses[0].json())as LiveStatus;if(!cancelled)setLive(testMode?{live:true,watchUrl:"https://www.youtube.com/@caixa/live",poolTitle:"Teste do sorteio ao vivo"}:liveData?.live?liveData:{live:false});if(responses[1]){if(!responses[1].ok)throw new Error("ticker api");const data=(await responses[1].json())as{results?:Result[]};if(!cancelled&&Array.isArray(data.results)&&data.results.length){setResults(data.results);setStatus("online")}else if(!cancelled)setStatus("error")}resultTick++}catch{if(testMode&&!cancelled)setLive({live:true,watchUrl:"https://www.youtube.com/@caixa/live",poolTitle:"Teste do sorteio ao vivo"});if(!cancelled&&resultTick===0)setStatus("error");resultTick++}}load();const timer=window.setInterval(load,30*1000);return()=>{cancelled=true;window.clearInterval(timer)}},[]);
+ useEffect(()=>{
+  let cancelled=false;
+  let resultTick=0;
+  const testMode=new URLSearchParams(window.location.search).get("testeSorteio")==="1";
+
+  async function load(){
+   const shouldRefreshResults=resultTick===0||isResultRushWindow()||resultTick%10===0;
+   const fresh=resultTick===0?"1":"0";
+   const resultUrl=`/api/lottery-ticker?fresh=${fresh}&_=${Date.now()}`;
+
+   const tasks:[Promise<Response>,Promise<Response|null>]=[
+    fetch("/api/lottery-live",{cache:"no-store"}),
+    shouldRefreshResults?fetch(resultUrl,{cache:"no-store",headers:{"Cache-Control":"no-cache"}}):Promise.resolve(null),
+   ];
+   const[liveOutcome,resultOutcome]=await Promise.allSettled(tasks);
+
+   if(liveOutcome.status==="fulfilled"&&liveOutcome.value.ok){
+    try{
+     const liveData=(await liveOutcome.value.json())as LiveStatus;
+     if(!cancelled)setLive(testMode?{live:true,watchUrl:"https://www.youtube.com/@caixa/live",poolTitle:"Teste do sorteio ao vivo"}:liveData?.live?liveData:{live:false});
+    }catch{
+     if(testMode&&!cancelled)setLive({live:true,watchUrl:"https://www.youtube.com/@caixa/live",poolTitle:"Teste do sorteio ao vivo"});
+    }
+   }else if(testMode&&!cancelled){
+    setLive({live:true,watchUrl:"https://www.youtube.com/@caixa/live",poolTitle:"Teste do sorteio ao vivo"});
+   }
+
+   if(resultOutcome.status==="fulfilled"&&resultOutcome.value){
+    try{
+     if(!resultOutcome.value.ok)throw new Error("ticker api");
+     const data=(await resultOutcome.value.json())as{results?:Result[]};
+     if(!cancelled&&Array.isArray(data.results)&&data.results.length){
+      setResults(data.results);
+      setStatus("online");
+     }else if(!cancelled){
+      setStatus("error");
+     }
+    }catch{
+     if(!cancelled)setStatus("error");
+    }
+   }else if(resultOutcome.status==="rejected"&&shouldRefreshResults&&!cancelled){
+    setStatus("error");
+   }
+
+   resultTick++;
+  }
+
+  load();
+  const timer=window.setInterval(load,30*1000);
+  return()=>{cancelled=true;window.clearInterval(timer)};
+ },[]);
  const items=[...results,...results];
  const waitingText=status==="loading"?"Buscando resultado…":"Resultado temporariamente indisponível";
  return <aside className={`lottery-ticker${live.live?" lottery-ticker-live":""}`} aria-label={live.live?"Sorteio das Loterias CAIXA ao vivo":"Últimos resultados das Loterias CAIXA"}>
