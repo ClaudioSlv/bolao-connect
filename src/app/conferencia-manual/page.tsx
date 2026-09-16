@@ -37,6 +37,7 @@ type ManualCheck = {
   drawTrevos: number[];
 };
 type StoredManual = {
+  poolId?: string;
   lottery: string;
   savedContest: string;
   resultContest: string;
@@ -45,6 +46,7 @@ type StoredManual = {
   trevosInput: string;
   receivedInput: string;
   checked: ManualCheck;
+  published?: boolean;
   savedAt: string;
 };
 type DrawRule = { count: number; min: number; max: number; repeat?: boolean };
@@ -92,11 +94,11 @@ function compareGame(lottery: string, game: Game, draws: number[][], drawTrevos:
       const matched = game.numbers.filter(
         (number, numberIndex) => Number(numbers[numberIndex]) === Number(number),
       );
-      return { hits: matched.length, matched, drawIndex: index + 1 };
+      return { hits: matched.length, matched, drawIndex: index + 1, trevoHits };
     }
     const drawn = new Set(numbers.map(Number));
     const matched = game.numbers.filter((number) => drawn.has(Number(number)));
-    return { hits: matched.length, matched, drawIndex: index + 1 };
+    return { hits: matched.length, matched, drawIndex: index + 1, trevoHits };
   });
 
   return checks.reduce((best, current) =>
@@ -125,15 +127,19 @@ function parseMoneyToCents(raw: string) {
   return Math.round(value * 100);
 }
 
-function storeManual(record: StoredManual) {
+function putLocal(record: StoredManual) {
   try {
-    const current = JSON.parse(localStorage.getItem(MANUAL_KEY) || "[]");
-    const history = Array.isArray(current) ? (current as StoredManual[]) : [];
+    const parsed = JSON.parse(localStorage.getItem(MANUAL_KEY) || "[]");
+    const history = Array.isArray(parsed) ? (parsed as StoredManual[]) : [];
     const next = [
       record,
       ...history.filter(
         (item) =>
-          !(item.lottery === record.lottery && item.resultContest === record.resultContest),
+          !(
+            item.poolId === record.poolId &&
+            item.lottery === record.lottery &&
+            item.resultContest === record.resultContest
+          ),
       ),
     ].slice(0, 30);
     localStorage.setItem(MANUAL_KEY, JSON.stringify(next));
@@ -141,6 +147,7 @@ function storeManual(record: StoredManual) {
 }
 
 export default function ManualConferencePage() {
+  const [poolId, setPoolId] = useState("");
   const [items, setItems] = useState<Saved[]>([]);
   const [lottery, setLottery] = useState("");
   const [savedContest, setSavedContest] = useState("");
@@ -155,13 +162,19 @@ export default function ManualConferencePage() {
 
   useEffect(() => {
     try {
+      const currentPoolId = new URLSearchParams(window.location.search).get("pool") ?? "";
+      setPoolId(currentPoolId);
+
       const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
       const saved = Array.isArray(parsed) ? (parsed as Saved[]) : [];
       setItems(saved);
 
       const manualParsed = JSON.parse(localStorage.getItem(MANUAL_KEY) || "[]");
       const history = Array.isArray(manualParsed) ? (manualParsed as StoredManual[]) : [];
-      const latest = history[0];
+      const latest =
+        history.find((item) => item.poolId === currentPoolId) ??
+        (currentPoolId ? undefined : history[0]);
+
       if (latest?.checked) {
         setLottery(latest.lottery);
         setSavedContest(latest.savedContest);
@@ -171,7 +184,7 @@ export default function ManualConferencePage() {
         setTrevosInput(latest.trevosInput);
         setReceivedInput(latest.receivedInput);
         setChecked(latest.checked);
-        setPublishState("saved");
+        setPublishState(latest.published ? "saved" : "local-only");
         return;
       }
 
@@ -215,6 +228,41 @@ export default function ManualConferencePage() {
   }, [items, lottery, savedContest]);
 
   const gameCount = matchingItems.reduce((sum, item) => sum + item.games.length, 0);
+  const backHref = poolId ? `/jogos-salvos?pool=${encodeURIComponent(poolId)}` : "/jogos-salvos";
+
+  const localRecord = (result: ManualCheck, received: string, published: boolean): StoredManual => ({
+    poolId,
+    lottery: result.lottery,
+    savedContest: String(result.sourceContest),
+    resultContest: String(result.contest),
+    numbersInput: result.drawNumbers.map((n) => String(n).padStart(2, "0")).join(" "),
+    secondDrawInput: result.secondDrawNumbers.map((n) => String(n).padStart(2, "0")).join(" "),
+    trevosInput: result.drawTrevos.map((n) => String(n).padStart(2, "0")).join(" "),
+    receivedInput: received,
+    checked: result,
+    published,
+    savedAt: new Date().toISOString(),
+  });
+
+  const publishResult = async (result: ManualCheck, receivedPrizeCents: number | null) => {
+    const response = await fetch("/api/manual-lottery-results", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        poolId,
+        lottery: result.lottery,
+        contest: result.contest,
+        sourceContest: result.sourceContest,
+        numbers: result.drawNumbers,
+        secondDrawNumbers: result.secondDrawNumbers,
+        trevos: result.drawTrevos,
+        checkedGames: result.games,
+        totalCostCents: result.totalCostCents,
+        receivedPrizeCents,
+      }),
+    });
+    if (!response.ok) throw new Error("resultado não publicado");
+  };
 
   const resetResult = () => {
     setNumbersInput("");
@@ -331,32 +379,12 @@ export default function ManualConferencePage() {
       drawTrevos,
     };
     setChecked(result);
-
-    storeManual({
-      lottery,
-      savedContest,
-      resultContest,
-      numbersInput,
-      secondDrawInput,
-      trevosInput,
-      receivedInput,
-      checked: result,
-      savedAt: new Date().toISOString(),
-    });
+    setReceivedInput("");
+    putLocal(localRecord(result, "", false));
 
     try {
-      const response = await fetch("/api/manual-lottery-results", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lottery,
-          contest,
-          numbers: drawNumbers,
-          secondDrawNumbers,
-          trevos: drawTrevos,
-        }),
-      });
-      if (!response.ok) throw new Error("não publicado");
+      await publishResult(result, null);
+      putLocal(localRecord(result, "", true));
       setPublishState("saved");
     } catch {
       setPublishState("local-only");
@@ -380,29 +408,31 @@ export default function ManualConferencePage() {
 
   const updateReceived = (value: string) => {
     setReceivedInput(value);
-    if (!checked) return;
-    storeManual({
-      lottery,
-      savedContest,
-      resultContest,
-      numbersInput,
-      secondDrawInput,
-      trevosInput,
-      receivedInput: value,
-      checked,
-      savedAt: new Date().toISOString(),
-    });
+    if (checked) putLocal(localRecord(checked, value, publishState === "saved"));
+  };
+
+  const savePrizeValue = async () => {
+    if (!checked || receivedCents == null) return;
+    setPublishState("saving");
+    putLocal(localRecord(checked, receivedInput, false));
+    try {
+      await publishResult(checked, receivedCents);
+      putLocal(localRecord(checked, receivedInput, true));
+      setPublishState("saved");
+    } catch {
+      setPublishState("local-only");
+    }
   };
 
   return (
     <main className="shell">
-      <Link className="back" href="/jogos-salvos">← Voltar</Link>
+      <Link className="back" href={backHref}>← Voltar</Link>
 
       <section className="section">
         <p className="eyebrow">JOGOS SALVOS</p>
         <h1>Conferir resultado manual</h1>
         <p className="muted">
-          Escolha os jogos já salvos, informe o concurso real e cole as dezenas sorteadas. O resultado fica registrado e pode ser usado pelos participantes sem alterar o widget da CAIXA.
+          Escolha os jogos já salvos, informe o concurso real e cole as dezenas sorteadas. A conferência fica registrada e pode ser mostrada aos participantes sem alterar o widget da CAIXA.
         </p>
       </section>
 
@@ -500,7 +530,7 @@ export default function ManualConferencePage() {
             </button>
 
             {publishState === "saved" && (
-              <p className="status">✓ Resultado salvo. Ao voltar para esta tela ele continuará registrado e os participantes podem usá-lo em “Conferir meus jogos”.</p>
+              <p className="status">✓ Resultado registrado. Ele continuará aqui quando você voltar e ficará disponível no painel dos participantes deste bolão.</p>
             )}
             {publishState === "local-only" && (
               <p className="status" style={{ color: "#facc15" }}>
@@ -533,7 +563,7 @@ export default function ManualConferencePage() {
               <section className="section">
                 <h2>Lucro ou prejuízo</h2>
                 <p className="muted">
-                  Informe quanto esses jogos receberam em prêmios no total. Se não houve prêmio, informe 0.
+                  Informe quanto esses jogos receberam em prêmios no total. Se não houve prêmio, informe 0. Esse valor também pode ficar registrado para os participantes.
                 </p>
                 <div className="field">
                   <label>Total recebido em prêmios (R$)</label>
@@ -550,16 +580,21 @@ export default function ManualConferencePage() {
                 )}
 
                 {balanceCents != null && receivedCents != null && (
-                  <div className="performance-totals">
-                    <div><span>Total apostado</span><strong>{money.format(checked.totalCostCents / 100)}</strong></div>
-                    <div><span>Total recebido</span><strong>{money.format(receivedCents / 100)}</strong></div>
-                    <div>
-                      <span>{balanceCents >= 0 ? "Lucro" : "Prejuízo"}</span>
-                      <strong className={balanceCents >= 0 ? "performance-positive" : "performance-negative"}>
-                        {money.format(Math.abs(balanceCents) / 100)}
-                      </strong>
+                  <>
+                    <div className="performance-totals">
+                      <div><span>Total apostado</span><strong>{money.format(checked.totalCostCents / 100)}</strong></div>
+                      <div><span>Total recebido</span><strong>{money.format(receivedCents / 100)}</strong></div>
+                      <div>
+                        <span>{balanceCents >= 0 ? "Lucro" : "Prejuízo"}</span>
+                        <strong className={balanceCents >= 0 ? "performance-positive" : "performance-negative"}>
+                          {money.format(Math.abs(balanceCents) / 100)}
+                        </strong>
+                      </div>
                     </div>
-                  </div>
+                    <button className="button secondary" type="button" onClick={savePrizeValue} disabled={publishState === "saving"}>
+                      SALVAR VALOR DO PRÊMIO
+                    </button>
+                  </>
                 )}
               </section>
 
