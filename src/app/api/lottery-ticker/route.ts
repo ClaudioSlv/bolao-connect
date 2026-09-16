@@ -7,6 +7,11 @@ export const runtime = "nodejs";
 const CAIXA_HOME = "https://servicebus2.caixa.gov.br/portaldeloterias/api/home/ultimos-resultados";
 const CAIXA_BASE = "https://servicebus2.caixa.gov.br/portaldeloterias/api";
 const FALLBACK_BASE = "https://loteriascaixa-api.herokuapp.com/api";
+const FALLBACK_BASES = [
+  FALLBACK_BASE,
+  "https://loterias-gutotech.herokuapp.com/api",
+  "https://loterias-caixa-gov.herokuapp.com/api",
+];
 
 const labels: Record<SupportedLottery, string> = {
   "mega-sena": "Mega-Sena", lotofacil: "Lotofácil", quina: "Quina", "dupla-sena": "Dupla Sena",
@@ -115,14 +120,26 @@ async function fetchAll(base: string, paths: Record<SupportedLottery, string>, s
   };
 }
 
+async function fetchContestFromSource(lottery: SupportedLottery, contest: number, base: string, path: string) {
+  const data = await fetchJson(`${base}/${path}/${contest}`, 5500);
+  const result = normalize(lottery, data as HomeResult);
+  if (result.contest !== contest || result.numbers.length === 0) throw new Error("concurso inválido");
+  return result;
+}
+
 async function fetchNextContest(lottery: SupportedLottery, currentContest: number) {
   const targetContest = currentContest + 1;
-  const data = await fetchJson(`${CAIXA_BASE}/${caixaPaths[lottery]}/${targetContest}`, 5000);
-  const result = normalize(lottery, data as HomeResult);
-  if (result.contest !== targetContest || result.numbers.length === 0) {
-    throw new Error("concurso seguinte ainda indisponível");
-  }
-  return result;
+  const sources = [
+    { base: CAIXA_BASE, path: caixaPaths[lottery] },
+    ...FALLBACK_BASES.map(base => ({ base, path: fallbackPaths[lottery] })),
+  ];
+
+  const settled = await Promise.allSettled(
+    sources.map(source => fetchContestFromSource(lottery, targetContest, source.base, source.path)),
+  );
+  const valid = settled.flatMap(item => item.status === "fulfilled" ? [item.value] : []);
+  if (!valid.length) throw new Error("concurso seguinte ainda indisponível");
+  return valid[0];
 }
 
 async function probeNextContests(currentResults: NormalizedResult[]) {
@@ -193,7 +210,7 @@ export async function GET(request: NextRequest) {
     const results = newestResults(baseResults, nextResults);
 
     if (results.length) {
-      return json({ results, errors, source: nextResults.length ? "fresh-next-contest-probe" : "fresh-best-of-all", updatedAt: new Date().toISOString() });
+      return json({ results, errors, source: nextResults.length ? "fresh-next-contest-multi-source" : "fresh-best-of-all", updatedAt: new Date().toISOString() });
     }
   } else {
     const [homeOutcome, backupOutcome] = await Promise.allSettled([
@@ -213,7 +230,7 @@ export async function GET(request: NextRequest) {
     const results = newestResults(baseResults, nextResults);
 
     if (results.length) {
-      return json({ results, errors, source: nextResults.length ? "next-contest-probe" : "best-of-caixa-and-backup", updatedAt: new Date().toISOString() });
+      return json({ results, errors, source: nextResults.length ? "next-contest-multi-source" : "best-of-caixa-and-backup", updatedAt: new Date().toISOString() });
     }
   }
 
