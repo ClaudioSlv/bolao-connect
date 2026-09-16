@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supportedLotteries, type SupportedLottery } from "@/lib/lottery-results/config";
 
 export const dynamic = "force-dynamic";
@@ -44,10 +44,20 @@ type HomeResult = {
   valorEstimadoProximoConcurso?: number;
 };
 
+type NormalizedResult = ReturnType<typeof normalize>;
+
 const headers = {
   Accept: "application/json, text/plain, */*",
   "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
   "User-Agent": "Mozilla/5.0 (compatible; BolaoAmigosBTP/1.0)",
+};
+
+const noCacheHeaders = {
+  "Cache-Control": "no-store, no-cache, max-age=0, must-revalidate",
+  "CDN-Cache-Control": "no-store",
+  "Vercel-CDN-Cache-Control": "no-store",
+  Pragma: "no-cache",
+  Expires: "0",
 };
 
 function normalize(lottery: SupportedLottery, data: HomeResult) {
@@ -82,6 +92,16 @@ async function fetchJson(url: string, timeoutMs = 7000) {
   } finally { clearTimeout(timeout); }
 }
 
+async function fetchHomeResults() {
+  const home = await fetchJson(CAIXA_HOME) as Record<string, HomeResult>;
+  return supportedLotteries.flatMap(lottery => {
+    const item = home[homeKeys[lottery]];
+    if (!item) return [];
+    const result = normalize(lottery, item);
+    return result.contest > 0 && result.numbers.length > 0 ? [result] : [];
+  });
+}
+
 async function fetchAll(base: string, paths: Record<SupportedLottery, string>, suffix = "") {
   const settled = await Promise.allSettled(supportedLotteries.map(async lottery => {
     const data = await fetchJson(`${base}/${paths[lottery]}${suffix}`);
@@ -95,27 +115,67 @@ async function fetchAll(base: string, paths: Record<SupportedLottery, string>, s
   };
 }
 
-export async function GET() {
+function newestResults(...groups: NormalizedResult[][]) {
+  const latest = new Map<SupportedLottery, NormalizedResult>();
+  for (const group of groups) {
+    for (const result of group) {
+      const current = latest.get(result.lottery);
+      if (!current || result.contest > current.contest) latest.set(result.lottery, result);
+    }
+  }
+  return supportedLotteries.flatMap(lottery => {
+    const result = latest.get(lottery);
+    return result ? [result] : [];
+  });
+}
+
+function json(data: unknown, status = 200) {
+  return NextResponse.json(data, { status, headers: noCacheHeaders });
+}
+
+export async function GET(request: NextRequest) {
   const errors: { lottery: string; message: string }[] = [];
+  const forceFresh = request.nextUrl.searchParams.get("fresh") === "1";
+
+  if (forceFresh) {
+    const [homeOutcome, caixaOutcome] = await Promise.allSettled([
+      fetchHomeResults(),
+      fetchAll(CAIXA_BASE, caixaPaths),
+    ]);
+
+    const homeResults = homeOutcome.status === "fulfilled" ? homeOutcome.value : [];
+    if (homeOutcome.status === "rejected") {
+      errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA home" });
+    }
+
+    const caixaResults = caixaOutcome.status === "fulfilled" ? caixaOutcome.value.results : [];
+    if (caixaOutcome.status === "fulfilled") {
+      errors.push(...caixaOutcome.value.errors);
+    } else {
+      errors.push({ lottery: "all", message: caixaOutcome.reason instanceof Error ? caixaOutcome.reason.message : "Falha CAIXA individual" });
+    }
+
+    const freshResults = newestResults(homeResults, caixaResults);
+    if (freshResults.length) {
+      return json({ results: freshResults, errors, source: "caixa-fresh", updatedAt: new Date().toISOString() });
+    }
+  }
+
   try {
-    const home = await fetchJson(CAIXA_HOME) as Record<string, HomeResult>;
-    const results = supportedLotteries.flatMap(lottery => {
-      const item = home[homeKeys[lottery]];
-      if (!item) return [];
-      const result = normalize(lottery, item);
-      return result.contest > 0 && result.numbers.length > 0 ? [result] : [];
-    });
-    if (results.length) return NextResponse.json({ results, errors, source: "caixa-home", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
-  } catch (error) { errors.push({ lottery: "all", message: error instanceof Error ? error.message : "Falha CAIXA" }); }
+    const results = await fetchHomeResults();
+    if (results.length) return json({ results, errors, source: "caixa-home", updatedAt: new Date().toISOString() });
+  } catch (error) {
+    errors.push({ lottery: "all", message: error instanceof Error ? error.message : "Falha CAIXA" });
+  }
 
   const caixa = await fetchAll(CAIXA_BASE, caixaPaths);
   errors.push(...caixa.errors);
-  if (caixa.results.length) return NextResponse.json({ results: caixa.results, errors, source: "caixa-individual", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
+  if (caixa.results.length) return json({ results: caixa.results, errors, source: "caixa-individual", updatedAt: new Date().toISOString() });
 
   const backup = await fetchAll(FALLBACK_BASE, fallbackPaths, "/latest");
   errors.push(...backup.errors);
-  if (backup.results.length) return NextResponse.json({ results: backup.results, errors, source: "backup", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
+  if (backup.results.length) return json({ results: backup.results, errors, source: "backup", updatedAt: new Date().toISOString() });
 
   console.error("lottery-ticker: fontes indisponíveis", errors);
-  return NextResponse.json({ results: [], errors, source: "unavailable", updatedAt: new Date().toISOString() }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  return json({ results: [], errors, source: "unavailable", updatedAt: new Date().toISOString() }, 503);
 }
