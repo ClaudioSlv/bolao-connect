@@ -39,11 +39,12 @@ export function LotteryResultsTicker(){
  useEffect(()=>{
   let cancelled=false;
   let resultTick=0;
+  let lastFreshAt=0;
   const testMode=new URLSearchParams(window.location.search).get("testeSorteio")==="1";
 
-  async function load(){
-   const shouldRefreshResults=resultTick===0||isResultRushWindow()||resultTick%10===0;
-   const fresh=resultTick===0?"1":"0";
+  async function load(forceFresh=false){
+   const shouldRefreshResults=forceFresh||resultTick===0||isResultRushWindow()||resultTick%10===0;
+   const fresh=forceFresh||resultTick===0?"1":"0";
    const resultUrl=`/api/lottery-ticker?fresh=${fresh}&_=${Date.now()}`;
 
    const tasks:[Promise<Response>,Promise<Response|null>]=[
@@ -83,9 +84,26 @@ export function LotteryResultsTicker(){
    resultTick++;
   }
 
-  load();
-  const timer=window.setInterval(load,30*1000);
-  return()=>{cancelled=true;window.clearInterval(timer)};
+  function refreshWhenVisible(){
+   if(document.visibilityState!=="visible")return;
+   const now=Date.now();
+   if(now-lastFreshAt<5000)return;
+   lastFreshAt=now;
+   void load(true);
+  }
+
+  lastFreshAt=Date.now();
+  void load(true);
+  const timer=window.setInterval(()=>{void load(false)},30*1000);
+  document.addEventListener("visibilitychange",refreshWhenVisible);
+  window.addEventListener("focus",refreshWhenVisible);
+
+  return()=>{
+   cancelled=true;
+   window.clearInterval(timer);
+   document.removeEventListener("visibilitychange",refreshWhenVisible);
+   window.removeEventListener("focus",refreshWhenVisible);
+  };
  },[]);
  const items=[...results,...results];
  const waitingText=status==="loading"?"Buscando resultado…":"Resultado temporariamente indisponível";
