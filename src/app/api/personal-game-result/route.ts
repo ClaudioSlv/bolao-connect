@@ -27,6 +27,7 @@ async function manualDraw(request: NextRequest, lottery: string, contest: number
     const admin = createAdminClient();
     const explicitToken = request.nextUrl.searchParams.get("token") ?? "";
     const token = explicitToken || participantTokenFromReferer(request);
+    let poolId = request.nextUrl.searchParams.get("pool") ?? "";
     let ownerId = "";
 
     if (token) {
@@ -36,6 +37,7 @@ async function manualDraw(request: NextRequest, lottery: string, contest: number
         .eq("access_token", token)
         .maybeSingle();
       if (participant && participant.status !== "cancelled") {
+        poolId = String(participant.pool_id);
         const { data: pool } = await admin
           .from("pools")
           .select("owner_id")
@@ -47,14 +49,26 @@ async function manualDraw(request: NextRequest, lottery: string, contest: number
       const client = await createClient();
       const { data: auth } = await client.auth.getUser();
       ownerId = String(auth.user?.id ?? "");
+      if (ownerId && !poolId) {
+        const { data: pool } = await admin
+          .from("pools")
+          .select("id")
+          .eq("owner_id", ownerId)
+          .eq("lottery", lottery)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        poolId = String(pool?.id ?? "");
+      }
     }
 
-    if (!ownerId) return null;
+    if (!ownerId || !poolId) return null;
 
     const { data, error } = await admin
       .from("manual_lottery_results")
       .select("lottery,contest_number,numbers,second_draw_numbers,trevos,updated_at")
       .eq("owner_id", ownerId)
+      .eq("pool_id", poolId)
       .eq("lottery", lottery)
       .eq("contest_number", contest)
       .maybeSingle();
