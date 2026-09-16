@@ -133,60 +133,58 @@ function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: noCacheHeaders });
 }
 
+function appendFetchAllErrors(errors: { lottery: string; message: string }[], outcome: PromiseSettledResult<Awaited<ReturnType<typeof fetchAll>>>, fallbackMessage: string) {
+  if (outcome.status === "fulfilled") {
+    errors.push(...outcome.value.errors);
+  } else {
+    errors.push({ lottery: "all", message: outcome.reason instanceof Error ? outcome.reason.message : fallbackMessage });
+  }
+}
+
 export async function GET(request: NextRequest) {
   const errors: { lottery: string; message: string }[] = [];
   const forceFresh = request.nextUrl.searchParams.get("fresh") === "1";
 
-  const tasks = forceFresh
-    ? [fetchHomeResults(), fetchAll(CAIXA_BASE, caixaPaths), fetchAll(FALLBACK_BASE, fallbackPaths, "/latest", 5500)] as const
-    : [fetchHomeResults(), fetchAll(FALLBACK_BASE, fallbackPaths, "/latest", 5500)] as const;
-
-  const outcomes = await Promise.allSettled(tasks);
-
-  const homeOutcome = outcomes[0];
-  const homeResults = homeOutcome.status === "fulfilled" ? homeOutcome.value : [];
-  if (homeOutcome.status === "rejected") {
-    errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA home" });
-  }
-
-  let caixaResults: NormalizedResult[] = [];
-  let backupResults: NormalizedResult[] = [];
-
   if (forceFresh) {
-    const caixaOutcome = outcomes[1];
-    const backupOutcome = outcomes[2];
+    const [homeOutcome, caixaOutcome, backupOutcome] = await Promise.allSettled([
+      fetchHomeResults(),
+      fetchAll(CAIXA_BASE, caixaPaths),
+      fetchAll(FALLBACK_BASE, fallbackPaths, "/latest", 5500),
+    ]);
 
-    if (caixaOutcome.status === "fulfilled") {
-      caixaResults = caixaOutcome.value.results;
-      errors.push(...caixaOutcome.value.errors);
-    } else {
-      errors.push({ lottery: "all", message: caixaOutcome.reason instanceof Error ? caixaOutcome.reason.message : "Falha CAIXA individual" });
+    const homeResults = homeOutcome.status === "fulfilled" ? homeOutcome.value : [];
+    if (homeOutcome.status === "rejected") {
+      errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA home" });
     }
 
-    if (backupOutcome.status === "fulfilled") {
-      backupResults = backupOutcome.value.results;
-      errors.push(...backupOutcome.value.errors);
-    } else {
-      errors.push({ lottery: "all", message: backupOutcome.reason instanceof Error ? backupOutcome.reason.message : "Falha fonte alternativa" });
+    appendFetchAllErrors(errors, caixaOutcome, "Falha CAIXA individual");
+    appendFetchAllErrors(errors, backupOutcome, "Falha fonte alternativa");
+
+    const caixaResults = caixaOutcome.status === "fulfilled" ? caixaOutcome.value.results : [];
+    const backupResults = backupOutcome.status === "fulfilled" ? backupOutcome.value.results : [];
+    const results = newestResults(homeResults, caixaResults, backupResults);
+
+    if (results.length) {
+      return json({ results, errors, source: "fresh-best-of-all", updatedAt: new Date().toISOString() });
     }
   } else {
-    const backupOutcome = outcomes[1];
-    if (backupOutcome.status === "fulfilled") {
-      backupResults = backupOutcome.value.results;
-      errors.push(...backupOutcome.value.errors);
-    } else {
-      errors.push({ lottery: "all", message: backupOutcome.reason instanceof Error ? backupOutcome.reason.message : "Falha fonte alternativa" });
-    }
-  }
+    const [homeOutcome, backupOutcome] = await Promise.allSettled([
+      fetchHomeResults(),
+      fetchAll(FALLBACK_BASE, fallbackPaths, "/latest", 5500),
+    ]);
 
-  const results = newestResults(homeResults, caixaResults, backupResults);
-  if (results.length) {
-    return json({
-      results,
-      errors,
-      source: forceFresh ? "fresh-best-of-all" : "best-of-caixa-and-backup",
-      updatedAt: new Date().toISOString(),
-    });
+    const homeResults = homeOutcome.status === "fulfilled" ? homeOutcome.value : [];
+    if (homeOutcome.status === "rejected") {
+      errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA home" });
+    }
+
+    appendFetchAllErrors(errors, backupOutcome, "Falha fonte alternativa");
+    const backupResults = backupOutcome.status === "fulfilled" ? backupOutcome.value.results : [];
+    const results = newestResults(homeResults, backupResults);
+
+    if (results.length) {
+      return json({ results, errors, source: "best-of-caixa-and-backup", updatedAt: new Date().toISOString() });
+    }
   }
 
   console.error("lottery-ticker: fontes indisponíveis", errors);
