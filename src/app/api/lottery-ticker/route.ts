@@ -102,6 +102,13 @@ async function fetchHomeResults() {
   });
 }
 
+async function fetchOne(lottery: SupportedLottery) {
+  const data = await fetchJson(`${CAIXA_BASE}/${caixaPaths[lottery]}`);
+  const result = normalize(lottery, data as HomeResult);
+  if (result.contest <= 0 || result.numbers.length === 0) throw new Error("resultado inválido");
+  return result;
+}
+
 async function fetchAll(base: string, paths: Record<SupportedLottery, string>, suffix = "") {
   const settled = await Promise.allSettled(supportedLotteries.map(async lottery => {
     const data = await fetchJson(`${base}/${paths[lottery]}${suffix}`);
@@ -161,11 +168,22 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  try {
-    const results = await fetchHomeResults();
-    if (results.length) return json({ results, errors, source: "caixa-home", updatedAt: new Date().toISOString() });
-  } catch (error) {
-    errors.push({ lottery: "all", message: error instanceof Error ? error.message : "Falha CAIXA" });
+  const [homeOutcome, lotofacilOutcome] = await Promise.allSettled([
+    fetchHomeResults(),
+    fetchOne("lotofacil"),
+  ]);
+
+  if (homeOutcome.status === "fulfilled") {
+    const lotofacilResults = lotofacilOutcome.status === "fulfilled" ? [lotofacilOutcome.value] : [];
+    if (lotofacilOutcome.status === "rejected") {
+      errors.push({ lottery: "lotofacil", message: lotofacilOutcome.reason instanceof Error ? lotofacilOutcome.reason.message : "Falha Lotofácil" });
+    }
+    const results = newestResults(homeOutcome.value, lotofacilResults);
+    if (results.length) {
+      return json({ results, errors, source: lotofacilResults.length ? "caixa-home+lotofacil" : "caixa-home", updatedAt: new Date().toISOString() });
+    }
+  } else {
+    errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA" });
   }
 
   const caixa = await fetchAll(CAIXA_BASE, caixaPaths);
