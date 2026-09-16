@@ -1,10 +1,37 @@
 import Link from "next/link";
 import { AppNav } from "@/components/app-nav";
+import { PoolSwitcher } from "@/components/pool-switcher";
+import { createClient } from "@/lib/supabase/server";
 
-export default function SavedGamesMenuPage() {
+export const dynamic = "force-dynamic";
+
+type Pool = { id: string; title: string; lottery: string };
+
+export default async function SavedGamesMenuPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ pool?: string }>;
+}) {
+  const { pool: requested } = await searchParams;
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+
+  let pools: Pool[] = [];
+  if (auth.user) {
+    const { data } = await supabase
+      .from("pools")
+      .select("id,title,lottery")
+      .eq("owner_id", auth.user.id)
+      .order("created_at", { ascending: false });
+    pools = (data ?? []) as Pool[];
+  }
+
+  const active = pools.find((pool) => pool.id === requested) ?? pools[0] ?? null;
+  const suffix = active ? `?pool=${encodeURIComponent(active.id)}` : "";
+
   return (
     <main className="shell">
-      <Link className="back" href="/">
+      <Link className="back" href={active ? `/?pool=${encodeURIComponent(active.id)}` : "/"}>
         ← Voltar
       </Link>
 
@@ -14,6 +41,9 @@ export default function SavedGamesMenuPage() {
         <p className="muted">
           Consulte seus jogos ou faça uma conferência manual quando o resultado automático ainda não estiver disponível.
         </p>
+        {pools.length > 0 && (
+          <PoolSwitcher pools={pools} activeId={active?.id} basePath="/jogos-salvos" />
+        )}
       </section>
 
       <section className="section">
@@ -26,10 +56,10 @@ export default function SavedGamesMenuPage() {
             <span className="card-chevron" aria-hidden="true">›</span>
           </Link>
 
-          <Link className="list-item" href="/conferencia-manual">
+          <Link className="list-item" href={`/conferencia-manual${suffix}`}>
             <div>
               <strong>Conferir resultado manual</strong>
-              <div className="muted">Informe modalidade, concurso e dezenas sorteadas para conferir na hora.</div>
+              <div className="muted">Informe modalidade, concurso e dezenas sorteadas para conferir, salvar e publicar aos participantes deste bolão.</div>
             </div>
             <span className="card-chevron" aria-hidden="true">›</span>
           </Link>
