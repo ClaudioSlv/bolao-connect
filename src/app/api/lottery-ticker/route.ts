@@ -50,6 +50,28 @@ const headers = {
   "User-Agent": "Mozilla/5.0 (compatible; BolaoAmigosBTP/1.0)",
 };
 
+function saoPauloMinutes(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+function responseHeaders() {
+  const minutes = saoPauloMinutes();
+  const rushWindow = minutes >= 20 * 60 + 45 && minutes <= 22 * 60 + 30;
+  return {
+    "Cache-Control": rushWindow
+      ? "no-store, max-age=0"
+      : "public, s-maxage=120, stale-while-revalidate=600",
+  };
+}
+
 function normalize(lottery: SupportedLottery, data: HomeResult) {
   let special: string | null = null;
   if (lottery === "timemania") special = (data.timeDoCoracao ?? data.timeCoracao ?? data.nomeTimeCoracaoMesSorte ?? "").trim() || null;
@@ -97,6 +119,7 @@ async function fetchAll(base: string, paths: Record<SupportedLottery, string>, s
 
 export async function GET() {
   const errors: { lottery: string; message: string }[] = [];
+  const cacheHeaders = responseHeaders();
   try {
     const home = await fetchJson(CAIXA_HOME) as Record<string, HomeResult>;
     const results = supportedLotteries.flatMap(lottery => {
@@ -105,16 +128,16 @@ export async function GET() {
       const result = normalize(lottery, item);
       return result.contest > 0 && result.numbers.length > 0 ? [result] : [];
     });
-    if (results.length) return NextResponse.json({ results, errors, source: "caixa-home", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
+    if (results.length) return NextResponse.json({ results, errors, source: "caixa-home", updatedAt: new Date().toISOString() }, { headers: cacheHeaders });
   } catch (error) { errors.push({ lottery: "all", message: error instanceof Error ? error.message : "Falha CAIXA" }); }
 
   const caixa = await fetchAll(CAIXA_BASE, caixaPaths);
   errors.push(...caixa.errors);
-  if (caixa.results.length) return NextResponse.json({ results: caixa.results, errors, source: "caixa-individual", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
+  if (caixa.results.length) return NextResponse.json({ results: caixa.results, errors, source: "caixa-individual", updatedAt: new Date().toISOString() }, { headers: cacheHeaders });
 
   const backup = await fetchAll(FALLBACK_BASE, fallbackPaths, "/latest");
   errors.push(...backup.errors);
-  if (backup.results.length) return NextResponse.json({ results: backup.results, errors, source: "backup", updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } });
+  if (backup.results.length) return NextResponse.json({ results: backup.results, errors, source: "backup", updatedAt: new Date().toISOString() }, { headers: cacheHeaders });
 
   console.error("lottery-ticker: fontes indisponíveis", errors);
   return NextResponse.json({ results: [], errors, source: "unavailable", updatedAt: new Date().toISOString() }, { status: 503, headers: { "Cache-Control": "no-store" } });
