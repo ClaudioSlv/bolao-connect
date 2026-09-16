@@ -112,12 +112,12 @@ export function PersonalGameGenerator({
     [r.min, r.max],
   );
   const oddNumbers = useMemo(
-    () => allNumbers.filter((n) => n % 2 !== 0),
-    [allNumbers],
+    () => allNumbers.filter((n) => n % 2 !== 0 && !excludedPrimes.includes(n)),
+    [allNumbers, excludedPrimes],
   );
   const evenNumbers = useMemo(
-    () => allNumbers.filter((n) => n % 2 === 0),
-    [allNumbers],
+    () => allNumbers.filter((n) => n % 2 === 0 && !excludedPrimes.includes(n)),
+    [allNumbers, excludedPrimes],
   );
   const exclusionLimit = Math.max(1, Math.floor((r.max - r.min + 1) / 4));
   const visibleGames = [...savedGamesOnPage, ...games];
@@ -126,8 +126,14 @@ export function PersonalGameGenerator({
   const fibSet = useMemo(() => fibonacciUpTo(r.max), [r.max]);
   const primeSet = useMemo(() => primesUpTo(r.max), [r.max]);
   const primeNumbers = useMemo(
-    () => allNumbers.filter((n) => primeSet.has(n)),
-    [allNumbers, primeSet],
+    () =>
+      allNumbers.filter(
+        (n) =>
+          primeSet.has(n) &&
+          !excludedOdd.includes(n) &&
+          !excludedEven.includes(n),
+      ),
+    [allNumbers, primeSet, excludedOdd, excludedEven],
   );
   const stats = useMemo(() => {
     if (lottery === "super-sete") {
@@ -287,7 +293,7 @@ export function PersonalGameGenerator({
     }
   };
   const buildManualGames = (numbers: number[]) => {
-    if (numbers.length !== pick) return;
+    if (numbers.length !== pick || numbers.some((n) => excluded.has(n))) return;
     setGames([{ numbers: [...numbers], trevos: oneTrevos() }]);
     resetFeedback();
     showGenerated();
@@ -315,6 +321,7 @@ export function PersonalGameGenerator({
     );
   };
   const toggle = (n: number) => {
+    if (excluded.has(n)) return;
     if (!pickIsValid) {
       requestPickQuantity();
       return;
@@ -356,6 +363,7 @@ export function PersonalGameGenerator({
       );
       return;
     }
+    setExcludedPrimes((values) => values.filter((x) => x !== n));
     setter([...current, n].sort((a, b) => a - b));
     setExclusionError("");
     setManual((v) => v.filter((x) => x !== n));
@@ -376,6 +384,8 @@ export function PersonalGameGenerator({
       );
       return;
     }
+    setExcludedOdd((current) => current.filter((x) => x !== n));
+    setExcludedEven((current) => current.filter((x) => x !== n));
     setExcludedPrimes((current) => [...current, n].sort((a, b) => a - b));
     setExclusionError("");
     setManual((current) => current.filter((x) => x !== n));
@@ -402,6 +412,19 @@ export function PersonalGameGenerator({
     `🍀 ${r.label} — Bolão Amigos BTP\n\n${games.map(gameText).join("\n")}\n\nJogo gerado pelo Bolão Amigos BTP.`;
   const saveGames = async () => {
     try {
+      if (
+        !games.length ||
+        games.some((game) => game.numbers.some((number) => excluded.has(number)))
+      ) {
+        setGames([]);
+        setManual((current) => current.filter((number) => !excluded.has(number)));
+        resetFeedback();
+        alert(
+          "Um número marcado para não participar apareceu no jogo. O jogo foi limpo para sua segurança. Gere novamente antes de salvar.",
+        );
+        return;
+      }
+
       const key = "bolao-amigos-btp:jogos-salvos";
       const current = JSON.parse(localStorage.getItem(key) || "[]");
       let targetContest = latestContest ? latestContest + 1 : null;
