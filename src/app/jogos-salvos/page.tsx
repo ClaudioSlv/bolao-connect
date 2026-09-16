@@ -39,7 +39,7 @@ export default async function SavedGamesMenuPage({
         <p className="eyebrow">PAINEL DO ORGANIZADOR</p>
         <h1>Jogos Salvos</h1>
         <p className="muted">
-          Consulte seus jogos ou faça uma conferência manual quando o resultado automático ainda não estiver disponível.
+          Consulte seus jogos, leia um bilhete pela câmera ou faça uma conferência manual quando o resultado automático ainda não estiver disponível.
         </p>
         {pools.length > 0 && (
           <PoolSwitcher pools={pools} activeId={active?.id} basePath="/jogos-salvos" />
@@ -52,6 +52,14 @@ export default async function SavedGamesMenuPage({
             <div>
               <strong>Meus jogos salvos</strong>
               <div className="muted">Histórico e conferência automática dos jogos deste aparelho.</div>
+            </div>
+            <span className="card-chevron" aria-hidden="true">›</span>
+          </Link>
+
+          <Link className="list-item" href="/ler-bilhete">
+            <div>
+              <strong>Ler bilhete com a câmera</strong>
+              <div className="muted">Fotografe o bilhete ou escolha uma imagem da galeria para reconhecer e preencher os jogos automaticamente.</div>
             </div>
             <span className="card-chevron" aria-hidden="true">›</span>
           </Link>
