@@ -28,6 +28,8 @@ async function persistDiagnostics(message, details) {
   } catch {}
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const token =
   process.env.PAGBANK_SANDBOX_TOKEN?.trim() ||
   process.env.PAGBANK_TOKEN?.trim() ||
@@ -114,21 +116,32 @@ const qrText = String(charge?.qr_code?.text || "");
 let consultResponse = null;
 let consultText = "";
 let consultJson = null;
+let consultAttempt = 0;
+const consultAttempts = 4;
 if (orderId) {
-  try {
-    consultResponse = await fetch(`${baseUrl}/orders/${encodeURIComponent(orderId)}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      signal: AbortSignal.timeout(30000),
-    });
-    consultText = await consultResponse.text();
+  for (let attempt = 1; attempt <= consultAttempts; attempt++) {
+    consultAttempt = attempt;
+    if (attempt > 1) await sleep(3000);
     try {
-      consultJson = JSON.parse(consultText);
-    } catch {}
-  } catch (error) {
-    consultText = error instanceof Error ? error.message : String(error);
+      consultResponse = await fetch(`${baseUrl}/orders/${encodeURIComponent(orderId)}`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+      consultText = await consultResponse.text();
+      try {
+        consultJson = JSON.parse(consultText);
+      } catch {
+        consultJson = null;
+      }
+      console.log(`[PagBank smoke] GET tentativa ${attempt}/${consultAttempts}: ${consultResponse.status}`);
+      if (consultResponse.status === 200 && consultJson?.id) break;
+    } catch (error) {
+      consultText = error instanceof Error ? error.message : String(error);
+      console.log(`[PagBank smoke] GET tentativa ${attempt}/${consultAttempts}: erro de rede`);
+    }
   }
 }
 
@@ -184,7 +197,8 @@ const report = [
   "Headers:",
   pretty({ Accept: "application/json", Authorization: "Bearer [TOKEN OCULTO]" }),
   "",
-  `Status HTTP: ${consultResponse ? `${consultResponse.status} ${consultResponse.statusText}`.trim() : "NÃO EXECUTADO"}`,
+  `Tentativas executadas: ${consultAttempt || 0}/${consultAttempts}`,
+  `Status HTTP final: ${consultResponse ? `${consultResponse.status} ${consultResponse.statusText}`.trim() : "NÃO EXECUTADO"}`,
   `Resultado do teste: ${consultPassed ? "APROVADO" : "REVISAR"}`,
   "Resposta recebida:",
   consultJson ? pretty(consultJson) : consultText || "Consulta não executada.",
@@ -210,13 +224,14 @@ await persistDiagnostics(passed ? "APROVADO" : "REVISAR", {
   order_id: orderId,
   charge_status: chargeStatus,
   qr_code_returned: Boolean(qrText),
+  consult_attempts: consultAttempt,
   consult_http_status: consultResponse?.status || 0,
   consult_response: consultJson || consultText,
   passed,
 });
 
 console.log(`[PagBank smoke] POST /orders: ${createResponse?.status || 0} | cobrança=${chargeStatus} | qr=${qrText ? "sim" : "não"}`);
-console.log(`[PagBank smoke] GET /orders/{id}: ${consultResponse?.status || 0}`);
+console.log(`[PagBank smoke] GET /orders/{id}: ${consultResponse?.status || 0} após ${consultAttempt} tentativa(s)`);
 console.log(`[PagBank smoke] Resultado: ${passed ? "APROVADO" : "REVISAR"}`);
 
 if (!passed) process.exit(1);
