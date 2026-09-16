@@ -1,0 +1,22 @@
+import { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { getParticipantDeviceAccess } from "@/lib/participant-device-access";
+
+export const dynamic = "force-dynamic";
+
+export default async function ParticipantProtectedLayout({
+  children,
+  params,
+}: {
+  children: ReactNode;
+  params: Promise<{ token: string }>;
+}) {
+  const { token } = await params;
+  const access = await getParticipantDeviceAccess(token);
+
+  if (access.valid && !access.authorized) {
+    redirect(`/verificar-participante/${encodeURIComponent(token)}`);
+  }
+
+  return children;
+}
