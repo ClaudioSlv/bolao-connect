@@ -126,6 +126,12 @@ export function ParticipantActionGrid({
       aria: "Ver bilhetes do bolão",
     },
     {
+      href: `/p/${token}/resultado-bolao`,
+      label: "RESULTADO DO BOLÃO",
+      icon: CheckGameIcon,
+      aria: "Ver resultado conferido do bolão",
+    },
+    {
       href: `/p/${token}/carteira`,
       label: "MINHA CARTEIRA",
       icon: WalletIcon,
