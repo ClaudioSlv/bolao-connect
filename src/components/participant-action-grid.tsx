@@ -16,8 +16,8 @@ function TicketIcon({ className }: IconProps) {
         <path d="M18 20h60v15H18z" fill="#18834b" />
         <circle cx="28" cy="27.5" r="4" fill="#f7c934" />
         <path d="M37 27.5h31" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-        {[0,1,2].map(row => [0,1,2,3].map(col => (
-          <circle key={`${row}-${col}`} cx={28 + col * 11} cy={46 + row * 10} r="3.2" fill="#f4c431" stroke="#9b7412" />
+        {[0,1,2].map(row => [0,1,2,3,4].map(col => (
+          <circle key={`${row}-${col}`} cx={28 + col * 10} cy={46 + row * 10} r="3.2" fill="#f4c431" stroke="#9b7412" />
         )))}
       </g>
       <path d="M24 18h56v55" fill="none" stroke="#f0cb4b" strokeWidth="3" opacity=".55" />
