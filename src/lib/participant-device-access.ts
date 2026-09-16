@@ -50,7 +50,7 @@ export async function getParticipantDeviceAccess(token: string) {
 export async function requireParticipantDeviceAccess(token: string) {
   const access = await getParticipantDeviceAccess(token);
   if (access.valid && !access.authorized) {
-    redirect(`/p/${encodeURIComponent(token)}/verificar`);
+    redirect(`/verificar-participante/${encodeURIComponent(token)}`);
   }
   return access;
 }
