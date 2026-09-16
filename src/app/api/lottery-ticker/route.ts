@@ -102,16 +102,9 @@ async function fetchHomeResults() {
   });
 }
 
-async function fetchOne(lottery: SupportedLottery) {
-  const data = await fetchJson(`${CAIXA_BASE}/${caixaPaths[lottery]}`);
-  const result = normalize(lottery, data as HomeResult);
-  if (result.contest <= 0 || result.numbers.length === 0) throw new Error("resultado inválido");
-  return result;
-}
-
-async function fetchAll(base: string, paths: Record<SupportedLottery, string>, suffix = "") {
+async function fetchAll(base: string, paths: Record<SupportedLottery, string>, suffix = "", timeoutMs = 7000) {
   const settled = await Promise.allSettled(supportedLotteries.map(async lottery => {
-    const data = await fetchJson(`${base}/${paths[lottery]}${suffix}`);
+    const data = await fetchJson(`${base}/${paths[lottery]}${suffix}`, timeoutMs);
     const result = normalize(lottery, data as HomeResult);
     if (result.contest <= 0 || result.numbers.length === 0) throw new Error("resultado inválido");
     return result;
@@ -144,55 +137,57 @@ export async function GET(request: NextRequest) {
   const errors: { lottery: string; message: string }[] = [];
   const forceFresh = request.nextUrl.searchParams.get("fresh") === "1";
 
+  const tasks = forceFresh
+    ? [fetchHomeResults(), fetchAll(CAIXA_BASE, caixaPaths), fetchAll(FALLBACK_BASE, fallbackPaths, "/latest", 5500)] as const
+    : [fetchHomeResults(), fetchAll(FALLBACK_BASE, fallbackPaths, "/latest", 5500)] as const;
+
+  const outcomes = await Promise.allSettled(tasks);
+
+  const homeOutcome = outcomes[0];
+  const homeResults = homeOutcome.status === "fulfilled" ? homeOutcome.value : [];
+  if (homeOutcome.status === "rejected") {
+    errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA home" });
+  }
+
+  let caixaResults: NormalizedResult[] = [];
+  let backupResults: NormalizedResult[] = [];
+
   if (forceFresh) {
-    const [homeOutcome, caixaOutcome] = await Promise.allSettled([
-      fetchHomeResults(),
-      fetchAll(CAIXA_BASE, caixaPaths),
-    ]);
+    const caixaOutcome = outcomes[1];
+    const backupOutcome = outcomes[2];
 
-    const homeResults = homeOutcome.status === "fulfilled" ? homeOutcome.value : [];
-    if (homeOutcome.status === "rejected") {
-      errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA home" });
-    }
-
-    const caixaResults = caixaOutcome.status === "fulfilled" ? caixaOutcome.value.results : [];
     if (caixaOutcome.status === "fulfilled") {
+      caixaResults = caixaOutcome.value.results;
       errors.push(...caixaOutcome.value.errors);
     } else {
       errors.push({ lottery: "all", message: caixaOutcome.reason instanceof Error ? caixaOutcome.reason.message : "Falha CAIXA individual" });
     }
 
-    const freshResults = newestResults(homeResults, caixaResults);
-    if (freshResults.length) {
-      return json({ results: freshResults, errors, source: "caixa-fresh", updatedAt: new Date().toISOString() });
-    }
-  }
-
-  const [homeOutcome, lotofacilOutcome] = await Promise.allSettled([
-    fetchHomeResults(),
-    fetchOne("lotofacil"),
-  ]);
-
-  if (homeOutcome.status === "fulfilled") {
-    const lotofacilResults = lotofacilOutcome.status === "fulfilled" ? [lotofacilOutcome.value] : [];
-    if (lotofacilOutcome.status === "rejected") {
-      errors.push({ lottery: "lotofacil", message: lotofacilOutcome.reason instanceof Error ? lotofacilOutcome.reason.message : "Falha Lotofácil" });
-    }
-    const results = newestResults(homeOutcome.value, lotofacilResults);
-    if (results.length) {
-      return json({ results, errors, source: lotofacilResults.length ? "caixa-home+lotofacil" : "caixa-home", updatedAt: new Date().toISOString() });
+    if (backupOutcome.status === "fulfilled") {
+      backupResults = backupOutcome.value.results;
+      errors.push(...backupOutcome.value.errors);
+    } else {
+      errors.push({ lottery: "all", message: backupOutcome.reason instanceof Error ? backupOutcome.reason.message : "Falha fonte alternativa" });
     }
   } else {
-    errors.push({ lottery: "all", message: homeOutcome.reason instanceof Error ? homeOutcome.reason.message : "Falha CAIXA" });
+    const backupOutcome = outcomes[1];
+    if (backupOutcome.status === "fulfilled") {
+      backupResults = backupOutcome.value.results;
+      errors.push(...backupOutcome.value.errors);
+    } else {
+      errors.push({ lottery: "all", message: backupOutcome.reason instanceof Error ? backupOutcome.reason.message : "Falha fonte alternativa" });
+    }
   }
 
-  const caixa = await fetchAll(CAIXA_BASE, caixaPaths);
-  errors.push(...caixa.errors);
-  if (caixa.results.length) return json({ results: caixa.results, errors, source: "caixa-individual", updatedAt: new Date().toISOString() });
-
-  const backup = await fetchAll(FALLBACK_BASE, fallbackPaths, "/latest");
-  errors.push(...backup.errors);
-  if (backup.results.length) return json({ results: backup.results, errors, source: "backup", updatedAt: new Date().toISOString() });
+  const results = newestResults(homeResults, caixaResults, backupResults);
+  if (results.length) {
+    return json({
+      results,
+      errors,
+      source: forceFresh ? "fresh-best-of-all" : "best-of-caixa-and-backup",
+      updatedAt: new Date().toISOString(),
+    });
+  }
 
   console.error("lottery-ticker: fontes indisponíveis", errors);
   return json({ results: [], errors, source: "unavailable", updatedAt: new Date().toISOString() }, 503);
