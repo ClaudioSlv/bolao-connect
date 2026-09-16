@@ -5,12 +5,40 @@ if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "preview") {
   process.exit(0);
 }
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || "";
+
+async function persistDiagnostics(message, details) {
+  if (!supabaseUrl || !serviceRoleKey) return;
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/app_error_logs`, {
+      method: "POST",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        source: "PagBank Sandbox Smoke PIX V2",
+        message,
+        details,
+      }),
+    });
+  } catch {}
+}
+
 const token =
   process.env.PAGBANK_SANDBOX_TOKEN?.trim() ||
   process.env.PAGBANK_TOKEN?.trim() ||
   "";
 
 if (!token) {
+  await persistDiagnostics("Token Sandbox não configurado no Preview.", {
+    pagbank_sandbox_token_present: Boolean(process.env.PAGBANK_SANDBOX_TOKEN),
+    pagbank_token_present: Boolean(process.env.PAGBANK_TOKEN),
+    vercel_env: process.env.VERCEL_ENV || null,
+  });
   console.error("[PagBank smoke] Token Sandbox não configurado no Preview.");
   process.exit(1);
 }
@@ -59,16 +87,24 @@ const headers = {
   "x-idempotency-key": referenceId,
 };
 
-const createResponse = await fetch(`${baseUrl}/orders`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify(payload),
-});
-const createText = await createResponse.text();
+let createResponse;
+let createText = "";
 let createJson = null;
+let networkError = "";
 try {
-  createJson = JSON.parse(createText);
-} catch {}
+  createResponse = await fetch(`${baseUrl}/orders`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(30000),
+  });
+  createText = await createResponse.text();
+  try {
+    createJson = JSON.parse(createText);
+  } catch {}
+} catch (error) {
+  networkError = error instanceof Error ? error.message : String(error);
+}
 
 const orderId = String(createJson?.id || "");
 const charge = Array.isArray(createJson?.charges) ? createJson.charges[0] : null;
@@ -79,20 +115,25 @@ let consultResponse = null;
 let consultText = "";
 let consultJson = null;
 if (orderId) {
-  consultResponse = await fetch(`${baseUrl}/orders/${encodeURIComponent(orderId)}`, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  consultText = await consultResponse.text();
   try {
-    consultJson = JSON.parse(consultText);
-  } catch {}
+    consultResponse = await fetch(`${baseUrl}/orders/${encodeURIComponent(orderId)}`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(30000),
+    });
+    consultText = await consultResponse.text();
+    try {
+      consultJson = JSON.parse(consultText);
+    } catch {}
+  } catch (error) {
+    consultText = error instanceof Error ? error.message : String(error);
+  }
 }
 
 const createPassed =
-  createResponse.status === 201 &&
+  createResponse?.status === 201 &&
   Boolean(orderId) &&
   chargeStatus === "WAITING" &&
   Boolean(qrText);
@@ -127,12 +168,13 @@ const report = [
   "Payload enviado:",
   pretty(payload),
   "",
-  `Status HTTP: ${createResponse.status} ${createResponse.statusText}`.trim(),
+  `Status HTTP: ${createResponse ? `${createResponse.status} ${createResponse.statusText}`.trim() : "NÃO EXECUTADO"}`,
+  `Erro de rede: ${networkError || "nenhum"}`,
   `Status da cobrança: ${chargeStatus || "não retornado"}`,
   `QR Code retornado: ${qrText ? "SIM" : "NÃO"}`,
   `Resultado do teste: ${createPassed ? "APROVADO" : "REVISAR"}`,
   "Resposta recebida:",
-  createJson ? pretty(createJson) : createText,
+  createJson ? pretty(createJson) : createText || networkError || "Sem resposta.",
   "",
   "============================================================",
   "TESTE 2 — CONSULTAR PEDIDO",
@@ -158,7 +200,22 @@ const report = [
 await mkdir("public", { recursive: true });
 await writeFile("public/homologacao-pagbank-pix-v2.txt", `\uFEFF${report}`, "utf8");
 
-console.log(`[PagBank smoke] POST /orders: ${createResponse.status} | cobrança=${chargeStatus} | qr=${qrText ? "sim" : "não"}`);
+await persistDiagnostics(passed ? "APROVADO" : "REVISAR", {
+  generated_at: generatedAt,
+  request_payload: payload,
+  create_http_status: createResponse?.status || 0,
+  create_status_text: createResponse?.statusText || "",
+  network_error: networkError,
+  create_response: createJson || createText,
+  order_id: orderId,
+  charge_status: chargeStatus,
+  qr_code_returned: Boolean(qrText),
+  consult_http_status: consultResponse?.status || 0,
+  consult_response: consultJson || consultText,
+  passed,
+});
+
+console.log(`[PagBank smoke] POST /orders: ${createResponse?.status || 0} | cobrança=${chargeStatus} | qr=${qrText ? "sim" : "não"}`);
 console.log(`[PagBank smoke] GET /orders/{id}: ${consultResponse?.status || 0}`);
 console.log(`[PagBank smoke] Resultado: ${passed ? "APROVADO" : "REVISAR"}`);
 
