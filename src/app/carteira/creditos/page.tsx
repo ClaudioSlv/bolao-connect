@@ -3,13 +3,193 @@ import {redirect} from "next/navigation";
 import {revalidatePath} from "next/cache";
 import {createClient} from "@/lib/supabase/server";
 import {sendCreditPush} from "@/lib/send-credit-push";
+
 export const dynamic="force-dynamic";
+
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
 const phoneKey=(v:string)=>v.replace(/\D/g,"");
 const cents=(v:string)=>Math.round(Number(v.replace(",","."))*100);
 
-async function applyCredits(f:FormData){"use server";const poolId=String(f.get("poolId")||""),defaultCents=cents(String(f.get("defaultValue")||"0"));const s=await createClient();const{data:a}=await s.auth.getUser();if(!a.user)throw new Error("Faça login.");const{data:pool}=await s.from("pools").select("owner_id,share_price_cents").eq("id",poolId).single();if(!pool||pool.owner_id!==a.user.id)throw new Error("Bolão inválido.");const ids=f.getAll("selected").map(String);if(!ids.length)throw new Error("Marque pelo menos um participante.");const{data:parts}=await s.from("participants").select("id,name,phone,shares").eq("pool_id",poolId).in("id",ids);for(const p of parts??[]){const phone=phoneKey(p.phone||"");if(!phone)continue;const custom=cents(String(f.get(`value_${p.id}`)||"0")),value=custom>0?custom:defaultCents;if(value<=0)continue;let{data:account}=await s.from("participant_credit_accounts").select("id,balance_cents").eq("owner_id",a.user.id).eq("phone",phone).maybeSingle();if(!account){const{data:newAccount,error}=await s.from("participant_credit_accounts").insert({owner_id:a.user.id,phone,balance_cents:0}).select("id,balance_cents").single();if(error)throw error;account=newAccount}const newBalance=Number(account.balance_cents||0)+value;const{error:u}=await s.from("participant_credit_accounts").update({balance_cents:newBalance,updated_at:new Date().toISOString()}).eq("id",account.id);if(u)throw u;await s.from("participant_credit_ledger").insert({account_id:account.id,pool_id:poolId,participant_id:p.id,amount_cents:value,kind:"credit",description:`Crédito lançado para ${p.name}`,created_by:a.user.id});const gross=Number(p.shares||0)*Number(pool.share_price_cents||0);await sendCreditPush({participantId:p.id,creditCents:newBalance,dueCents:Math.max(0,gross-newBalance)})}revalidatePath("/carteira/creditos");redirect(`/carteira/creditos?pool=${encodeURIComponent(poolId)}&ok=1`)}
+async function applyCredits(f:FormData){
+  "use server";
+  const poolId=String(f.get("poolId")||"");
+  const totalCents=cents(String(f.get("totalValue")||"0"));
+  const s=await createClient();
+  const{data:a}=await s.auth.getUser();
+  if(!a.user)throw new Error("Faça login.");
 
-async function editCredit(f:FormData){"use server";const poolId=String(f.get("poolId")||""),participantId=String(f.get("participantId")||""),newValue=cents(String(f.get("newValue")||"0"));if(newValue<0)throw new Error("Crédito inválido.");const s=await createClient();const{data:a}=await s.auth.getUser();if(!a.user)throw new Error("Faça login.");const{data:p}=await s.from("participants").select("id,name,phone,shares,pools!inner(owner_id,share_price_cents)").eq("id",participantId).eq("pool_id",poolId).single();if(!p||((p.pools as any)?.owner_id)!==a.user.id)throw new Error("Participante inválido.");const phone=phoneKey(p.phone||"");let{data:account}=await s.from("participant_credit_accounts").select("id,balance_cents").eq("owner_id",a.user.id).eq("phone",phone).maybeSingle();const oldBalance=Number(account?.balance_cents||0);if(!account){const{data:x,error}=await s.from("participant_credit_accounts").insert({owner_id:a.user.id,phone,balance_cents:newValue}).select("id,balance_cents").single();if(error)throw error;account=x}else{const{error}=await s.from("participant_credit_accounts").update({balance_cents:newValue,updated_at:new Date().toISOString()}).eq("id",account.id);if(error)throw error}const diff=newValue-oldBalance;if(diff!==0)await s.from("participant_credit_ledger").insert({account_id:account.id,pool_id:poolId,participant_id:p.id,amount_cents:diff,kind:"adjustment",description:`Crédito ajustado para ${p.name}`,created_by:a.user.id});const gross=Number(p.shares||0)*Number((p.pools as any)?.share_price_cents||0);await sendCreditPush({participantId:p.id,creditCents:newValue,dueCents:Math.max(0,gross-newValue)});revalidatePath("/carteira/creditos");redirect(`/carteira/creditos?pool=${encodeURIComponent(poolId)}&ok=1`)}
+  const{data:pool}=await s.from("pools").select("owner_id,share_price_cents").eq("id",poolId).single();
+  if(!pool||pool.owner_id!==a.user.id)throw new Error("Bolão inválido.");
 
-export default async function Page({searchParams}:{searchParams:Promise<{pool?:string;ok?:string}>}){const{pool:requested,ok}=await searchParams;const s=await createClient();const{data:a}=await s.auth.getUser();if(!a.user)redirect("/login");const{data:pools}=await s.from("pools").select("id,title,share_price_cents").eq("owner_id",a.user.id).order("created_at",{ascending:false});const pool=(pools??[]).find(x=>x.id===requested)??pools?.[0];if(!pool)return <main className="shell"><Link className="back" href="/carteira">← Carteira</Link><section className="section"><h1>💳 Créditos</h1><p>Crie um bolão primeiro.</p></section></main>;const{data:parts}=await s.from("participants").select("id,name,phone,shares,status").eq("pool_id",pool.id).neq("status","cancelled").order("name");const phones=(parts??[]).map(p=>phoneKey(p.phone||"")).filter(Boolean);const{data:accounts}=phones.length?await s.from("participant_credit_accounts").select("phone,balance_cents").eq("owner_id",a.user.id).in("phone",phones):{data:[] as any[]};const balances=new Map((accounts??[]).map(x=>[x.phone,Number(x.balance_cents||0)]));return <main className="shell"><Link className="back" href={`/carteira?pool=${pool.id}`}>← Carteira</Link><section className="section"><h1>💳 Créditos dos participantes</h1><p className="muted">{pool.title}. Marque quem tem direito ao crédito. Você pode aplicar um valor padrão e editar um valor diferente por participante.</p>{ok&&<p className="status">✓ Crédito atualizado. Quem ativou as notificações recebeu o novo valor e pode tocar no aviso para abrir o próprio pagamento.</p>}<form className="form" action={applyCredits}><input type="hidden" name="poolId" value={pool.id}/><div className="field"><label>Valor padrão do crédito (R$)</label><input name="defaultValue" inputMode="decimal" placeholder="0,00"/></div><div className="list">{(parts??[]).map(p=>{const balance=balances.get(phoneKey(p.phone||""))||0,gross=Number(p.shares)*Number(pool.share_price_cents),due=Math.max(0,gross-balance);return <label className="list-item" key={p.id} style={{alignItems:"flex-start"}}><input type="checkbox" name="selected" value={p.id} style={{width:22,height:22,marginTop:4}}/><div style={{flex:1}}><strong>{p.name}</strong><div className="muted">{p.shares} cota(s) · Total {money(gross)}</div><div>Crédito atual: <strong>{money(balance)}</strong> · A pagar: <strong>{money(due)}</strong></div><div className="field" style={{marginTop:8}}><label>Crédito diferente para esta pessoa (opcional)</label><input name={`value_${p.id}`} inputMode="decimal" placeholder="Usar valor padrão"/></div></div></label>})}</div><button className="button primary" type="submit">💳 APLICAR CRÉDITOS MARCADOS</button></form></section><section className="section"><h2>✏️ Editar saldo individual</h2><p className="muted">Use quando uma pessoa tiver um crédito diferente ou precisar corrigir o saldo. Ao salvar, o participante com notificações ativadas recebe o valor atualizado.</p>{(parts??[]).map(p=>{const balance=balances.get(phoneKey(p.phone||""))||0;return <form className="form" action={editCredit} key={p.id} style={{marginBottom:14}}><input type="hidden" name="poolId" value={pool.id}/><input type="hidden" name="participantId" value={p.id}/><strong>{p.name} · atual {money(balance)}</strong><div className="actions"><input name="newValue" inputMode="decimal" defaultValue={(balance/100).toFixed(2).replace(".",",")} aria-label={`Novo crédito de ${p.name}`}/><button className="button secondary">✏️ SALVAR</button></div></form>})}</section></main>}
+  const ids=f.getAll("selected").map(String);
+  if(!ids.length)throw new Error("Marque pelo menos um participante.");
+  if(!Number.isFinite(totalCents)||totalCents<=0)throw new Error("Informe o valor total que será dividido.");
+
+  const{data:parts}=await s.from("participants").select("id,name,phone,shares").eq("pool_id",poolId).in("id",ids);
+  const selected=parts??[];
+  if(selected.length!==ids.length)throw new Error("Não foi possível localizar todos os participantes marcados.");
+  if(selected.some(p=>!phoneKey(p.phone||"")))throw new Error("Há participante marcado sem telefone cadastrado. Corrija o cadastro antes de aplicar o crédito.");
+
+  const customValues=new Map<string,number>();
+  for(const p of selected){
+    const custom=cents(String(f.get(`value_${p.id}`)||"0"));
+    if(Number.isFinite(custom)&&custom>0)customValues.set(p.id,custom);
+  }
+
+  const customTotal=[...customValues.values()].reduce((sum,value)=>sum+value,0);
+  if(customTotal>totalCents)throw new Error("A soma dos valores individuais ultrapassa o valor total informado.");
+
+  const automatic=selected.filter(p=>!customValues.has(p.id));
+  const remaining=totalCents-customTotal;
+  if(!automatic.length&&remaining!==0)throw new Error("Os valores individuais precisam somar exatamente o valor total informado.");
+
+  const baseShare=automatic.length?Math.floor(remaining/automatic.length):0;
+  let remainder=automatic.length?remaining%automatic.length:0;
+  const values=new Map<string,number>();
+
+  for(const p of selected){
+    const custom=customValues.get(p.id);
+    if(custom!=null){
+      values.set(p.id,custom);
+      continue;
+    }
+    const value=baseShare+(remainder>0?1:0);
+    if(remainder>0)remainder-=1;
+    values.set(p.id,value);
+  }
+
+  for(const p of selected){
+    const phone=phoneKey(p.phone||"");
+    const value=values.get(p.id)||0;
+    if(value<=0)continue;
+
+    let{data:account}=await s.from("participant_credit_accounts").select("id,balance_cents").eq("owner_id",a.user.id).eq("phone",phone).maybeSingle();
+    if(!account){
+      const{data:newAccount,error}=await s.from("participant_credit_accounts").insert({owner_id:a.user.id,phone,balance_cents:0}).select("id,balance_cents").single();
+      if(error)throw error;
+      account=newAccount;
+    }
+
+    const newBalance=Number(account.balance_cents||0)+value;
+    const{error:u}=await s.from("participant_credit_accounts").update({balance_cents:newBalance,updated_at:new Date().toISOString()}).eq("id",account.id);
+    if(u)throw u;
+
+    await s.from("participant_credit_ledger").insert({
+      account_id:account.id,
+      pool_id:poolId,
+      participant_id:p.id,
+      amount_cents:value,
+      kind:"credit",
+      description:`Rateio de crédito para ${p.name}`,
+      created_by:a.user.id,
+    });
+
+    const gross=Number(p.shares||0)*Number(pool.share_price_cents||0);
+    await sendCreditPush({participantId:p.id,creditCents:newBalance,dueCents:Math.max(0,gross-newBalance)});
+  }
+
+  revalidatePath("/carteira/creditos");
+  redirect(`/carteira/creditos?pool=${encodeURIComponent(poolId)}&ok=1`);
+}
+
+async function editCredit(f:FormData){
+  "use server";
+  const poolId=String(f.get("poolId")||""),participantId=String(f.get("participantId")||""),newValue=cents(String(f.get("newValue")||"0"));
+  if(newValue<0)throw new Error("Crédito inválido.");
+  const s=await createClient();
+  const{data:a}=await s.auth.getUser();
+  if(!a.user)throw new Error("Faça login.");
+  const{data:p}=await s.from("participants").select("id,name,phone,shares,pools!inner(owner_id,share_price_cents)").eq("id",participantId).eq("pool_id",poolId).single();
+  if(!p||((p.pools as any)?.owner_id)!==a.user.id)throw new Error("Participante inválido.");
+  const phone=phoneKey(p.phone||"");
+  let{data:account}=await s.from("participant_credit_accounts").select("id,balance_cents").eq("owner_id",a.user.id).eq("phone",phone).maybeSingle();
+  const oldBalance=Number(account?.balance_cents||0);
+  if(!account){
+    const{data:x,error}=await s.from("participant_credit_accounts").insert({owner_id:a.user.id,phone,balance_cents:newValue}).select("id,balance_cents").single();
+    if(error)throw error;
+    account=x;
+  }else{
+    const{error}=await s.from("participant_credit_accounts").update({balance_cents:newValue,updated_at:new Date().toISOString()}).eq("id",account.id);
+    if(error)throw error;
+  }
+  const diff=newValue-oldBalance;
+  if(diff!==0)await s.from("participant_credit_ledger").insert({account_id:account.id,pool_id:poolId,participant_id:p.id,amount_cents:diff,kind:"adjustment",description:`Crédito ajustado para ${p.name}`,created_by:a.user.id});
+  const gross=Number(p.shares||0)*Number((p.pools as any)?.share_price_cents||0);
+  await sendCreditPush({participantId:p.id,creditCents:newValue,dueCents:Math.max(0,gross-newValue)});
+  revalidatePath("/carteira/creditos");
+  redirect(`/carteira/creditos?pool=${encodeURIComponent(poolId)}&ok=1`);
+}
+
+export default async function Page({searchParams}:{searchParams:Promise<{pool?:string;ok?:string}>}){
+  const{pool:requested,ok}=await searchParams;
+  const s=await createClient();
+  const{data:a}=await s.auth.getUser();
+  if(!a.user)redirect("/login");
+
+  const{data:pools}=await s.from("pools").select("id,title,share_price_cents").eq("owner_id",a.user.id).order("created_at",{ascending:false});
+  const pool=(pools??[]).find(x=>x.id===requested)??pools?.[0];
+  if(!pool)return <main className="shell"><Link className="back" href="/carteira">← Carteira</Link><section className="section"><h1>💳 Créditos</h1><p>Crie um bolão primeiro.</p></section></main>;
+
+  const{data:parts}=await s.from("participants").select("id,name,phone,shares,status").eq("pool_id",pool.id).neq("status","cancelled").order("name");
+  const phones=(parts??[]).map(p=>phoneKey(p.phone||"")).filter(Boolean);
+  const{data:accounts}=phones.length?await s.from("participant_credit_accounts").select("phone,balance_cents").eq("owner_id",a.user.id).in("phone",phones):{data:[] as any[]};
+  const balances=new Map((accounts??[]).map(x=>[x.phone,Number(x.balance_cents||0)]));
+
+  return <main className="shell">
+    <Link className="back" href={`/carteira?pool=${pool.id}`}>← Carteira</Link>
+
+    <section className="section">
+      <h1>💳 Créditos dos participantes</h1>
+      <p className="muted">{pool.title}. Informe o valor total do prêmio ou crédito, marque quem tem direito e o app divide automaticamente entre os participantes selecionados.</p>
+      {ok&&<p className="status">✓ Rateio concluído. O valor individual já aparece na carteira de cada participante e quem ativou as notificações recebeu a atualização.</p>}
+
+      <form className="form" action={applyCredits}>
+        <input type="hidden" name="poolId" value={pool.id}/>
+        <div className="field">
+          <label>Valor total para dividir (R$)</label>
+          <input name="totalValue" inputMode="decimal" placeholder="Ex.: 500,00"/>
+          <small className="muted">Exemplo: R$ 500,00 para 50 participantes = R$ 10,00 para cada um.</small>
+        </div>
+
+        <div className="list">
+          {(parts??[]).map(p=>{
+            const balance=balances.get(phoneKey(p.phone||""))||0;
+            const gross=Number(p.shares)*Number(pool.share_price_cents);
+            const due=Math.max(0,gross-balance);
+            return <label className="list-item" key={p.id} style={{alignItems:"flex-start"}}>
+              <input type="checkbox" name="selected" value={p.id} style={{width:22,height:22,marginTop:4}}/>
+              <div style={{flex:1}}>
+                <strong>{p.name}</strong>
+                <div className="muted">{p.shares} cota(s) · Total {money(gross)}</div>
+                <div>Crédito atual: <strong>{money(balance)}</strong> · A pagar: <strong>{money(due)}</strong></div>
+                <div className="field" style={{marginTop:8}}>
+                  <label>Valor diferente para esta pessoa (opcional)</label>
+                  <input name={`value_${p.id}`} inputMode="decimal" placeholder="Deixar vazio para usar o rateio"/>
+                </div>
+              </div>
+            </label>;
+          })}
+        </div>
+
+        <button className="button primary" type="submit">💳 DIVIDIR E APLICAR CRÉDITOS</button>
+      </form>
+    </section>
+
+    <section className="section">
+      <h2>✏️ Editar saldo individual</h2>
+      <p className="muted">Use quando uma pessoa tiver um crédito diferente ou precisar corrigir o saldo. Ao salvar, o participante com notificações ativadas recebe o valor atualizado.</p>
+      {(parts??[]).map(p=>{
+        const balance=balances.get(phoneKey(p.phone||""))||0;
+        return <form className="form" action={editCredit} key={p.id} style={{marginBottom:14}}>
+          <input type="hidden" name="poolId" value={pool.id}/>
+          <input type="hidden" name="participantId" value={p.id}/>
+          <strong>{p.name} · atual {money(balance)}</strong>
+          <div className="actions">
+            <input name="newValue" inputMode="decimal" defaultValue={(balance/100).toFixed(2).replace(".",",")} aria-label={`Novo crédito de ${p.name}`}/>
+            <button className="button secondary">✏️ SALVAR</button>
+          </div>
+        </form>;
+      })}
+    </section>
+  </main>;
+}
