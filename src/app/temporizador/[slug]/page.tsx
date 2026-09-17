@@ -37,14 +37,16 @@ export default async function TimerPage({
       );
     const brand = await getOrganizerBrand(s, pool.owner_id);
     const [{ data: participants }, { data: games }] = await Promise.all([
-      s.from("participants").select("shares,status").eq("pool_id", pool.id),
+      s.from("participants").select("shares,status,is_test,is_organizer_free_share").eq("pool_id", pool.id),
       s.from("games").select("id,numbers").eq("pool_id", pool.id),
     ]);
     const confirmed = (participants ?? []).filter(
-        (p) => p.status === "confirmed",
+        (p) => p.status === "confirmed" && !p.is_test,
       ),
       participantCount = confirmed.length,
-      used = confirmed.reduce((a, p) => a + (Number(p.shares) || 0), 0),
+      used = confirmed
+        .filter((p) => !p.is_organizer_free_share)
+        .reduce((a, p) => a + (Number(p.shares) || 0), 0),
       available = Math.max(0, Number(pool.total_shares) - used);
     const now = Date.now(),
       opens = pool.payment_opens_at
