@@ -48,6 +48,12 @@ export const adminMenu = [
     href: "/menu/historico-parcelas",
   },
   {
+    slug: "historico-bolao",
+    title: "Histórico do Bolão",
+    category: "Relatórios",
+    href: "/historico-bolao",
+  },
+  {
     slug: "relatorio-inadimplentes",
     title: "Relatório de pendentes",
     category: "Relatórios",
