@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PwaRegister } from "@/components/pwa-register";
 import { LotteryResultsTicker } from "@/components/lottery-results-ticker";
 import { PdfGameShare } from "@/components/pdf-game-share";
+import { AppSplash } from "@/components/app-splash";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,5 +39,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="pt-BR"><body><div className="app-fixed-header"><header className="app-brandbar"><Link href="/" aria-label="Bolão Amigos BTP - início"><img src="/icon.svg" alt=""/><span>Bolão Amigos BTP</span></Link></header><LotteryResultsTicker/></div>{children}<PdfGameShare/><PwaRegister /></body></html>;
+  return <html lang="pt-BR"><body><AppSplash/><div className="app-fixed-header"><header className="app-brandbar"><Link href="/" aria-label="Bolão Amigos BTP - início"><img src="/icon.svg" alt=""/><span>Bolão Amigos BTP</span></Link></header><LotteryResultsTicker/></div>{children}<PdfGameShare/><PwaRegister /></body></html>;
 }
