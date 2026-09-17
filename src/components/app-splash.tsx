@@ -8,8 +8,8 @@ export function AppSplash(){
   const[leaving,setLeaving]=useState(false);
 
   useEffect(()=>{
-    const leave=window.setTimeout(()=>setLeaving(true),2400);
-    const hide=window.setTimeout(()=>setVisible(false),2900);
+    const leave=window.setTimeout(()=>setLeaving(true),6500);
+    const hide=window.setTimeout(()=>setVisible(false),7000);
     return()=>{window.clearTimeout(leave);window.clearTimeout(hide)};
   },[]);
 
