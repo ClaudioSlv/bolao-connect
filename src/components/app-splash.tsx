@@ -1,6 +1,7 @@
 "use client";
 
 import {useEffect,useState} from "react";
+import "./app-splash.css";
 
 export function AppSplash(){
   const[visible,setVisible]=useState(true);
