@@ -42,6 +42,7 @@ const labels: Record<string, string> = {
 export default async function Page({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const admin = createAdminClient();
+  const activeSince = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
 
   const { data: participant } = await admin
     .from("participants")
@@ -63,6 +64,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
       .from("manual_lottery_results")
       .select("id,lottery,contest_number,numbers,checked_games,total_cost_cents,received_prize_cents,updated_at")
       .eq("pool_id", participant.pool_id)
+      .gte("updated_at", activeSince)
       .order("contest_number", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(10);
@@ -79,15 +81,15 @@ export default async function Page({ params }: { params: Promise<{ token: string
         <p className="eyebrow">RESULTADO DO BOLÃO</p>
         <h1>Conferência publicada</h1>
         <p className="muted">
-          Aqui aparecem os resultados que o organizador conferiu e salvou para este bolão.
+          O resultado fica disponível ao participante por 36 horas após a publicação.
         </p>
       </section>
 
       {!results.length ? (
         <section className="section">
           <div className="card">
-            <strong>Nenhum resultado manual publicado ainda.</strong>
-            <span className="muted">Quando o organizador salvar uma conferência, ela ficará disponível aqui.</span>
+            <strong>Nenhum resultado disponível agora.</strong>
+            <span className="muted">Resultados com mais de 36 horas ficam somente no histórico do organizador.</span>
           </div>
         </section>
       ) : (
