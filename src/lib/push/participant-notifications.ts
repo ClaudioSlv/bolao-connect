@@ -14,14 +14,15 @@ function configureWebPush(){
 export async function sendWaitlistPromotionPush(participantId:string){
   if(!configureWebPush())return {sent:0,skipped:true};
   const s=createAdminClient();
-  const {data:p}=await s.from("participants").select("id,pool_id,name,status,access_token").eq("id",participantId).maybeSingle();
+  const {data:p}=await s.from("participants").select("id,pool_id,name,status,access_token,payment_deadline_override").eq("id",participantId).maybeSingle();
   if(!p||p.status!=="confirmed")return {sent:0,skipped:true};
   const {data:pool}=await s.from("pools").select("owner_id,title").eq("id",p.pool_id).maybeSingle();
   if(!pool)return {sent:0,skipped:true};
   const {data:subs}=await s.from("push_subscriptions").select("id,endpoint,p256dh,auth").eq("participant_id",p.id).eq("enabled",true);
   if(!subs?.length)return {sent:0,skipped:true};
   const brand=await getOrganizerBrand(s,pool.owner_id);
-  const payload=JSON.stringify({title:"🍀 Você ganhou uma vaga!",body:`${p.name}, uma vaga foi liberada e agora você está participando do ${pool.title}.`,url:`/p/${p.access_token}`,tag:`vaga-${p.pool_id}-${p.id}`});
+  const deadline=p.payment_deadline_override?new Date(p.payment_deadline_override).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}):null;
+  const payload=JSON.stringify({title:"🍀 Você ganhou uma vaga!",body:deadline?`${p.name}, uma vaga foi liberada no ${pool.title}. Pague até ${deadline} para garantir sua participação.`:`${p.name}, uma vaga foi liberada e agora você está participando do ${pool.title}.`,url:`/p/${p.access_token}`,tag:`vaga-${p.pool_id}-${p.id}`});
   let sent=0;
   for(const sub of subs){
     try{
