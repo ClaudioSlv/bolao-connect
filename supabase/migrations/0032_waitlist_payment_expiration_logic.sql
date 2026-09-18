@@ -1,14 +1,14 @@
 -- Processa reservas vencidas e promove a fila em ordem.
 create or replace function public.promote_next_waitlisted(p_pool_id uuid)
 returns uuid language plpgsql security definer set search_path=public as $$
-declare v_total integer; v_used integer; v_available integer; v_id uuid;
+declare v_total integer; v_used integer; v_available integer; v_id uuid; v_normal_deadline timestamptz; v_waitlist_deadline timestamptz;
 begin
- select total_shares into v_total from public.pools where id=p_pool_id for update;
+ select total_shares,payment_deadline,waitlist_payment_deadline into v_total,v_normal_deadline,v_waitlist_deadline from public.pools where id=p_pool_id for update;
  if v_total is null then return null; end if;
  select coalesce(sum(shares),0)::integer into v_used from public.participants where pool_id=p_pool_id and status='confirmed' and coalesce(is_test,false)=false;
  v_available:=greatest(0,v_total-v_used); if v_available<=0 then return null; end if;
  select id into v_id from public.participants where pool_id=p_pool_id and status='waitlisted' and coalesce(is_test,false)=false and shares<=v_available order by waitlist_position asc nulls last,created_at asc limit 1 for update skip locked;
- if v_id is not null then update public.participants p set status='confirmed',waitlist_position=null,payment_status='pending',payment_deadline_override=(select waitlist_payment_deadline from public.pools where id=p_pool_id) where p.id=v_id; end if;
+ if v_id is not null then update public.participants p set status='confirmed',waitlist_position=null,payment_status='pending',payment_deadline_override=case when v_normal_deadline is not null and now()>v_normal_deadline then v_waitlist_deadline else null end where p.id=v_id; end if;
  return v_id;
 end; $$;
 
