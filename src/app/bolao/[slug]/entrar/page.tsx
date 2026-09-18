@@ -37,12 +37,10 @@ async function joinPool(form: FormData) {
   if (!pool) throw new Error("Bolão não encontrado.");
   const { data: existing } = await s
     .from("participants")
-    .select("id")
+    .select("id,phone")
     .eq("pool_id", pool.id)
-    .neq("status", "cancelled")
-    .eq("phone", phone)
-    .limit(1);
-  if (existing?.length)
+    .neq("status", "cancelled");
+  if ((existing ?? []).some((participant) => normalizePhone(String(participant.phone ?? "")) === phone))
     throw new Error(
       "Este WhatsApp já possui cadastro neste bolão. Cada participante pode ter no máximo 2 cotas no mesmo cadastro.",
     );
