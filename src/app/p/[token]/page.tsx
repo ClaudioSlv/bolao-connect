@@ -132,7 +132,7 @@ export default async function Page({
     const { data: p } = await s
       .from("participants")
       .select(
-        "id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents",
+        "id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents,payment_deadline_override",
       )
       .eq("access_token", token)
       .maybeSingle();
@@ -140,7 +140,7 @@ export default async function Page({
       const { data: pool } = await s
         .from("pools")
         .select(
-          "owner_id,title,lottery,share_price_cents,payment_opens_at,payment_deadline,public_slug,rules_text,rules_version",
+          "owner_id,title,lottery,share_price_cents,payment_opens_at,payment_deadline,waitlist_payment_deadline,public_slug,rules_text,rules_version",
         )
         .eq("id", p.pool_id)
         .maybeSingle();
@@ -215,14 +215,17 @@ export default async function Page({
     opens = pool.payment_opens_at
       ? new Date(pool.payment_opens_at).getTime()
       : 0,
-    closes = pool.payment_deadline
-      ? new Date(pool.payment_deadline).getTime()
-      : 0,
+    closes = p.payment_deadline_override
+      ? new Date(p.payment_deadline_override).getTime()
+      : pool.payment_deadline
+        ? new Date(pool.payment_deadline).getTime()
+        : 0,
     paymentOpen =
       isTest || ((!opens || now >= opens) && (!closes || now <= closes)),
     paymentNotStarted = !isTest && Boolean(opens && now < opens),
     paymentClosed = !isTest && Boolean(closes && now > closes),
-    isWaitlisted = p.status === "waitlisted";
+    isWaitlisted = p.status === "waitlisted",
+    isExpired = p.status === "expired";
   return (
     <main className="shell">
       <ReservationConfirmedModal
@@ -292,7 +295,7 @@ export default async function Page({
         </p>
         <p className="muted">
           Encerramento:{" "}
-          {new Date(pool.payment_deadline).toLocaleString("pt-BR", {
+          {new Date(p.payment_deadline_override || pool.payment_deadline).toLocaleString("pt-BR", {
             timeZone: "America/Sao_Paulo",
           })}
         </p>
@@ -336,6 +339,13 @@ export default async function Page({
           </p>
         </section>
       )}
+      {acceptance && !paid && isExpired && (
+        <section className="section">
+          <h2>🔴 Prazo de pagamento encerrado</h2>
+          <p className="muted">Sua reserva não foi paga dentro do prazo e a cota foi disponibilizada para a lista de espera.</p>
+          <p className="status">O pagamento desta reserva não está mais disponível.</p>
+        </section>
+      )}
       {acceptance && !paid && isWaitlisted && (
         <section className="section">
           <h2>⏳ Lista de espera</h2>
@@ -345,7 +355,7 @@ export default async function Page({
           </p>
         </section>
       )}
-      {acceptance && !paid && !isWaitlisted && paymentNotStarted && (
+      {acceptance && !paid && !isWaitlisted && !isExpired && paymentNotStarted && (
         <section className="section">
           <h2>🔒 Pagamento ainda fechado</h2>
           <p className="muted">
@@ -366,7 +376,7 @@ export default async function Page({
           </Link>
         </section>
       )}
-      {acceptance && !paid && !isWaitlisted && paymentClosed && (
+      {acceptance && !paid && !isWaitlisted && !isExpired && paymentClosed && (
         <section className="section">
           <h2>🔴 Pagamentos encerrados</h2>
           <p className="muted">
@@ -375,7 +385,7 @@ export default async function Page({
           </p>
         </section>
       )}
-      {acceptance && !paid && !isWaitlisted && paymentOpen && (
+      {acceptance && !paid && !isWaitlisted && !isExpired && paymentOpen && (
         <section className="section">
           <h2>Pagamento automático por Pix</h2>
           <div className="card">
