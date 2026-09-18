@@ -1,0 +1,1 @@
+Disparo de deploy da versão final da lógica de vencimento e lista de espera.
