@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     { data: p } = await s
       .from("participants")
       .select(
-        "id,pool_id,name,phone,email,shares,status,payment_status,is_test,test_amount_cents",
+        "id,pool_id,name,phone,email,shares,status,payment_status,is_test,test_amount_cents,payment_deadline_override",
       )
       .eq("access_token", token)
       .maybeSingle();
@@ -95,9 +95,11 @@ export async function POST(request: Request) {
     opens = pool.payment_opens_at
       ? new Date(pool.payment_opens_at).getTime()
       : 0,
-    closes = pool.payment_deadline
-      ? new Date(pool.payment_deadline).getTime()
-      : 0;
+    closes = p.payment_deadline_override
+      ? new Date(p.payment_deadline_override).getTime()
+      : pool.payment_deadline
+        ? new Date(pool.payment_deadline).getTime()
+        : 0;
   if (!p.is_test && opens && now < opens)
     return NextResponse.json(
       { error: "Os pagamentos deste bolão ainda não foram abertos." },
