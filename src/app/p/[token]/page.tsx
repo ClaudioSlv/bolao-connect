@@ -239,7 +239,7 @@ export default async function Page({
         pools={availablePools}
         participant={{ token, name: p.name, phone: p.phone }}
       />
-      <div style={{ padding: "10px 20px 0", fontSize: "1.05rem", fontWeight: 700 }}>
+      <div style={{ padding: "10px 20px 0", fontSize: "1.05rem", fontWeight: 700 }} aria-label="Saudação ao participante">
         <span style={{ color: "#FFC107" }}>
           {new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" }).format(new Date()).slice(0, 2) < "12"
             ? "Bom dia!"
