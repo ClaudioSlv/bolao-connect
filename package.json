@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/pagbank-sandbox-smoke.mjs",
     "build": "next build",
     "start": "next start",
     "test": "node --test --experimental-strip-types tests/*.test.ts"
