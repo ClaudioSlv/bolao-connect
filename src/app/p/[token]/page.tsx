@@ -63,7 +63,7 @@ async function submitReceipt(f: FormData) {
   const s = createAdminClient();
   const { data: p } = await s
     .from("participants")
-    .select("id,pool_id,status,payment_status")
+    .select("id,pool_id,status,payment_status,payment_deadline_override")
     .eq("access_token", token)
     .maybeSingle();
   if (!p || p.status !== "confirmed" || p.payment_status === "confirmed")
@@ -77,9 +77,11 @@ async function submitReceipt(f: FormData) {
     opens = pool?.payment_opens_at
       ? new Date(pool.payment_opens_at).getTime()
       : 0,
-    closes = pool?.payment_deadline
-      ? new Date(pool.payment_deadline).getTime()
-      : 0;
+    closes = p.payment_deadline_override
+      ? new Date(p.payment_deadline_override).getTime()
+      : pool?.payment_deadline
+        ? new Date(pool.payment_deadline).getTime()
+        : 0;
   if (opens && now < opens)
     throw new Error("Os pagamentos deste bolão ainda não foram abertos.");
   if (closes && now > closes)
