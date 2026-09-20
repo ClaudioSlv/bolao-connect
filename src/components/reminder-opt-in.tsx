@@ -45,13 +45,16 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
         if(Notification.permission==="granted"){
           const existing=await withTimeout(reg.pushManager.getSubscription(),8000);
           if(existing){
+            // Quem chega pelo temporizador pode já ter autorizado um lembrete
+            // anônimo antes de reservar. Ao abrir o painel pela primeira vez,
+            // vincule essa mesma inscrição ao cadastro recém-criado para que o
+            // cartão do participante já reconheça a notificação como ativa.
             const res=await withTimeout(fetch("/api/push/subscribe",{
               method:"POST",
               headers:{"content-type":"application/json"},
-              body:JSON.stringify({action:"status",token,endpoint:existing.endpoint}),
+              body:JSON.stringify({token,subscription:existing.toJSON()}),
             }),8000);
-            const result=await res.json().catch(()=>({active:false}));
-            if(res.ok&&result.active&&!cancelled){setState("ok");setVisible(true);return;}
+            if(res.ok&&!cancelled){setState("ok");setVisible(true);return;}
           }
         }
       }catch{}
