@@ -151,7 +151,7 @@ export default async function Page({
       const { data: pool } = await s
         .from("pools")
         .select(
-          "owner_id,title,lottery,share_price_cents,payment_opens_at,payment_deadline,waitlist_payment_deadline,public_slug,rules_text,rules_version",
+          "owner_id,title,lottery,share_price_cents,payment_opens_at,payment_deadline,waitlist_payment_deadline,public_slug,rules_text,rules_version,cover_image_url",
         )
         .eq("id", p.pool_id)
         .maybeSingle();
@@ -263,6 +263,7 @@ export default async function Page({
           {isTest ? "PARTICIPAR DO BOLÃO · MODO TESTE" : "BOLÃO AMIGOS BTP"}
         </p>
         <h1>🍀 {pool.title}</h1>
+        {pool.cover_image_url&&<img src={pool.cover_image_url} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
         <p>
           <strong>{p.name}</strong> ·{" "}
           {isTest

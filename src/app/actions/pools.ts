@@ -8,6 +8,7 @@ import type { GamePlanItem } from "@/lib/lottery-pricing";
 import { DEFAULT_APP_BRAND } from "@/lib/organizer-brand";
 import { sendWaitlistPromotionPush } from "@/lib/push/participant-notifications";
 import { sendNewPoolPush } from "@/lib/send-new-pool-push";
+import {removeOrganizerImage,uploadOrganizerImage} from "@/lib/organizer-images";
 
 const LOTTERIES: LotteryId[] = [
   "mega-sena",
@@ -253,6 +254,33 @@ export async function increasePoolCapacity(input: {
     promoted: promotedIds.length,
     promotedIds,
   };
+}
+
+export async function setPoolCoverImage(poolId:string,file:File){
+  if(!poolId)throw new Error("Bolão inválido.");
+  const supabase=await createClient();
+  const {data:auth}=await supabase.auth.getUser();
+  if(!auth.user)throw new Error("Faça login para alterar o bolão.");
+  const {data:pool}=await supabase.from("pools").select("id,owner_id,cover_image_path").eq("id",poolId).maybeSingle();
+  if(!pool||pool.owner_id!==auth.user.id)throw new Error("Você não pode alterar este bolão.");
+  const uploaded=await uploadOrganizerImage({ownerId:auth.user.id,kind:"pools",poolId,file});
+  const {error}=await supabase.from("pools").update({cover_image_url:uploaded.url,cover_image_path:uploaded.path}).eq("id",poolId).eq("owner_id",auth.user.id);
+  if(error){await removeOrganizerImage(uploaded.path);throw new Error("Não foi possível salvar a imagem do bolão.");}
+  if(pool.cover_image_path&&pool.cover_image_path!==uploaded.path)await removeOrganizerImage(pool.cover_image_path);
+  revalidatePath("/");revalidatePath(`/temporizador`);revalidatePath(`/bolao`);
+}
+
+export async function removePoolCoverImage(poolId:string){
+  if(!poolId)throw new Error("Bolão inválido.");
+  const supabase=await createClient();
+  const {data:auth}=await supabase.auth.getUser();
+  if(!auth.user)throw new Error("Faça login para alterar o bolão.");
+  const {data:pool}=await supabase.from("pools").select("id,owner_id,cover_image_path").eq("id",poolId).maybeSingle();
+  if(!pool||pool.owner_id!==auth.user.id)throw new Error("Você não pode alterar este bolão.");
+  const {error}=await supabase.from("pools").update({cover_image_url:null,cover_image_path:null}).eq("id",poolId).eq("owner_id",auth.user.id);
+  if(error)throw new Error("Não foi possível remover a imagem.");
+  await removeOrganizerImage(pool.cover_image_path);
+  revalidatePath("/");revalidatePath(`/temporizador`);revalidatePath(`/bolao`);
 }
 
 export async function deletePool(poolId: string) {

@@ -25,7 +25,7 @@ export default async function TimerPage({
     const { data: pool, error } = await s
       .from("pools")
       .select(
-        "id,owner_id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_opens_at,payment_deadline,draw_at,status,public_slug,planned_games,numbers_per_game",
+        "id,owner_id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_opens_at,payment_deadline,draw_at,status,public_slug,planned_games,numbers_per_game,cover_image_url",
       )
       .eq("public_slug", slug)
       .maybeSingle();
@@ -83,6 +83,7 @@ export default async function TimerPage({
       <main className="shell">
         <ScrollPageTop />
         <section className="section" style={{ textAlign: "center" }}>
+          {brand.logoUrl&&<img src={brand.logoUrl} alt="" width="58" height="58" style={{borderRadius:15,objectFit:"cover"}}/>}
           <p className="eyebrow">{brand.name.toUpperCase()}</p>
           <h1>🍀 {pool.title}</h1>
           <p className="muted">
@@ -90,6 +91,7 @@ export default async function TimerPage({
             {pool.contest_number ? ` · Concurso ${pool.contest_number}` : ""}
           </p>
         </section>
+        {pool.cover_image_url&&<section className="section"><img src={pool.cover_image_url} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)"}}/></section>}
         <section className="section">
           {beforeOpen ? (
             <>
