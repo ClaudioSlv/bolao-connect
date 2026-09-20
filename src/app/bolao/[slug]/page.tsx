@@ -22,7 +22,7 @@ export default async function PublicPool({
   const { data: pool } = await s
     .from("pools")
     .select(
-      "id,owner_id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_deadline,draw_at,status",
+      "id,owner_id,title,lottery,contest_number,estimated_prize_cents,share_price_cents,total_shares,payment_deadline,draw_at,status,cover_image_url",
     )
     .eq("public_slug", slug)
     .maybeSingle();
@@ -86,7 +86,7 @@ export default async function PublicPool({
     <main className="shell">
       <TimerReminderOptIn slug={slug} />
       <section className="section">
-        <p className="eyebrow">{organizerBrand.name.toUpperCase()}</p>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>{organizerBrand.logoUrl&&<img src={organizerBrand.logoUrl} alt="" width="52" height="52" style={{borderRadius:14,objectFit:"cover"}}/>}<p className="eyebrow">{organizerBrand.name.toUpperCase()}</p></div>
         <h1>🍀 {pool.title}</h1>
         <p className="muted">
           {pool.lottery}
@@ -94,6 +94,7 @@ export default async function PublicPool({
         </p>
         <SharePoolLink />
       </section>
+      {pool.cover_image_url&&<section className="section"><img src={pool.cover_image_url} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)"}}/></section>}
 
       <section className="section">
         <h2>Informações do bolão</h2>
