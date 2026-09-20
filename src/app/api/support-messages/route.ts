@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getParticipantDeviceAccess } from "@/lib/participant-device-access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import webpush from "web-push";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,30 @@ const EXTENSIONS: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
 };
+
+async function notifyOrganizer(admin: ReturnType<typeof createAdminClient>, poolId: string, participantName: string, category: string) {
+  try {
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+    if (!publicKey || !privateKey) return;
+    const { data: pool } = await admin.from("pools").select("owner_id").eq("id", poolId).maybeSingle();
+    if (!pool?.owner_id) return;
+    const { data: subscriptions } = await admin.from("organizer_push_subscriptions").select("id,endpoint,p256dh,auth").eq("owner_id", pool.owner_id).eq("enabled", true);
+    if (!subscriptions?.length) return;
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:admin@bolao-connect.app", publicKey, privateKey);
+    const categoryName = category === "bug" ? "Bug no app" : category === "suggestion" ? "Sugestão" : "Ajuda ou dúvida";
+    const payload = JSON.stringify({ title: "💬 Nova mensagem no Bolão", body: `${participantName} enviou: ${categoryName}.`, url: "/mensagens", tag: `mensagem-organizador-${poolId}` });
+    for (const subscription of subscriptions) {
+      try {
+        await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload);
+      } catch (error: any) {
+        if (error?.statusCode === 404 || error?.statusCode === 410) await admin.from("organizer_push_subscriptions").update({ enabled: false, updated_at: new Date().toISOString() }).eq("id", subscription.id);
+      }
+    }
+  } catch (error) {
+    console.error("organizer-support-push:", error);
+  }
+}
 
 export async function POST(request: Request) {
   let uploadedPath: string | null = null;
@@ -75,6 +100,7 @@ export async function POST(request: Request) {
         preview: message.slice(0, 120),
       },
     });
+    await notifyOrganizer(admin, participant.pool_id, participant.name, category);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("participant-support-message:", error);
