@@ -21,7 +21,8 @@ const menu=[
  ["check","Conferência","Resultados e acertos","/conferencia"],
  ["users","Participantes","Gerencie participantes","/participantes"],
  ["generator","Gerar Jogos","Crie combinações","/meu-jogo"],
- ["archive","Jogos Salvos","Consulte e confira resultados","/jogos-salvos"]
+ ["archive","Jogos Salvos","Consulte e confira resultados","/jogos-salvos"],
+ ["message","Mensagens","Bugs, sugestões e ajuda","/mensagens"]
 ] as const;
 
 export default async function Home({searchParams}:{searchParams:Promise<{pool?:string}>}){

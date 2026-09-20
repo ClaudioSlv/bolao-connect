@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   const requestedSince = new URL(request.url).searchParams.get("since");
   const parsedSince = requestedSince ? new Date(requestedSince) : new Date();
   const since = Number.isNaN(parsedSince.getTime()) ? new Date().toISOString() : parsedSince.toISOString();
-  const { data, error } = await supabase.from("audit_events").select("id,event_type,details,created_at").in("pool_id", poolIds).in("event_type", ["participant_app_opened", "personal_game_prize"]).gt("created_at", since).order("created_at", { ascending: true }).limit(20);
+  const { data, error } = await supabase.from("audit_events").select("id,event_type,details,created_at").in("pool_id", poolIds).in("event_type", ["participant_app_opened", "personal_game_prize", "participant_support_message"]).gt("created_at", since).order("created_at", { ascending: true }).limit(20);
   if (error) { console.error("organizer-activity:", error); return NextResponse.json({ activities: [] }, { status: 500 }); }
   return NextResponse.json({ activities: data ?? [] });
 }

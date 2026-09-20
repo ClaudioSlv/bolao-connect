@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-type Activity = { id: string; event_type: "participant_app_opened" | "personal_game_prize"; details: { participant_name?: string; hits?: number } | null; created_at: string };
+type Activity = { id: string; event_type: "participant_app_opened" | "personal_game_prize" | "participant_support_message"; details: { participant_name?: string; hits?: number } | null; created_at: string };
 const DISPLAY_MS = 3000;
 const POLL_MS = 2500;
 
@@ -12,6 +12,7 @@ function activityMessage(activity: Activity) {
     const hits = Number(activity.details?.hits ?? 0);
     return { name, message: ` acertou ${hits} ponto${hits === 1 ? "" : "s"}.` };
   }
+  if (activity.event_type === "participant_support_message") return { name, message: " enviou uma nova mensagem." };
   const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date(activity.created_at));
   return { name, message: ` entrou no app às ${time}.` };
 }
@@ -42,5 +43,5 @@ export function OrganizerActivityToasts({ startedAt }: { startedAt: string }) {
   useEffect(() => { if (current || !queue.length) return; const [next, ...rest] = queue; setCurrent(next); setQueue(rest); }, [current, queue]);
   useEffect(() => { if (!current) return; const timeout = window.setTimeout(() => setCurrent(null), DISPLAY_MS); return () => window.clearTimeout(timeout); }, [current]);
   const text = current ? activityMessage(current) : null;
-  return <div className="organizer-activity-region" aria-live="polite" aria-atomic="true">{current && text ? <div className="organizer-activity-toast" role="status"><span className="organizer-activity-icon" aria-hidden="true">{current.event_type === "personal_game_prize" ? "🏆" : "👤"}</span><span><strong className="organizer-activity-name">{text.name}</strong><span className="organizer-activity-message">{text.message}</span></span></div> : null}</div>;
+  return <div className="organizer-activity-region" aria-live="polite" aria-atomic="true">{current && text ? <div className="organizer-activity-toast" role="status"><span className="organizer-activity-icon" aria-hidden="true">{current.event_type === "personal_game_prize" ? "🏆" : current.event_type === "participant_support_message" ? "💬" : "👤"}</span><span><strong className="organizer-activity-name">{text.name}</strong><span className="organizer-activity-message">{text.message}</span></span></div> : null}</div>;
 }
