@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
   const { data: rows, error } = await admin
     .from("personal_saved_games")
-    .select("id,participant_id,lottery,contest_number,games")
+    .select("id,participant_id,pool_id,lottery,contest_number,games")
     .is("checked_at", null)
     .order("created_at", { ascending: true })
     .limit(500);
@@ -114,6 +114,14 @@ export async function GET(request: Request) {
       .eq("id", row.participant_id)
       .maybeSingle();
     if (!participant || participant.status === "cancelled") continue;
+
+    await admin.from("audit_events").insert({
+      pool_id: row.pool_id,
+      event_type: "personal_game_prize",
+      entity_type: "personal_saved_game",
+      entity_id: row.id,
+      details: { participant_name: participant.name, hits: best.hits, lottery: row.lottery, contest: draw.contest },
+    });
 
     const { data: subscriptions } = await admin
       .from("push_subscriptions")

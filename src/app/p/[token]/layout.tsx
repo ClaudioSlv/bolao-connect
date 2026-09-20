@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getParticipantDeviceAccess } from "@/lib/participant-device-access";
+import { ParticipantActivityTracker } from "@/components/participant-activity-tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -18,5 +19,5 @@ export default async function ParticipantProtectedLayout({
     redirect(`/verificar-participante/${encodeURIComponent(token)}`);
   }
 
-  return children;
+  return <>{children}{access.authorized ? <ParticipantActivityTracker token={token} /> : null}</>;
 }
