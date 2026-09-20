@@ -45,6 +45,10 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 @media(prefers-reduced-motion:reduce){.participant-support-fab{animation:none}}
 @media print{.participant-support-fab,.participant-support-overlay{display:none}}
 
+/* Notificações e contador de mensagens do organizador */
+.organizer-notification-card{display:grid;gap:10px;padding:15px;border:1px solid rgba(89,168,255,.55);border-radius:17px;background:linear-gradient(145deg,rgba(15,42,28,.96),rgba(6,21,12,.98))}.organizer-notification-card>strong{color:#f7c948}.organizer-notification-card>span{color:#aebbb2;font-size:13px;line-height:1.45}.organizer-notification-card small{color:#f7c948;line-height:1.4}.organizer-notification-status{margin-top:16px;padding:10px 13px;border:1px solid rgba(34,197,94,.45);border-radius:13px;background:rgba(34,197,94,.08);color:#62dc91;font-size:13px;font-weight:900;text-align:center}
+.message-unread-badge{display:inline-grid!important;place-items:center;min-width:23px;height:23px;margin-left:7px;padding:0 6px;border-radius:999px;background:#ef3434;color:#fff!important;font-size:11px!important;line-height:1;box-shadow:0 0 0 2px #10291a,0 0 12px rgba(239,52,52,.5)}
+
 
 /* Painel aprovado: resumo premium e ticker mais legível */
 .summary-section{margin-top:28px}
