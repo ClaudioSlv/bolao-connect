@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PoolCountdown } from "@/components/pool-countdown";
 import { TimerReminderOptIn } from "@/components/timer-reminder-opt-in";
@@ -6,6 +8,7 @@ import { OrganizerCta } from "@/components/organizer-cta";
 import { JoinPoolButton } from "@/components/join-pool-button";
 import { ScrollPageTop } from "@/components/scroll-page-top";
 import { getOrganizerBrand } from "@/lib/organizer-brand";
+import { participantAccessCookieName } from "@/lib/participant-access-cookie";
 export const dynamic = "force-dynamic";
 const money = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -35,6 +38,20 @@ export default async function TimerPage({
           </section>
         </main>
       );
+    const savedToken = (await cookies()).get(
+      participantAccessCookieName(slug),
+    )?.value;
+    if (savedToken) {
+      const { data: savedParticipant } = await s
+        .from("participants")
+        .select("access_token")
+        .eq("pool_id", pool.id)
+        .eq("access_token", savedToken)
+        .neq("status", "cancelled")
+        .maybeSingle();
+      if (savedParticipant?.access_token)
+        redirect(`/p/${savedParticipant.access_token}`);
+    }
     const brand = await getOrganizerBrand(s, pool.owner_id);
     const [{ data: participants }, { data: games }] = await Promise.all([
       s.from("participants").select("shares,status,is_test,is_organizer_free_share").eq("pool_id", pool.id),
@@ -216,7 +233,8 @@ export default async function TimerPage({
         <OrganizerCta />
       </main>
     );
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return (
       <main className="shell">
         <section className="section">

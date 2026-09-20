@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ReminderOptIn } from "@/components/reminder-opt-in";
 import { ReservationConfirmedModal } from "@/components/reservation-confirmed-modal";
@@ -12,6 +13,7 @@ import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
 } from "@/lib/pool-rules";
+import { participantAccessCookieName } from "@/lib/participant-access-cookie";
 export const dynamic = "force-dynamic";
 const money = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -48,6 +50,13 @@ async function acceptRules(f: FormData) {
   );
   if (error) throw error;
   redirect(`/p/${token}?rules=accepted`);
+}
+async function forgetParticipantOnThisDevice(f: FormData) {
+  "use server";
+  const slug = String(f.get("slug") ?? "").trim();
+  if (!slug) redirect("/temporizador");
+  (await cookies()).delete(participantAccessCookieName(slug));
+  redirect(`/temporizador/${slug}`);
 }
 async function submitReceipt(f: FormData) {
   "use server";
@@ -311,6 +320,12 @@ export default async function Page({
             timeZone: "America/Sao_Paulo",
           })}
         </p>
+        <form action={forgetParticipantOnThisDevice}>
+          <input type="hidden" name="slug" value={pool.public_slug} />
+          <button className="button secondary" type="submit">
+            Este não é meu cadastro
+          </button>
+        </form>
       </section>
       {acceptance && <ReminderOptIn token={token} paid={paid} />}
       <section className="section">
