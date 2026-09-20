@@ -21,6 +21,15 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 @media(max-width:360px){.nav{gap:3px;padding-left:5px;padding-right:5px}.nav a{font-size:10px}.nav-icon{width:31px;height:28px}.nav-icon svg{width:19px;height:19px}}
 @media print{.nav{display:none}}
 
+/* Alertas rápidos de atividade para o organizador */
+.organizer-activity-region{position:fixed;left:max(14px,env(safe-area-inset-left));bottom:calc(94px + env(safe-area-inset-bottom));z-index:1800;width:min(390px,calc(100vw - 28px));pointer-events:none}
+.organizer-activity-toast{display:flex;align-items:center;gap:11px;padding:13px 15px;border:1px solid rgba(247,201,72,.76);border-radius:16px;background:linear-gradient(145deg,rgba(18,46,29,.98),rgba(5,18,11,.99));box-shadow:0 12px 30px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,240,177,.14);font-size:14px;font-weight:800;line-height:1.35;animation:organizerActivityIn .2s ease-out}
+.organizer-activity-icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border:1px solid rgba(247,201,72,.55);border-radius:11px;background:rgba(247,201,72,.11);font-size:18px}
+.organizer-activity-name{color:#f7c948}.organizer-activity-message{color:#59a8ff}
+@keyframes organizerActivityIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.organizer-activity-toast{animation:none}}
+@media print{.organizer-activity-region{display:none}}
+
 
 /* Painel aprovado: resumo premium e ticker mais legível */
 .summary-section{margin-top:28px}
