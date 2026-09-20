@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JoinPoolForm } from "@/components/join-pool-form";
+import { participantAccessCookieName } from "@/lib/participant-access-cookie";
 import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
@@ -109,6 +111,18 @@ async function joinPool(form: FormData) {
       waitlist_position: participant.waitlist_position ?? null,
     },
   });
+  const cookieStore = await cookies();
+  cookieStore.set(
+    participantAccessCookieName(slug),
+    String(participant.access_token),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    },
+  );
   redirect(
     `/p/${participant.access_token}?joined=1${waitlistedShares > 0 ? `&waitlist=${participant.waitlist_position}&confirmedShares=${confirmedShares}&waitlistedShares=${waitlistedShares}` : ""}`,
   );
