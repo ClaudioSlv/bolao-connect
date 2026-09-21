@@ -63,7 +63,10 @@ export function extractTicketGames(text: string, rule: TicketLotteryRule, pick: 
   }
   if (markedBuffer?.length === pick) markedGroups.push(markedBuffer);
   for (const group of markedGroups) push(group);
-  if (games.length > 1) return games;
+  // Se o OCR encontrou marcadores de apostas, nunca complete um jogo usando
+  // números soltos do cabeçalho ou de outra aposta. É melhor pedir nova foto
+  // do que apresentar 15 dezenas misturadas como se fossem válidas.
+  if (markedGroups.length) return games;
 
   const candidates = rawLines.map((line) => ticketNumbersFromLine(line, rule)).filter((numbers) => numbers.length >= 3);
   for (const numbers of candidates) {
@@ -89,4 +92,3 @@ export function extractTicketGames(text: string, rule: TicketLotteryRule, pick: 
   }
   return games;
 }
-

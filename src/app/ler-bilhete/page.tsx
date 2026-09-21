@@ -70,6 +70,31 @@ async function preprocessImage(file:File):Promise<Blob>{
   }catch{return file;}
 }
 
+async function preprocessGameArea(file:File):Promise<Blob>{
+  const bitmap=await createImageBitmap(file);
+  try{
+    // Nos recibos da CAIXA, as apostas ficam na faixa central. Esta segunda
+    // leitura descarta cabeçalho, valores, códigos e QR Code, mantendo as
+    // linhas A, B, C... maiores e mais nítidas para o OCR no celular.
+    const sourceX=Math.round(bitmap.width*.04),sourceY=Math.round(bitmap.height*.16);
+    const sourceWidth=Math.round(bitmap.width*.92),sourceHeight=Math.round(bitmap.height*.58);
+    const scale=Math.min(3,2400/Math.max(sourceWidth,sourceHeight));
+    const width=Math.max(1,Math.round(sourceWidth*scale)),height=Math.max(1,Math.round(sourceHeight*scale));
+    const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    if(!ctx)return file;
+    ctx.drawImage(bitmap,sourceX,sourceY,sourceWidth,sourceHeight,0,0,width,height);
+    const image=ctx.getImageData(0,0,width,height),data=image.data;
+    for(let i=0;i<data.length;i+=4){
+      const gray=.299*data[i]+.587*data[i+1]+.114*data[i+2];
+      const value=Math.max(0,Math.min(255,(gray-128)*1.85+128));
+      data[i]=value;data[i+1]=value;data[i+2]=value;
+    }
+    ctx.putImageData(image,0,0);
+    return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Falha ao ampliar jogos")),"image/jpeg",.92));
+  }finally{bitmap.close()}
+}
+
 export default function TicketReaderPage(){
   const cameraRef=useRef<HTMLInputElement>(null),galleryRef=useRef<HTMLInputElement>(null);
   const [lottery,setLottery]=useState("lotofacil"),[pick,setPick]=useState(rules.lotofacil.defaultPick),[contest,setContest]=useState("");
@@ -91,8 +116,18 @@ export default function TicketReaderPage(){
       const tesseract=await loadTesseract();
       const result=await tesseract.recognize(prepared,"eng",{logger:item=>{if(typeof item.progress==="number")setProgress(Math.round(item.progress*100));if(item.status)setMessage(item.status==="recognizing text"?"Reconhecendo linhas do bilhete...":"Preparando reconhecimento...")}},
         {tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -.,/\n",tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
-      const text=result.data?.text?.trim()??"";setOcrText(text);
-      const extracted=extractGames(text,rule,pick);setGames(extracted.map(formatGame));
+      let text=result.data?.text?.trim()??"";
+      let extracted=extractGames(text,rule,pick);
+      if(extracted.length<=1){
+        setMessage("Ampliando a área dos jogos para uma segunda leitura...");setProgress(0);
+        const focused=await preprocessGameArea(file);
+        const focusedResult=await tesseract.recognize(focused,"eng",{logger:item=>{if(typeof item.progress==="number")setProgress(Math.round(item.progress*100));if(item.status)setMessage(item.status==="recognizing text"?"Relendo as apostas A, B, C...":"Ampliando a área dos jogos...")}},
+          {tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -.,/\n",tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
+        const focusedText=focusedResult.data?.text?.trim()??"";
+        text=[text,focusedText].filter(Boolean).join("\n");
+        extracted=extractGames(text,rule,pick);
+      }
+      setOcrText(text);setGames(extracted.map(formatGame));
       if(extracted.length)setMessage(`${extracted.length} jogo(s) encontrado(s). Confira todos os números antes de salvar.`);
       else setMessage("A foto foi lida, mas ainda não consegui fechar um jogo completo. Você pode corrigir o texto reconhecido ou tentar outra foto mais reta.");
     }catch(e){console.error(e);setError("Não consegui concluir a leitura. Tente fotografar o bilhete inteiro, de frente e com boa luz.");setMessage("");}
@@ -133,7 +168,7 @@ export default function TicketReaderPage(){
       {reading&&<div className="status" style={{marginTop:14}}>{message||"Lendo a foto..."} {progress>0?`${progress}%`:""}</div>}{error&&<div className="status" style={{marginTop:14}}>{error}</div>}{!reading&&message&&<div className="status" style={{marginTop:14}}>{message}</div>}
     </section>
     {(ocrText||games.length>0)&&<section className="section"><h2>Revisar leitura</h2><p className="muted"><strong>Confira todos os números reconhecidos antes de salvar.</strong> Se algum vier errado, corrija aqui.</p>
-      {games.map((game,index)=><div className="card" key={index} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}><strong>Jogo {index+1}</strong><button type="button" className="button secondary" onClick={()=>removeGame(index)} style={{width:"auto",padding:"8px 12px"}}>Remover</button></div><input value={game} inputMode="numeric" onChange={e=>editGame(index,e.target.value)} placeholder={`Digite ${pick} números separados por espaço`} style={{marginTop:10}}/><small className="muted">{numbersFromLine(game,rule).length}/{pick} números reconhecidos</small></div>)}
+      {games.map((game,index)=><div className="card" key={index} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}><strong>Jogo {index+1}</strong><button type="button" className="button secondary" onClick={()=>removeGame(index)} style={{width:"auto",padding:"8px 12px"}}>Remover</button></div><textarea rows={3} value={game} inputMode="numeric" onChange={e=>editGame(index,e.target.value)} placeholder={`Digite ${pick} números separados por espaço`} style={{marginTop:10,width:"100%",fontSize:18,lineHeight:1.7,resize:"vertical"}}/><small className="muted">{numbersFromLine(game,rule).length}/{pick} números reconhecidos — confira todas as dezenas antes de salvar</small></div>)}
       <button type="button" className="button secondary" onClick={addGame}>+ Adicionar jogo manualmente</button>
       {ocrText&&<details style={{marginTop:16}}><summary>Ver texto reconhecido da foto</summary><div className="field" style={{marginTop:12}}><textarea rows={8} value={ocrText} onChange={e=>setOcrText(e.target.value)}/></div><button type="button" className="button secondary" onClick={reprocess}>Separar jogos novamente</button></details>}
       <div className="actions" style={{marginTop:18}}><button type="button" className="button primary" onClick={saveGames} disabled={!validGames.length}>SALVAR {validGames.length||""} JOGO(S)</button><Link className="button secondary" href="/meus-jogos-salvos">Ver meus jogos salvos</Link></div>
