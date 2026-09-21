@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
+import { extractTicketGames, ticketNumbersFromLine } from "@/lib/ticket-ocr";
 
 type LotteryRule = { label:string; min:number; max:number; defaultPick:number; minPick:number; maxPick:number; allowRepeat?:boolean };
 type OCRMessage = { status?:string; progress?:number };
@@ -38,42 +39,11 @@ function loadTesseract(){
   });
 }
 
-function numbersFromLine(line:string,rule:LotteryRule){
-  const matches=line.match(/\d{1,3}/g)??[];
-  const numbers=matches.map(Number).filter(n=>Number.isInteger(n)&&n>=rule.min&&n<=rule.max);
-  if(rule.allowRepeat)return numbers;
-  const unique:number[]=[];for(const n of numbers)if(!unique.includes(n))unique.push(n);return unique;
-}
+function numbersFromLine(line:string,rule:LotteryRule){return ticketNumbersFromLine(line,rule)}
 
 function normalizeGame(numbers:number[],rule:LotteryRule){return rule.allowRepeat?numbers:[...numbers].sort((a,b)=>a-b)}
 
-function extractGames(text:string,rule:LotteryRule,pick:number){
-  const games:number[][]=[];const seen=new Set<string>();
-  const push=(numbers:number[])=>{if(numbers.length!==pick)return;const normalized=normalizeGame(numbers,rule);const key=normalized.join("-");if(!seen.has(key)){seen.add(key);games.push(normalized)}};
-  const rawLines=text.replace(/[|]/g," ").split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
-  const candidates=rawLines.map(line=>numbersFromLine(line,rule)).filter(numbers=>numbers.length>=3);
-
-  for(const numbers of candidates){
-    if(numbers.length===pick)push(numbers);
-    else if(numbers.length>pick&&numbers.length%pick===0)for(let i=0;i<numbers.length;i+=pick)push(numbers.slice(i,i+pick));
-  }
-
-  let buffer:number[]=[];
-  for(const numbers of candidates){
-    if(numbers.length>=pick){buffer=[];continue;}
-    const merged=rule.allowRepeat?[...buffer,...numbers]:Array.from(new Set([...buffer,...numbers]));
-    if(merged.length===pick){push(merged);buffer=[];continue;}
-    if(merged.length< pick){buffer=merged;continue;}
-    buffer=[...numbers];
-  }
-
-  if(!games.length){
-    const allCandidates=candidates.flat();
-    const all=rule.allowRepeat?allCandidates:Array.from(new Set(allCandidates));
-    for(let i=0;i+pick<=all.length;i+=pick)push(all.slice(i,i+pick));
-  }
-  return games;
-}
+function extractGames(text:string,rule:LotteryRule,pick:number){return extractTicketGames(text,rule,pick)}
 
 function formatGame(numbers:number[]){return numbers.map(n=>String(n).padStart(2,"0")).join(" ")}
 
@@ -120,7 +90,7 @@ export default function TicketReaderPage(){
       const prepared=await preprocessImage(file);setMessage("Preparando reconhecimento dos números...");
       const tesseract=await loadTesseract();
       const result=await tesseract.recognize(prepared,"eng",{logger:item=>{if(typeof item.progress==="number")setProgress(Math.round(item.progress*100));if(item.status)setMessage(item.status==="recognizing text"?"Reconhecendo linhas do bilhete...":"Preparando reconhecimento...")}},
-        {tessedit_char_whitelist:"0123456789 -.,/\n",tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
+        {tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -.,/\n",tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
       const text=result.data?.text?.trim()??"";setOcrText(text);
       const extracted=extractGames(text,rule,pick);setGames(extracted.map(formatGame));
       if(extracted.length)setMessage(`${extracted.length} jogo(s) encontrado(s). Confira todos os números antes de salvar.`);
