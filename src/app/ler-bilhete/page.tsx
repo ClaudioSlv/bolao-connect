@@ -95,22 +95,46 @@ async function preprocessGameArea(file:File):Promise<Blob>{
   }finally{bitmap.close()}
 }
 
+async function preprocessGameBand(file:File,index:number):Promise<Blob>{
+  const bitmap=await createImageBitmap(file);
+  try{
+    // Cada aposta ocupa duas linhas e cerca de 10,5% da altura da foto.
+    // O recorte começa no primeiro jogo e avança uma faixa por aposta.
+    const sourceX=Math.round(bitmap.width*.12),sourceY=Math.round(bitmap.height*(.29+index*.105));
+    const sourceWidth=Math.round(bitmap.width*.84),sourceHeight=Math.round(bitmap.height*.13);
+    const scale=Math.min(4,2200/Math.max(sourceWidth,sourceHeight));
+    const width=Math.max(1,Math.round(sourceWidth*scale)),height=Math.max(1,Math.round(sourceHeight*scale));
+    const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;
+    const ctx=canvas.getContext("2d",{willReadFrequently:true});
+    if(!ctx)return file;
+    ctx.drawImage(bitmap,sourceX,sourceY,sourceWidth,sourceHeight,0,0,width,height);
+    const image=ctx.getImageData(0,0,width,height),data=image.data;
+    for(let i=0;i<data.length;i+=4){
+      const gray=.299*data[i]+.587*data[i+1]+.114*data[i+2];
+      const value=Math.max(0,Math.min(255,(gray-128)*2.15+128));
+      data[i]=value;data[i+1]=value;data[i+2]=value;
+    }
+    ctx.putImageData(image,0,0);
+    return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("Falha ao recortar aposta")),"image/jpeg",.94));
+  }finally{bitmap.close()}
+}
+
 export default function TicketReaderPage(){
   const cameraRef=useRef<HTMLInputElement>(null),galleryRef=useRef<HTMLInputElement>(null);
   const [lottery,setLottery]=useState("lotofacil"),[pick,setPick]=useState(rules.lotofacil.defaultPick),[contest,setContest]=useState("");
   const [previewUrl,setPreviewUrl]=useState(""),[ocrText,setOcrText]=useState(""),[games,setGames]=useState<string[]>([]);
-  const [reading,setReading]=useState(false),[progress,setProgress]=useState(0),[message,setMessage]=useState(""),[error,setError]=useState("");
+  const [reading,setReading]=useState(false),[progress,setProgress]=useState(0),[message,setMessage]=useState(""),[error,setError]=useState(""),[confirmed,setConfirmed]=useState(false);
   const rule=rules[lottery];
   const validGames=useMemo(()=>games.map(value=>numbersFromLine(value,rule)).filter(numbers=>numbers.length===pick),[games,pick,rule]);
 
-  const changeLottery=(value:string)=>{setLottery(value);setPick(rules[value].defaultPick);setGames([]);setOcrText("");setMessage("");setError("")};
+  const changeLottery=(value:string)=>{setLottery(value);setPick(rules[value].defaultPick);setGames([]);setOcrText("");setMessage("");setError("");setConfirmed(false)};
 
   const readImage=async(event:ChangeEvent<HTMLInputElement>)=>{
     const file=event.target.files?.[0];event.target.value="";if(!file)return;
     if(!file.type.startsWith("image/")){setError("Escolha uma foto do bilhete.");return;}
     if(file.size>15*1024*1024){setError("A imagem é muito grande. Tente outra foto com até 15 MB.");return;}
     if(previewUrl)URL.revokeObjectURL(previewUrl);setPreviewUrl(URL.createObjectURL(file));
-    setReading(true);setProgress(0);setError("");setMessage("Otimizando a foto para leitura...");setGames([]);
+    setReading(true);setProgress(0);setError("");setMessage("Otimizando a foto para leitura...");setGames([]);setConfirmed(false);
     try{
       const prepared=await preprocessImage(file);setMessage("Preparando reconhecimento dos números...");
       const tesseract=await loadTesseract();
@@ -127,6 +151,21 @@ export default function TicketReaderPage(){
         text=[text,focusedText].filter(Boolean).join("\n");
         extracted=extractGames(text,rule,pick);
       }
+      if(extracted.length>=2&&extracted.length<=5){
+        setMessage("Conferindo cada aposta separadamente...");setProgress(0);
+        const bandGames:number[][]=[];const bandTexts:string[]=[];
+        for(let index=0;index<extracted.length;index++){
+          setMessage(`Lendo o Jogo ${index+1} separado dos demais...`);
+          const band=await preprocessGameBand(file,index);
+          const bandResult=await tesseract.recognize(band,"eng",{logger:item=>{if(typeof item.progress==="number")setProgress(Math.round(item.progress*100))}},
+            {tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -.,/\n",tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
+          const bandText=bandResult.data?.text?.trim()??"";bandTexts.push(`[JOGO ${index+1}]\n${bandText}`);
+          const numbers=numbersFromLine(bandText,rule);
+          if(numbers.length===pick)bandGames.push(normalizeGame(numbers,rule));
+        }
+        text=[text,...bandTexts].filter(Boolean).join("\n");
+        if(bandGames.length===extracted.length)extracted=bandGames;
+      }
       setOcrText(text);setGames(extracted.map(formatGame));
       if(extracted.length)setMessage(`${extracted.length} jogo(s) encontrado(s). Confira todos os números antes de salvar.`);
       else setMessage("A foto foi lida, mas ainda não consegui fechar um jogo completo. Você pode corrigir o texto reconhecido ou tentar outra foto mais reta.");
@@ -135,12 +174,13 @@ export default function TicketReaderPage(){
   };
 
   const reprocess=()=>{const extracted=extractGames(ocrText,rule,pick);setGames(extracted.map(formatGame));setError("");setMessage(extracted.length?`${extracted.length} jogo(s) separado(s) do texto.`:"Não encontrei jogos completos nesse texto.")};
-  const editGame=(index:number,value:string)=>setGames(current=>current.map((game,i)=>i===index?value:game));
-  const removeGame=(index:number)=>setGames(current=>current.filter((_,i)=>i!==index));
-  const addGame=()=>setGames(current=>[...current,""]);
+  const editGame=(index:number,value:string)=>{setConfirmed(false);setGames(current=>current.map((game,i)=>i===index?value:game))};
+  const removeGame=(index:number)=>{setConfirmed(false);setGames(current=>current.filter((_,i)=>i!==index))};
+  const addGame=()=>{setConfirmed(false);setGames(current=>[...current,""])};
 
   const saveGames=()=>{
     setError("");setMessage("");const targetContest=Number(contest);
+    if(!confirmed){setError("Marque que você conferiu as dezenas com o bilhete antes de salvar.");return;}
     if(!Number.isInteger(targetContest)||targetContest<=0){setError("Informe o número do concurso antes de salvar.");return;}
     if(!games.length){setError("Nenhum jogo foi reconhecido para salvar.");return;}
     const parsed=games.map(value=>numbersFromLine(value,rule));
@@ -170,8 +210,9 @@ export default function TicketReaderPage(){
     {(ocrText||games.length>0)&&<section className="section"><h2>Revisar leitura</h2><p className="muted"><strong>Confira todos os números reconhecidos antes de salvar.</strong> Se algum vier errado, corrija aqui.</p>
       {games.map((game,index)=><div className="card" key={index} style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",gap:10,alignItems:"center"}}><strong>Jogo {index+1}</strong><button type="button" className="button secondary" onClick={()=>removeGame(index)} style={{width:"auto",padding:"8px 12px"}}>Remover</button></div><textarea rows={3} value={game} inputMode="numeric" onChange={e=>editGame(index,e.target.value)} placeholder={`Digite ${pick} números separados por espaço`} style={{marginTop:10,width:"100%",fontSize:18,lineHeight:1.7,resize:"vertical"}}/><small className="muted">{numbersFromLine(game,rule).length}/{pick} números reconhecidos — confira todas as dezenas antes de salvar</small></div>)}
       <button type="button" className="button secondary" onClick={addGame}>+ Adicionar jogo manualmente</button>
+      {games.length>0&&<label className="card" style={{display:"flex",gap:12,alignItems:"flex-start",marginTop:16,cursor:"pointer"}}><input type="checkbox" checked={confirmed} onChange={event=>setConfirmed(event.target.checked)} style={{width:22,height:22,flex:"0 0 auto",marginTop:2}}/><span><strong>Conferi todos os jogos com o bilhete</strong><small className="muted" style={{display:"block",marginTop:4}}>Só marque depois de comparar cada dezena. O reconhecimento por foto pode errar.</small></span></label>}
       {ocrText&&<details style={{marginTop:16}}><summary>Ver texto reconhecido da foto</summary><div className="field" style={{marginTop:12}}><textarea rows={8} value={ocrText} onChange={e=>setOcrText(e.target.value)}/></div><button type="button" className="button secondary" onClick={reprocess}>Separar jogos novamente</button></details>}
-      <div className="actions" style={{marginTop:18}}><button type="button" className="button primary" onClick={saveGames} disabled={!validGames.length}>SALVAR {validGames.length||""} JOGO(S)</button><Link className="button secondary" href="/meus-jogos-salvos">Ver meus jogos salvos</Link></div>
+      <div className="actions" style={{marginTop:18}}><button type="button" className="button primary" onClick={saveGames} disabled={!validGames.length||!confirmed}>SALVAR {validGames.length||""} JOGO(S)</button><Link className="button secondary" href="/meus-jogos-salvos">Ver meus jogos salvos</Link></div>
     </section>}
     <section className="section"><p className="muted">A leitura por câmera foi otimizada para reduzir o uso de memória e separar melhor vários jogos no mesmo bilhete. Em +Milionária, Dia de Sorte e Timemania, os campos especiais ainda devem ser conferidos manualmente.</p></section>
   </main>;
