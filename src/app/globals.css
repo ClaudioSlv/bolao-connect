@@ -441,3 +441,25 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .pool-carousel-card{flex:0 0 calc(100% - 26px);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
 .pool-carousel-card:focus-visible{outline:2px solid #f7c948;outline-offset:3px}
 @media(prefers-reduced-motion:no-preference){.pool-carousel{scroll-behavior:smooth}}
+
+
+/* Mega da Virada: globo animado sem chamadas ao servidor */
+.mega-pool-cover{position:relative;display:block;width:100%;aspect-ratio:3 / 1;overflow:hidden}
+.mega-pool-cover>img{width:100%;height:100%;display:block;object-fit:cover}
+.mega-globe-animation{position:absolute;z-index:2;left:7%;top:8%;width:30%;height:84%;overflow:hidden;border-radius:50%;pointer-events:none;filter:drop-shadow(0 2px 2px rgba(0,0,0,.55))}
+.mega-globe-ball{position:absolute;width:25px;height:25px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(87,55,5,.8);border-radius:50%;color:#171006;background:radial-gradient(circle at 35% 28%,#fffdf2 0 24%,#f7d66b 52%,#c78c13 100%);box-shadow:inset -2px -3px 4px rgba(104,60,0,.34),0 2px 4px rgba(0,0,0,.55);font-size:9px;font-weight:900;line-height:1;will-change:transform}
+.mega-globe-ball-1{left:12%;top:18%;animation:megaBallOne 2.7s ease-in-out infinite alternate}
+.mega-globe-ball-2{left:42%;top:10%;animation:megaBallTwo 3.1s ease-in-out infinite alternate}
+.mega-globe-ball-3{left:68%;top:25%;animation:megaBallThree 2.5s ease-in-out infinite alternate}
+.mega-globe-ball-4{left:19%;top:57%;animation:megaBallThree 3.3s ease-in-out infinite alternate-reverse}
+.mega-globe-ball-5{left:48%;top:62%;animation:megaBallOne 2.9s ease-in-out infinite alternate-reverse}
+.mega-globe-ball-6{left:70%;top:55%;animation:megaBallTwo 2.6s ease-in-out infinite alternate-reverse}
+@keyframes megaBallOne{from{transform:translate3d(-3px,5px,0) rotate(-8deg)}to{transform:translate3d(8px,-7px,0) rotate(11deg)}}
+@keyframes megaBallTwo{from{transform:translate3d(5px,-4px,0) rotate(7deg)}to{transform:translate3d(-8px,8px,0) rotate(-12deg)}}
+@keyframes megaBallThree{from{transform:translate3d(-5px,-6px,0) rotate(-10deg)}to{transform:translate3d(7px,6px,0) rotate(9deg)}}
+.pool-history-link{display:flex;align-items:center;justify-content:space-between;gap:12px;border-color:rgba(247,201,72,.55);background:linear-gradient(145deg,rgba(20,47,30,.98),rgba(6,22,13,.98))}
+.pool-history-link>span:first-child{min-width:0}
+.pool-history-link strong{color:#f7c948}
+.pool-history-link .card-chevron{flex:0 0 auto}
+@media(max-width:390px){.mega-globe-ball{width:21px;height:21px;font-size:8px}}
+@media(prefers-reduced-motion:reduce){.mega-globe-ball{animation:none}}
