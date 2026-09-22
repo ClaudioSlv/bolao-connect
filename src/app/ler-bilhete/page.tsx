@@ -136,7 +136,33 @@ export default function TicketReaderPage(){
     if(previewUrl)URL.revokeObjectURL(previewUrl);setPreviewUrl(URL.createObjectURL(file));
     setReading(true);setProgress(0);setError("");setMessage("Otimizando a foto para leitura...");setGames([]);setConfirmed(false);
     try{
-      const prepared=await preprocessImage(file);setMessage("Preparando reconhecimento dos números...");
+      const prepared=await preprocessImage(file);
+      setMessage("Analisando o bilhete com inteligência artificial...");
+      const form=new FormData();
+      form.append("image",prepared,"bilhete.jpg");
+      form.append("lottery",lottery);
+      form.append("pick",String(pick));
+      try{
+        const aiResponse=await fetch("/api/ticket-recognition",{method:"POST",body:form});
+        const aiPayload=await aiResponse.json();
+        if(aiResponse.ok&&Array.isArray(aiPayload.games)&&aiPayload.games.length){
+          const aiGames=(aiPayload.games as Array<{numbers?:number[]}>)
+            .map(game=>Array.isArray(game.numbers)?game.numbers:[])
+            .filter(numbers=>numbers.length===pick);
+          if(aiGames.length){
+            const formatted=aiGames.map(formatGame);
+            setOcrText(aiGames.map((numbers,index)=>`JOGO ${index+1}: ${formatGame(numbers)}`).join("\n"));
+            setGames(formatted);
+            if(!contest&&Number.isInteger(Number(aiPayload.contest))&&Number(aiPayload.contest)>0)setContest(String(aiPayload.contest));
+            setProgress(100);
+            setMessage(`Gemini encontrou ${formatted.length} jogo(s). Confira todos os números antes de salvar.`);
+            return;
+          }
+        }
+        setMessage(aiPayload?.configured===false?"Leitor avançado ainda não configurado. Usando leitura do aparelho...":"A inteligência artificial não fechou os jogos. Tentando o leitor do aparelho...");
+      }catch{
+        setMessage("Leitura avançada indisponível. Usando o leitor do aparelho...");
+      }
       const tesseract=await loadTesseract();
       const result=await tesseract.recognize(prepared,"eng",{logger:item=>{if(typeof item.progress==="number")setProgress(Math.round(item.progress*100));if(item.status)setMessage(item.status==="recognizing text"?"Reconhecendo linhas do bilhete...":"Preparando reconhecimento...")}},
         {tessedit_char_whitelist:"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -.,/\n",tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"});
@@ -197,7 +223,7 @@ export default function TicketReaderPage(){
 
   return <main className="shell">
     <Link className="back" href="/jogos-salvos">← Voltar</Link>
-    <section className="section"><p className="eyebrow">JOGOS SALVOS</p><h1>Ler bilhete com a câmera</h1><p className="muted">Tire uma foto do bilhete ou escolha uma imagem da galeria. O app melhora a imagem, reconhece as dezenas e separa os jogos para você revisar antes de salvar.</p></section>
+    <section className="section"><p className="eyebrow">JOGOS SALVOS</p><h1>Ler bilhete com inteligência artificial</h1><p className="muted">Tire uma foto do bilhete ou escolha uma imagem da galeria. O Gemini reconhece as dezenas e separa os jogos para você revisar antes de salvar.</p></section>
     <section className="section">
       <div className="field"><label>Modalidade</label><select value={lottery} onChange={e=>changeLottery(e.target.value)}>{Object.entries(rules).map(([id,item])=><option key={id} value={id}>{item.label}</option>)}</select></div>
       <div className="field"><label>Números por jogo</label><input type="number" min={rule.minPick} max={rule.maxPick} value={pick} onChange={e=>{const value=Number(e.target.value);if(Number.isInteger(value)&&value>=rule.minPick&&value<=rule.maxPick)setPick(value)}}/><small className="muted">Para {rule.label}: de {rule.minPick} a {rule.maxPick} número(s) por jogo.</small></div>
@@ -214,6 +240,6 @@ export default function TicketReaderPage(){
       {ocrText&&<details style={{marginTop:16}}><summary>Ver texto reconhecido da foto</summary><div className="field" style={{marginTop:12}}><textarea rows={8} value={ocrText} onChange={e=>setOcrText(e.target.value)}/></div><button type="button" className="button secondary" onClick={reprocess}>Separar jogos novamente</button></details>}
       <div className="actions" style={{marginTop:18}}><button type="button" className="button primary" onClick={saveGames} disabled={!validGames.length||!confirmed}>SALVAR {validGames.length||""} JOGO(S)</button><Link className="button secondary" href="/meus-jogos-salvos">Ver meus jogos salvos</Link></div>
     </section>}
-    <section className="section"><p className="muted">A leitura por câmera foi otimizada para reduzir o uso de memória e separar melhor vários jogos no mesmo bilhete. Em +Milionária, Dia de Sorte e Timemania, os campos especiais ainda devem ser conferidos manualmente.</p></section>
+    <section className="section"><p className="muted">O Gemini é usado primeiro e o leitor do aparelho fica disponível como reserva. Sempre confira cada dezena com o bilhete antes de salvar. Em +Milionária, Dia de Sorte e Timemania, confira também os campos especiais.</p></section>
   </main>;
 }
