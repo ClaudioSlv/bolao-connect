@@ -3,12 +3,25 @@ import type { LotteryId } from "@/lib/domain";
 export type GamePlanInput = { quantity: number; numbers: number; trevos?: number };
 export type GamePlanItem = GamePlanInput & { unitPriceCents: number; subtotalCents: number };
 type PricedGame = { numbers: number[]; trevos?: number[] };
+export type LotteryPriceMap = Partial<Record<LotteryId, number>>;
 
 export const LOTTERY_LABELS: Record<LotteryId, string> = {
   "mega-sena": "Mega-Sena", lotofacil: "Lotofácil", quina: "Quina",
   "dupla-sena": "Dupla Sena", lotomania: "Lotomania", timemania: "Timemania",
   "dia-de-sorte": "Dia de Sorte", "super-sete": "Super Sete",
   "mais-milionaria": "+Milionária",
+};
+
+export const DEFAULT_BASE_PRICE_CENTS: Record<LotteryId, number> = {
+  "mega-sena": 600,
+  lotofacil: 350,
+  quina: 300,
+  "dupla-sena": 300,
+  lotomania: 300,
+  timemania: 350,
+  "dia-de-sorte": 250,
+  "super-sete": 300,
+  "mais-milionaria": 600,
 };
 
 export const LOTTERY_NUMBER_LIMITS: Record<LotteryId, { min: number; max: number; defaultValue: number; fixed?: boolean }> = {
@@ -37,32 +50,33 @@ const SUPER_SETE_PRICES: Record<number, number> = {
   19: 291600, 20: 437400, 21: 656100,
 };
 
-export function priceForGame(lottery: LotteryId, numbers: number, trevos = 2) {
+export function priceForGame(lottery: LotteryId, numbers: number, trevos = 2, prices?: LotteryPriceMap) {
+  const basePrice = prices?.[lottery] ?? DEFAULT_BASE_PRICE_CENTS[lottery];
   const limits = LOTTERY_NUMBER_LIMITS[lottery];
   if (!Number.isInteger(numbers) || numbers < limits.min || numbers > limits.max)
     throw new Error(`Quantidade inválida para ${LOTTERY_LABELS[lottery]}.`);
   switch (lottery) {
-    case "mega-sena": return combination(numbers, 6) * 600;
-    case "lotofacil": return combination(numbers, 15) * 350;
-    case "quina": return combination(numbers, 5) * 300;
-    case "dupla-sena": return combination(numbers, 6) * 300;
-    case "lotomania": return 300;
-    case "timemania": return 350;
-    case "dia-de-sorte": return combination(numbers, 7) * 250;
+    case "mega-sena": return combination(numbers, 6) * basePrice;
+    case "lotofacil": return combination(numbers, 15) * basePrice;
+    case "quina": return combination(numbers, 5) * basePrice;
+    case "dupla-sena": return combination(numbers, 6) * basePrice;
+    case "lotomania": return basePrice;
+    case "timemania": return basePrice;
+    case "dia-de-sorte": return combination(numbers, 7) * basePrice;
     case "super-sete": {
       const value = SUPER_SETE_PRICES[numbers];
       if (!value) throw new Error("Quantidade inválida para Super Sete.");
-      return value;
+      return Math.round(value * basePrice / DEFAULT_BASE_PRICE_CENTS["super-sete"]);
     }
     case "mais-milionaria": {
       if (!Number.isInteger(trevos) || trevos < 2 || trevos > 6)
         throw new Error("Informe de 2 a 6 trevos na +Milionária.");
-      return combination(numbers, 6) * combination(trevos, 2) * 600;
+      return combination(numbers, 6) * combination(trevos, 2) * basePrice;
     }
   }
 }
 
-export function calculatePoolPricing(lottery: LotteryId, rawPlan: GamePlanInput[], participants: number) {
+export function calculatePoolPricing(lottery: LotteryId, rawPlan: GamePlanInput[], participants: number, prices?: LotteryPriceMap) {
   if (!Number.isInteger(participants) || participants < 1 || participants > 100000)
     throw new Error("Informe uma quantidade válida de participantes.");
   if (!Array.isArray(rawPlan) || rawPlan.length < 1 || rawPlan.length > 30)
@@ -72,7 +86,7 @@ export function calculatePoolPricing(lottery: LotteryId, rawPlan: GamePlanInput[
     const trevos = row.trevos == null ? undefined : Number(row.trevos);
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100000)
       throw new Error("Informe uma quantidade válida de jogos.");
-    const unitPriceCents = priceForGame(lottery, numbers, trevos);
+    const unitPriceCents = priceForGame(lottery, numbers, trevos, prices);
     return { quantity, numbers, trevos, unitPriceCents, subtotalCents: quantity * unitPriceCents };
   });
   const totalCostCents = items.reduce((sum, row) => sum + row.subtotalCents, 0);
@@ -89,15 +103,16 @@ function isLotteryId(value: string): value is LotteryId {
   return value in LOTTERY_NUMBER_LIMITS;
 }
 
-export function officialGameCostCents(lottery: string, game: PricedGame) {
+export function officialGameCostCents(lottery: string, game: PricedGame, prices?: LotteryPriceMap) {
   if (!isLotteryId(lottery)) return 0;
   return priceForGame(
     lottery,
     lottery === "super-sete" ? 7 : game.numbers.length,
     game.trevos?.length ?? 2,
+    prices,
   );
 }
 
-export function officialGamesCostCents(lottery: string, games: PricedGame[]) {
-  return games.reduce((total, game) => total + officialGameCostCents(lottery, game), 0);
+export function officialGamesCostCents(lottery: string, games: PricedGame[], prices?: LotteryPriceMap) {
+  return games.reduce((total, game) => total + officialGameCostCents(lottery, game, prices), 0);
 }
