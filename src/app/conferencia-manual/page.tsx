@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { officialGamesCostCents } from "@/lib/lottery-pricing";
+import { officialGamesCostCents, type LotteryPriceMap } from "@/lib/lottery-pricing";
 
 type Game = { numbers: number[]; trevos?: number[] };
 type Saved = {
@@ -106,11 +106,11 @@ function compareGame(lottery: string, game: Game, draws: number[][], drawTrevos:
   );
 }
 
-function savedItemCost(item: Saved) {
+function savedItemCost(item: Saved, prices: LotteryPriceMap) {
   try {
     // Recalcula sempre pelos jogos que realmente serão conferidos.
     // Valores agregados antigos podem pertencer a outro plano ou seleção.
-    return officialGamesCostCents(item.lottery, item.games);
+    return officialGamesCostCents(item.lottery, item.games, prices);
   } catch {
     return 0;
   }
@@ -159,6 +159,14 @@ export default function ManualConferencePage() {
   const [error, setError] = useState("");
   const [checked, setChecked] = useState<ManualCheck | null>(null);
   const [publishState, setPublishState] = useState<"idle" | "saving" | "saved" | "local-only">("idle");
+  const [prices, setPrices] = useState<LotteryPriceMap>({});
+
+  useEffect(() => {
+    fetch("/api/lottery-prices")
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload) => { if (payload?.prices) setPrices(payload.prices); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     try {
@@ -365,7 +373,7 @@ export default function ManualConferencePage() {
     let totalCostCents = 0;
 
     for (const item of matchingItems) {
-      totalCostCents += savedItemCost(item);
+      totalCostCents += savedItemCost(item, prices);
       item.games.forEach((game, index) => {
         const result = compareGame(lottery, game, draws, drawTrevos);
         games.push({
