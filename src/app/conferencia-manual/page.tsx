@@ -50,6 +50,14 @@ type StoredManual = {
   savedAt: string;
 };
 type DrawRule = { count: number; min: number; max: number; repeat?: boolean };
+type OfficialLookup = {
+  available: boolean;
+  contest: number;
+  numbers: number[];
+  secondDrawNumbers: number[];
+  trevos: number[];
+  drawDate: string | null;
+};
 
 const KEY = "bolao-amigos-btp:jogos-salvos";
 const MANUAL_KEY = "bolao-amigos-btp:conferencias-manuais";
@@ -160,6 +168,7 @@ export default function ManualConferencePage() {
   const [checked, setChecked] = useState<ManualCheck | null>(null);
   const [publishState, setPublishState] = useState<"idle" | "saving" | "saved" | "local-only">("idle");
   const [prices, setPrices] = useState<LotteryPriceMap>({});
+  const [resultSource, setResultSource] = useState<"official" | "manual" | null>(null);
 
   useEffect(() => {
     fetch("/api/lottery-prices")
@@ -339,6 +348,7 @@ export default function ManualConferencePage() {
     setChecked(null);
     setError("");
     setPublishState("idle");
+    setResultSource(null);
   };
 
   const selectLottery = (value: string) => {
@@ -378,7 +388,43 @@ export default function ManualConferencePage() {
       return;
     }
 
-    const drawNumbers = parseNumbers(numbersInput);
+    let drawNumbers: number[] = [];
+    let secondDrawNumbers: number[] = [];
+    let drawTrevos: number[] = [];
+    let officialResult: OfficialLookup | null = null;
+
+    try {
+      const response = await fetch(
+        `/api/lottery-result?lottery=${encodeURIComponent(lottery)}&contest=${contest}`,
+        { cache: "no-store" },
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Resultado indisponível.");
+      officialResult = payload as OfficialLookup;
+      drawNumbers = officialResult.numbers.map(Number);
+      secondDrawNumbers = officialResult.secondDrawNumbers.map(Number);
+      drawTrevos = officialResult.trevos.map(Number);
+      setNumbersInput(drawNumbers.map((number) => String(number).padStart(2, "0")).join(" "));
+      setSecondDrawInput(secondDrawNumbers.map((number) => String(number).padStart(2, "0")).join(" "));
+      setTrevosInput(drawTrevos.map((number) => String(number).padStart(2, "0")).join(" "));
+      setResultSource("official");
+    } catch (lookupError) {
+      if (!numbersInput.trim()) {
+        setError(
+          lookupError instanceof Error
+            ? `${lookupError.message} Se precisar, informe as dezenas manualmente.`
+            : "Não foi possível buscar o resultado. Informe as dezenas manualmente.",
+        );
+        setPublishState("idle");
+        setResultSource(null);
+        return;
+      }
+      drawNumbers = parseNumbers(numbersInput);
+      secondDrawNumbers = lottery === "dupla-sena" ? parseNumbers(secondDrawInput) : [];
+      drawTrevos = lottery === "mais-milionaria" ? parseNumbers(trevosInput) : [];
+      setResultSource("manual");
+    }
+
     const firstError = validateDraw(lottery, drawNumbers, "Resultado");
     if (firstError) {
       setError(firstError);
@@ -386,9 +432,7 @@ export default function ManualConferencePage() {
       return;
     }
 
-    let secondDrawNumbers: number[] = [];
-    if (lottery === "dupla-sena" && secondDrawInput.trim()) {
-      secondDrawNumbers = parseNumbers(secondDrawInput);
+    if (lottery === "dupla-sena" && secondDrawNumbers.length) {
       const secondError = validateDraw(lottery, secondDrawNumbers, "2º sorteio");
       if (secondError) {
         setError(secondError);
@@ -397,18 +441,17 @@ export default function ManualConferencePage() {
       }
     }
 
-    let drawTrevos: number[] = [];
-    if (lottery === "mais-milionaria") {
-      drawTrevos = parseNumbers(trevosInput);
-      if (
+    if (
+      lottery === "mais-milionaria" &&
+      (
         drawTrevos.length !== 2 ||
         drawTrevos.some((number) => !Number.isInteger(number) || number < 1 || number > 6) ||
         new Set(drawTrevos).size !== drawTrevos.length
-      ) {
-        setError("Informe os 2 trevos sorteados, de 01 a 06, sem repetir.");
-        setPublishState("idle");
-        return;
-      }
+      )
+    ) {
+      setError("Informe os 2 trevos sorteados, de 01 a 06, sem repetir.");
+      setPublishState("idle");
+      return;
     }
 
     const draws = secondDrawNumbers.length ? [drawNumbers, secondDrawNumbers] : [drawNumbers];
@@ -497,9 +540,9 @@ export default function ManualConferencePage() {
 
       <section className="section">
         <p className="eyebrow">JOGOS SALVOS</p>
-        <h1>Conferir resultado manual</h1>
+        <h1>Conferir resultado</h1>
         <p className="muted">
-          Escolha os jogos já salvos, informe o concurso real e cole as dezenas sorteadas. A conferência fica registrada e pode ser mostrada aos participantes sem alterar o widget da CAIXA.
+          Escolha os jogos salvos e informe apenas o concurso. O app busca as dezenas sorteadas e compara automaticamente com seus jogos.
         </p>
       </section>
 
@@ -544,6 +587,7 @@ export default function ManualConferencePage() {
                   setChecked(null);
                   setError("");
                   setPublishState("idle");
+                  setResultSource(null);
                 }}
                 placeholder="Ex.: 3780"
               />
@@ -562,7 +606,9 @@ export default function ManualConferencePage() {
                 rows={3}
                 placeholder="Ex.: 01 02 03 04 05 06 ..."
               />
-              <small className="muted">Pode colar com espaços, vírgulas, pontos ou hífens.</small>
+              <small className="muted">
+                Preenchidas automaticamente após a busca. Se o serviço estiver indisponível, você ainda pode colar as dezenas aqui.
+              </small>
             </div>
 
             {lottery === "dupla-sena" && (
@@ -590,10 +636,20 @@ export default function ManualConferencePage() {
             )}
 
             <div className="status">Jogos encontrados para esta seleção: {gameCount}</div>
+            {resultSource === "official" && (
+              <p className="status" style={{ color: "#55f27a" }}>
+                ✓ Resultado oficial encontrado e dezenas preenchidas automaticamente.
+              </p>
+            )}
+            {resultSource === "manual" && (
+              <p className="status" style={{ color: "#facc15" }}>
+                Resultado conferido com as dezenas informadas manualmente.
+              </p>
+            )}
             {error && <p className="status" role="alert" style={{ color: "#facc15" }}>{error}</p>}
 
             <button className="button primary" type="button" onClick={runCheck} disabled={publishState === "saving"}>
-              {publishState === "saving" ? "CONFERINDO E SALVANDO..." : "CONFERIR E SALVAR RESULTADO"}
+              {publishState === "saving" ? "BUSCANDO E CONFERINDO..." : "BUSCAR E CONFERIR RESULTADO"}
             </button>
 
             {publishState === "saved" && (
