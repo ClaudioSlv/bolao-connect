@@ -107,9 +107,9 @@ function compareGame(lottery: string, game: Game, draws: number[][], drawTrevos:
 }
 
 function savedItemCost(item: Saved) {
-  if (Number.isFinite(item.totalCostCents) && Number(item.totalCostCents) >= 0)
-    return Number(item.totalCostCents);
   try {
+    // Recalcula sempre pelos jogos que realmente serão conferidos.
+    // Valores agregados antigos podem pertencer a outro plano ou seleção.
     return officialGamesCostCents(item.lottery, item.games);
   } catch {
     return 0;
@@ -228,6 +228,22 @@ export default function ManualConferencePage() {
   }, [items, lottery, savedContest]);
 
   const gameCount = matchingItems.reduce((sum, item) => sum + item.games.length, 0);
+
+  useEffect(() => {
+    if (!checked) return;
+    const currentContest = Number(savedContest);
+    const belongsToCurrentSelection =
+      checked.lottery === lottery &&
+      checked.sourceContest === currentContest &&
+      checked.games.length === gameCount &&
+      gameCount > 0;
+    if (!belongsToCurrentSelection) {
+      setChecked(null);
+      setReceivedInput("");
+      setPublishState("idle");
+    }
+  }, [checked, gameCount, lottery, savedContest]);
+
   const backHref = poolId ? `/jogos-salvos?pool=${encodeURIComponent(poolId)}` : "/jogos-salvos";
 
   const localRecord = (result: ManualCheck, received: string, published: boolean): StoredManual => ({
