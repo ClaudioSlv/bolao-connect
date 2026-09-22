@@ -184,15 +184,43 @@ export default function ManualConferencePage() {
         (currentPoolId ? undefined : history[0]);
 
       if (latest?.checked) {
+        const sourceStillExists = saved.some(
+          (item) =>
+            item.lottery === latest.lottery &&
+            Number(item.targetContest) === Number(latest.savedContest) &&
+            item.games.length > 0,
+        );
+
         setLottery(latest.lottery);
-        setSavedContest(latest.savedContest);
         setResultContest(latest.resultContest);
         setNumbersInput(latest.numbersInput);
         setSecondDrawInput(latest.secondDrawInput);
         setTrevosInput(latest.trevosInput);
         setReceivedInput(latest.receivedInput);
-        setChecked(latest.checked);
-        setPublishState(latest.published ? "saved" : "local-only");
+
+        if (sourceStillExists) {
+          setSavedContest(latest.savedContest);
+          setChecked(latest.checked);
+          setPublishState(latest.published ? "saved" : "local-only");
+          return;
+        }
+
+        // O concurso do resultado continua sendo escolha manual do organizador.
+        // Apenas repara a seleção interna dos jogos quando o lote antigo não existe mais.
+        const firstForLottery =
+          saved.find(
+            (item) =>
+              item.lottery === latest.lottery &&
+              Number(item.targetContest) > 0 &&
+              item.games.length > 0,
+          ) ??
+          saved.find((item) => Number(item.targetContest) > 0 && item.games.length > 0);
+        if (firstForLottery) {
+          setLottery(firstForLottery.lottery);
+          setSavedContest(String(firstForLottery.targetContest));
+        }
+        setChecked(null);
+        setPublishState("idle");
         return;
       }
 
@@ -227,6 +255,21 @@ export default function ManualConferencePage() {
       ).sort((a, b) => b - a),
     [items, lottery],
   );
+
+  useEffect(() => {
+    if (!savedContests.length) return;
+    const selectionExists = savedContests.some(
+      (contest) => contest === Number(savedContest),
+    );
+    if (!selectionExists) {
+      // Corrige somente o lote de jogos; nunca altera o concurso do resultado.
+      setSavedContest(String(savedContests[0]));
+      setChecked(null);
+      setReceivedInput("");
+      setError("");
+      setPublishState("idle");
+    }
+  }, [savedContest, savedContests]);
 
   const matchingItems = useMemo(() => {
     const contest = Number(savedContest);
