@@ -433,3 +433,11 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
   .menu-page-title > .btp-icon { width: 43px; height: 43px; }
   .menu-page-title > .btp-icon svg { width: 32px; height: 32px; }
 }
+
+
+/* Meus bolões: cartões lado a lado com gesto horizontal */
+.pool-carousel{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:0;padding:2px 26px 14px 0;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;scrollbar-width:none}
+.pool-carousel::-webkit-scrollbar{display:none}
+.pool-carousel-card{flex:0 0 calc(100% - 26px);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+.pool-carousel-card:focus-visible{outline:2px solid #f7c948;outline-offset:3px}
+@media(prefers-reduced-motion:no-preference){.pool-carousel{scroll-behavior:smooth}}
