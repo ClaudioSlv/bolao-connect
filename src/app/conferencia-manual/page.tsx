@@ -186,60 +186,13 @@ export default function ManualConferencePage() {
       const saved = Array.isArray(parsed) ? (parsed as Saved[]) : [];
       setItems(saved);
 
-      const manualParsed = JSON.parse(localStorage.getItem(MANUAL_KEY) || "[]");
-      const history = Array.isArray(manualParsed) ? (manualParsed as StoredManual[]) : [];
-      const latest =
-        history.find((item) => item.poolId === currentPoolId) ??
-        (currentPoolId ? undefined : history[0]);
-
-      if (latest?.checked) {
-        const sourceStillExists = saved.some(
-          (item) =>
-            item.lottery === latest.lottery &&
-            Number(item.targetContest) === Number(latest.savedContest) &&
-            item.games.length > 0,
-        );
-
-        setLottery(latest.lottery);
-        setResultContest(latest.resultContest);
-        setNumbersInput(latest.numbersInput);
-        setSecondDrawInput(latest.secondDrawInput);
-        setTrevosInput(latest.trevosInput);
-        setReceivedInput(latest.receivedInput);
-
-        if (sourceStillExists) {
-          setSavedContest(latest.savedContest);
-          setChecked(latest.checked);
-          setPublishState(latest.published ? "saved" : "local-only");
-          return;
-        }
-
-        // O concurso do resultado continua sendo escolha manual do organizador.
-        // Apenas repara a seleção interna dos jogos quando o lote antigo não existe mais.
-        const firstForLottery =
-          saved.find(
-            (item) =>
-              item.lottery === latest.lottery &&
-              Number(item.targetContest) > 0 &&
-              item.games.length > 0,
-          ) ??
-          saved.find((item) => Number(item.targetContest) > 0 && item.games.length > 0);
-        if (firstForLottery) {
-          setLottery(firstForLottery.lottery);
-          setSavedContest(String(firstForLottery.targetContest));
-        }
-        setChecked(null);
-        setPublishState("idle");
-        return;
-      }
-
       const first = saved.find((item) => Number(item.targetContest) > 0) ?? saved[0];
       if (first) {
         setLottery(first.lottery);
         if (Number(first.targetContest) > 0) {
           const contest = String(first.targetContest);
           setSavedContest(contest);
-          setResultContest(contest);
+          setResultContest("");
         }
       }
     } catch {
@@ -360,13 +313,13 @@ export default function ManualConferencePage() {
       .sort((a, b) => b - a);
     const nextContest = contests[0] ? String(contests[0]) : "";
     setSavedContest(nextContest);
-    setResultContest(nextContest);
+    setResultContest("");
     resetResult();
   };
 
   const selectSavedContest = (value: string) => {
     setSavedContest(value);
-    setResultContest(value);
+    setResultContest("");
     resetResult();
   };
 
@@ -589,13 +542,11 @@ export default function ManualConferencePage() {
                   setPublishState("idle");
                   setResultSource(null);
                 }}
-                placeholder="Ex.: 3780"
+                placeholder="Digite o concurso que deseja conferir"
               />
-              {savedContest && resultContest && savedContest !== resultContest && (
-                <small className="muted">
-                  Os jogos foram gravados como concurso {savedContest}, mas serão conferidos com o resultado do concurso {resultContest}.
-                </small>
-              )}
+              <small className="muted">
+                Este número é escolhido somente por você e não será preenchido pelo app.
+              </small>
             </div>
 
             <div className="field">
