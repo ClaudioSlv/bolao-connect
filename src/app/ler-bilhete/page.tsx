@@ -139,7 +139,7 @@ export default function TicketReaderPage(){
       const prepared=await preprocessImage(file);
       setMessage("Analisando o bilhete com inteligência artificial...");
       const form=new FormData();
-      form.append("image",prepared,"bilhete.jpg");
+      form.append("image",file,file.name || "bilhete.jpg");
       form.append("lottery",lottery);
       form.append("pick",String(pick));
       try{
