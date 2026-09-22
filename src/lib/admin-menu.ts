@@ -12,6 +12,12 @@ export const adminMenu = [
     href: "/menu/homologacao-pagbank",
   },
   {
+    slug: "precos-apostas",
+    title: "Preços das apostas",
+    category: "Financeiro",
+    href: "/menu/precos-apostas",
+  },
+  {
     slug: "pesquisar-participantes",
     title: "Pesquisar participantes",
     category: "Participantes",
