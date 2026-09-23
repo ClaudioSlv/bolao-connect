@@ -249,7 +249,7 @@ export default function SavedGamesPage() {
     const settled = await Promise.allSettled(
       targets.map(async ({ lottery, contest: targetContest }) => {
         const response = await fetch(
-          `/api/personal-game-result?lottery=${encodeURIComponent(lottery)}&contest=${targetContest}`,
+          `/api/lottery-result?lottery=${encodeURIComponent(lottery)}&contest=${targetContest}`,
           { cache: "no-store" },
         );
         if (!response.ok) throw new Error("resultado indisponível");
