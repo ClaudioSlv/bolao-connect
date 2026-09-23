@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 type IconProps = { className?: string };
 
 function TicketIcon({ className }: IconProps) {
@@ -160,10 +158,10 @@ export function ParticipantActionGrid({
   return (
     <nav className="participant-actions" aria-label="Área do participante">
       {actions.map(({ href, label, icon: Icon, aria }) => (
-        <Link className="participant-action-card" href={href} aria-label={aria} key={label}>
+        <a className="participant-action-card" href={href} aria-label={aria} key={label}>
           <Icon className="participant-action-icon" />
           <strong>{label}</strong>
-        </Link>
+        </a>
       ))}
     </nav>
   );
