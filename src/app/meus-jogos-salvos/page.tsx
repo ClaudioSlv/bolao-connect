@@ -245,7 +245,31 @@ export default function SavedGamesPage() {
     };
   }, [draws, items]);
 
-  const remove = (id: string) => {
+  const remove = async (id: string) => {
+    const removed = items.find((item) => item.id === id);
+    const poolId = new URLSearchParams(window.location.search).get("pool") ?? "";
+
+    if (removed && poolId) {
+      try {
+        const response = await fetch("/api/manual-lottery-results", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ poolId, lottery: removed.lottery }),
+        });
+        if (!response.ok) {
+          window.alert(
+            "Não foi possível excluir agora. Tente novamente para não deixar um resultado antigo publicado.",
+          );
+          return;
+        }
+      } catch {
+        window.alert(
+          "Sem conexão para concluir a exclusão. Tente novamente em instantes.",
+        );
+        return;
+      }
+    }
+
     const next = items.filter((item) => item.id !== id);
     setItems(next);
     localStorage.setItem(KEY, JSON.stringify(next));
