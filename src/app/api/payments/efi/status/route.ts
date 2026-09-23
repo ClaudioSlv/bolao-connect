@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { efiRequest } from "@/lib/efi";
 import { sendPaymentConfirmedPush } from "@/lib/send-payment-push";
-import { logAppError } from "@/lib/app-error-log";
+import { errorMessage, logAppError } from "@/lib/app-error-log";
 
 const phoneKey = (v: string) => v.replace(/\D/g, "");
 
