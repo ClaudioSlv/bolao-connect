@@ -253,7 +253,7 @@ export default async function Page({
     due = Math.max(0, amount - applied),
     remaining = Math.max(0, credit - amount),
     paid = p.payment_status === "confirmed",
-    automaticPixEnabled = Boolean(process.env.EFI_CLIENT_ID_PROD && process.env.EFI_CLIENT_SECRET_PROD && process.env.EFI_CERTIFICATE_BASE64 && process.env.EFI_PIX_KEY),
+    automaticPixEnabled = isTest || Boolean(process.env.EFI_CLIENT_ID_PROD && process.env.EFI_CLIENT_SECRET_PROD && process.env.EFI_CERTIFICATE_BASE64 && process.env.EFI_PIX_KEY),
     manualPixKey = "13991320205",
     rules = pool.rules_text || DEFAULT_POOL_RULES;
   const now = Date.now(),
