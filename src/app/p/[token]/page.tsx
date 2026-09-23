@@ -9,6 +9,7 @@ import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import { AvailablePoolsNotice } from "@/components/available-pools-notice";
 import { RulesAcceptanceForm } from "@/components/rules-acceptance-form";
+import { ParticipantPoolSwitcher } from "@/components/participant-pool-switcher";
 import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
@@ -192,14 +193,35 @@ export default async function Page({
         paymentAccount = account;
       }
       let availablePools: any[] = [];
+      let joinedPools: any[] = [];
       if (pool?.owner_id && p.phone) {
         const normalizedPhone = phoneKey(p.phone);
         const { data: memberships } = await s
           .from("participants")
-          .select("pool_id")
+          .select("pool_id,access_token")
           .eq("phone", normalizedPhone)
           .neq("status", "cancelled");
         const joined = new Set((memberships ?? []).map((item) => item.pool_id));
+        const membershipToken = new Map(
+          (memberships ?? []).map((item) => [item.pool_id, item.access_token]),
+        );
+        if (joined.size) {
+          const { data: participantPools } = await s
+            .from("pools")
+            .select("id,title,lottery,cover_image_url,created_at")
+            .eq("owner_id", pool.owner_id)
+            .in("id", [...joined])
+            .order("created_at", { ascending: false });
+          joinedPools = (participantPools ?? [])
+            .map((item) => ({
+              id: item.id,
+              title: item.title,
+              lottery: item.lottery,
+              coverImageUrl: item.cover_image_url,
+              accessToken: membershipToken.get(item.id),
+            }))
+            .filter((item) => item.accessToken);
+        }
         const { data: openPools } = await s
           .from("pools")
           .select("id,lottery,public_slug")
@@ -211,7 +233,7 @@ export default async function Page({
           (item) => item.public_slug && !joined.has(item.id),
         );
       }
-      data = { p, pool, sub, acceptance, credit, availablePools, paymentAccount };
+      data = { p, pool, sub, acceptance, credit, availablePools, joinedPools, paymentAccount };
     }
   } catch {}
   if (!data?.p || !data?.pool)
@@ -222,7 +244,7 @@ export default async function Page({
         </section>
       </main>
     );
-  const { p, pool, sub, acceptance, credit, availablePools, paymentAccount } = data,
+  const { p, pool, sub, acceptance, credit, availablePools, joinedPools, paymentAccount } = data,
     isTest = Boolean(p.is_test),
     amount = isTest
       ? Number(p.test_amount_cents || 100)
@@ -270,6 +292,7 @@ export default async function Page({
         </span>{" "}
         <span style={{ color: "#2196F3" }}>{String(p.name || "").trim().split(/\\s+/)[0]}</span>
       </div>
+      <ParticipantPoolSwitcher pools={joinedPools} currentPoolId={p.pool_id} />
       <section className="section">
         <p className="eyebrow">
           {isTest ? "PARTICIPAR DO BOLÃO · MODO TESTE" : "BOLÃO AMIGOS BTP"}
