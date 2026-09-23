@@ -117,6 +117,52 @@ export async function POST(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const lottery = String(body.lottery ?? "");
+    const poolId = String(body.poolId ?? "");
+
+    if (!isSupportedLottery(lottery) || !poolId)
+      return NextResponse.json(
+        { error: "Bolão ou modalidade inválida." },
+        { status: 400 },
+      );
+
+    const client = await createClient();
+    const { data: auth } = await client.auth.getUser();
+    if (!auth.user)
+      return NextResponse.json(
+        { error: "Faça login como organizador." },
+        { status: 401 },
+      );
+
+    const admin = createAdminClient();
+    const pool = await organizerPool(admin, auth.user.id, poolId, lottery);
+    if (!pool)
+      return NextResponse.json(
+        { error: "Bolão não encontrado para este resultado." },
+        { status: 404 },
+      );
+
+    const { error, count } = await admin
+      .from("manual_lottery_results")
+      .delete({ count: "exact" })
+      .eq("owner_id", auth.user.id)
+      .eq("pool_id", pool.id)
+      .eq("lottery", lottery);
+
+    if (error) throw error;
+    return NextResponse.json({ ok: true, removed: count ?? 0 });
+  } catch (error) {
+    console.error("delete-manual-lottery-result:", error);
+    return NextResponse.json(
+      { error: "Não foi possível retirar a conferência publicada." },
+      { status: 500 },
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const lottery = request.nextUrl.searchParams.get("lottery") ?? "";
