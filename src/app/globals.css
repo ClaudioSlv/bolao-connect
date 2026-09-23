@@ -463,3 +463,4 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .pool-history-link .card-chevron{flex:0 0 auto}
 @media(max-width:390px){.mega-globe-ball{width:21px;height:21px;font-size:8px}}
 @media(prefers-reduced-motion:reduce){.mega-globe-ball{animation:none}}
+.pool-create-feedback{display:grid;gap:6px;padding:15px 16px;border-radius:15px;text-align:center;font-size:15px;line-height:1.35}.pool-create-feedback.success{border:1px solid #45ef6c;background:#0c2c18;color:#dfffe7}.pool-create-feedback.error{border:1px solid #ff6b6b;background:#351010;color:#ffe4e4}.pool-create-feedback span{font-size:13px;color:inherit;opacity:.85}.create-pool-button:disabled{cursor:not-allowed;opacity:.78;transform:none}

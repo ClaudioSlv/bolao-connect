@@ -1,11 +1,14 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useActionState,useEffect,useMemo,useState} from "react";
+import {useRouter} from "next/navigation";
 import type {LotteryId} from "@/lib/domain";
 import {calculatePoolPricing,LOTTERY_LABELS,LOTTERY_NUMBER_LIMITS,type GamePlanInput,type LotteryPriceMap} from "@/lib/lottery-pricing";
-type Row=GamePlanInput&{id:string};type FormAction=(formData:FormData)=>void|Promise<void>;
+type CreatePoolFormState={ok:boolean;message:string;publicSlug?:string};
+type Row=GamePlanInput&{id:string};type FormAction=(previousState:CreatePoolFormState,formData:FormData)=>Promise<CreatePoolFormState>;
 const LOTTERIES=Object.keys(LOTTERY_LABELS) as LotteryId[];const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);const makeRow=(lottery:LotteryId):Row=>({id:crypto.randomUUID(),quantity:1,numbers:LOTTERY_NUMBER_LIMITS[lottery].defaultValue,trevos:lottery==="mais-milionaria"?2:undefined});
-export function PoolCreationForm({action,initialPrices}:{action:FormAction;initialPrices:LotteryPriceMap}){const[lottery,setLottery]=useState<LotteryId>("mega-sena"),[participants,setParticipants]=useState(30),[rows,setRows]=useState<Row[]>(()=>[makeRow("mega-sena")]);const calculation=useMemo(()=>{try{return calculatePoolPricing(lottery,rows,participants,initialPrices)}catch{return null}},[lottery,rows,participants,initialPrices]);const limits=LOTTERY_NUMBER_LIMITS[lottery],numberOptions=Array.from({length:limits.max-limits.min+1},(_,i)=>limits.min+i);const changeLottery=(next:LotteryId)=>{setLottery(next);setRows([makeRow(next)])};const updateRow=(id:string,patch:Partial<Row>)=>setRows(c=>c.map(r=>r.id===id?{...r,...patch}:r));const addRow=()=>setRows(c=>[...c,makeRow(lottery)]);const removeRow=(id:string)=>setRows(c=>c.length>1?c.filter(r=>r.id!==id):c);
-return <form className="form" action={action}>
+export function PoolCreationForm({action,initialState,initialPrices}:{action:FormAction;initialState:CreatePoolFormState;initialPrices:LotteryPriceMap}){const router=useRouter();const[state,formAction,pending]=useActionState(action,initialState);const[lottery,setLottery]=useState<LotteryId>("mega-sena"),[participants,setParticipants]=useState(30),[rows,setRows]=useState<Row[]>(()=>[makeRow("mega-sena")]);const calculation=useMemo(()=>{try{return calculatePoolPricing(lottery,rows,participants,initialPrices)}catch{return null}},[lottery,rows,participants,initialPrices]);const limits=LOTTERY_NUMBER_LIMITS[lottery],numberOptions=Array.from({length:limits.max-limits.min+1},(_,i)=>limits.min+i);const changeLottery=(next:LotteryId)=>{setLottery(next);setRows([makeRow(next)])};const updateRow=(id:string,patch:Partial<Row>)=>setRows(c=>c.map(r=>r.id===id?{...r,...patch}:r));const addRow=()=>setRows(c=>[...c,makeRow(lottery)]);const removeRow=(id:string)=>setRows(c=>c.length>1?c.filter(r=>r.id!==id):c);
+useEffect(()=>{if(!state.ok||!state.publicSlug)return;const timer=window.setTimeout(()=>router.push(`/temporizador/${state.publicSlug}`),1800);return()=>window.clearTimeout(timer)},[router,state.ok,state.publicSlug]);
+return <form className="form" action={formAction} aria-busy={pending}>
 <div className="field"><label>Nome do bolão</label><input name="title" required maxLength={120} placeholder="Ex.: Mega da Virada 2026"/></div>
 <div className="field"><label>Imagem de capa do bolão</label><input name="coverImage" type="file" accept="image/jpeg,image/png,image/webp"/><small>Opcional. Use uma imagem horizontal JPG, PNG ou WebP, até 5 MB.</small></div>
 <div className="field"><label>Modalidade</label><select name="lottery" value={lottery} onChange={e=>changeLottery(e.target.value as LotteryId)}>{LOTTERIES.map(id=><option key={id} value={id}>{LOTTERY_LABELS[id]}</option>)}</select></div>
@@ -18,4 +21,6 @@ return <form className="form" action={action}>
 <div className="field"><label>🟢 Início dos pagamentos</label><input name="paymentOpensAt" type="datetime-local" required/><small>Até esta data o Pix e o envio de comprovante ficam bloqueados.</small></div>
 <div className="field"><label>🔴 Encerramento dos pagamentos</label><input name="paymentDeadline" type="datetime-local" required/><small>Depois desta data o pagamento é fechado automaticamente.</small></div>
 <div className="field"><label>🎰 Data e hora do sorteio</label><input name="drawAt" type="datetime-local"/></div>
-<button className="button primary create-pool-button" disabled={!calculation}>Criar bolão com cota automática</button></form>}
+<button className="button primary create-pool-button" disabled={!calculation||pending||state.ok}>{pending?"AGUARDE, ESTAMOS CRIANDO O BOLÃO...":state.ok?"BOLÃO CRIADO COM SUCESSO":"Criar bolão com cota automática"}</button>
+{(pending||state.message)&&<div className={`pool-create-feedback ${state.message&&!state.ok?"error":"success"}`} role={state.message&&!state.ok?"alert":"status"} aria-live="assertive"><strong>{pending?"AGUARDE, ESTAMOS CRIANDO O BOLÃO...":state.message}</strong>{state.ok&&<span>Você será direcionado para o bolão.</span>}</div>}
+</form>}
