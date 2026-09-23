@@ -130,6 +130,7 @@ export default function SavedGamesPage() {
   const [searchError, setSearchError] = useState("");
   const [searchedItemIds, setSearchedItemIds] = useState<string[]>([]);
   const [historicalTest, setHistoricalTest] = useState(false);
+  const [selectedHits, setSelectedHits] = useState<number | null>(null);
 
   useEffect(() => {
     const requestedBack = new URLSearchParams(window.location.search).get("voltar");
@@ -202,6 +203,21 @@ export default function SavedGamesPage() {
       item.lottery === selectedLottery &&
       (searchedContest === null || searchedItemIds.includes(item.id)),
   );
+  const searchedDraw =
+    searchedContest === null
+      ? undefined
+      : draws[`${selectedLottery}:${searchedContest}`];
+  const displayedVisible =
+    selectedHits === null || !searchedDraw?.available
+      ? visible
+      : visible
+          .map((item) => ({
+            ...item,
+            games: item.games.filter(
+              (game) => checkGame(item, game, searchedDraw).hits === selectedHits,
+            ),
+          }))
+          .filter((item) => item.games.length > 0);
 
   const searchContest = async () => {
     const contest = Number(contestInput);
@@ -210,6 +226,7 @@ export default function SavedGamesPage() {
       setSearchedContest(null);
       setSearchedItemIds([]);
       setHistoricalTest(false);
+      setSelectedHits(null);
       return;
     }
 
@@ -227,6 +244,7 @@ export default function SavedGamesPage() {
       setSearchedContest(null);
       setSearchedItemIds([]);
       setHistoricalTest(false);
+      setSelectedHits(null);
       return;
     }
 
@@ -234,6 +252,7 @@ export default function SavedGamesPage() {
     setSearchedContest(contest);
     setSearchedItemIds(found.map((item) => item.id));
     setHistoricalTest(contestItems.length === 0);
+    setSelectedHits(null);
     setSelectedLottery(found[0].lottery);
 
     const targets = Array.from(
@@ -285,10 +304,6 @@ export default function SavedGamesPage() {
     [items, searchedContest, searchedItemIds],
   );
 
-  const searchedDraw =
-    searchedContest === null
-      ? undefined
-      : draws[`${selectedLottery}:${searchedContest}`];
   const lotofacilSearchSummary = useMemo(() => {
     if (
       selectedLottery !== "lotofacil" ||
@@ -418,6 +433,7 @@ export default function SavedGamesPage() {
                   setContestInput(event.target.value.replace(/\D/g, ""));
                   setSearchError("");
                   setHistoricalTest(false);
+                  setSelectedHits(null);
                 }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -479,12 +495,38 @@ export default function SavedGamesPage() {
           <h2>Quantidade de acertos</h2>
           <div className="list">
             {lotofacilSearchSummary.rows.map(({ hits, count }) => (
-              <div className="list-item" key={hits}>
+              <button
+                className="list-item"
+                key={hits}
+                type="button"
+                aria-pressed={selectedHits === hits}
+                onClick={() => setSelectedHits((current) => current === hits ? null : hits)}
+                style={{
+                  width: "100%",
+                  color: "inherit",
+                  cursor: count ? "pointer" : "default",
+                  borderColor: selectedHits === hits ? "#f7c948" : undefined,
+                  boxShadow: selectedHits === hits ? "0 0 14px rgba(247,201,72,.35)" : undefined,
+                }}
+                disabled={count === 0}
+              >
                 <strong>Jogos com {hits} pontos</strong>
-                <span className="status">{count} JOGO{count === 1 ? "" : "S"}</span>
-              </div>
+                <span className="status">
+                  {count} JOGO{count === 1 ? "" : "S"}
+                  {selectedHits === hits ? " · SELECIONADOS" : ""}
+                </span>
+              </button>
             ))}
           </div>
+          {selectedHits !== null && (
+            <button
+              className="button secondary"
+              type="button"
+              onClick={() => setSelectedHits(null)}
+            >
+              MOSTRAR TODOS OS JOGOS
+            </button>
+          )}
           <p className="muted">
             Total conferido: {lotofacilSearchSummary.total} jogos. As dezenas
             acertadas continuam destacadas em verde em cada jogo abaixo.
@@ -607,7 +649,7 @@ export default function SavedGamesPage() {
           </Link>
         </section>
       ) : (
-        visible.map((item) => {
+        displayedVisible.map((item) => {
           const contest = searchedContest ?? Number(item.targetContest);
           const draw = contest
             ? draws[`${item.lottery}:${contest}`]
