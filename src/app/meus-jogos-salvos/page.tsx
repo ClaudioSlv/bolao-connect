@@ -128,6 +128,8 @@ export default function SavedGamesPage() {
   const [contestInput, setContestInput] = useState("");
   const [searchedContest, setSearchedContest] = useState<number | null>(null);
   const [searchError, setSearchError] = useState("");
+  const [searchedItemIds, setSearchedItemIds] = useState<string[]>([]);
+  const [historicalTest, setHistoricalTest] = useState(false);
 
   useEffect(() => {
     const requestedBack = new URLSearchParams(window.location.search).get("voltar");
@@ -198,7 +200,7 @@ export default function SavedGamesPage() {
   const visible = items.filter(
     (item) =>
       item.lottery === selectedLottery &&
-      (searchedContest === null || Number(item.targetContest) === searchedContest),
+      (searchedContest === null || searchedItemIds.includes(item.id)),
   );
 
   const searchContest = async () => {
@@ -206,18 +208,32 @@ export default function SavedGamesPage() {
     if (!Number.isInteger(contest) || contest <= 0) {
       setSearchError("Informe um número de concurso válido.");
       setSearchedContest(null);
+      setSearchedItemIds([]);
+      setHistoricalTest(false);
       return;
     }
 
-    const found = items.filter((item) => Number(item.targetContest) === contest);
+    const contestItems = items.filter((item) => Number(item.targetContest) === contest);
+    const latestLotteryItem = items
+      .filter((item) => item.lottery === selectedLottery)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    const found = contestItems.length
+      ? contestItems
+      : latestLotteryItem
+        ? [latestLotteryItem]
+        : [];
     if (!found.length) {
-      setSearchError(`Nenhum jogo pessoal foi encontrado para o concurso ${contest}.`);
+      setSearchError("Nenhum jogo pessoal salvo foi encontrado para realizar o teste.");
       setSearchedContest(null);
+      setSearchedItemIds([]);
+      setHistoricalTest(false);
       return;
     }
 
     setSearchError("");
     setSearchedContest(contest);
+    setSearchedItemIds(found.map((item) => item.id));
+    setHistoricalTest(contestItems.length === 0);
     setSelectedLottery(found[0].lottery);
 
     const targets = Array.from(
@@ -262,11 +278,11 @@ export default function SavedGamesPage() {
         : Array.from(
             new Map(
               items
-                .filter((item) => Number(item.targetContest) === searchedContest)
+                .filter((item) => searchedItemIds.includes(item.id))
                 .map((item) => [item.lottery, item.label]),
             ).entries(),
           ),
-    [items, searchedContest],
+    [items, searchedContest, searchedItemIds],
   );
 
   const performance = useMemo(() => {
@@ -370,6 +386,7 @@ export default function SavedGamesPage() {
                 onChange={(event) => {
                   setContestInput(event.target.value.replace(/\D/g, ""));
                   setSearchError("");
+                  setHistoricalTest(false);
                 }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -404,7 +421,7 @@ export default function SavedGamesPage() {
             >
               {searchedLotteries.map(([lottery, label]) => (
                 <option value={lottery} key={lottery}>
-                  {label} ({items.filter((item) => item.lottery === lottery && Number(item.targetContest) === searchedContest).reduce((sum, item) => sum + item.games.length, 0)} jogos)
+                  {label} ({items.filter((item) => item.lottery === lottery && searchedItemIds.includes(item.id)).reduce((sum, item) => sum + item.games.length, 0)} jogos)
                 </option>
               ))}
             </select>
@@ -412,7 +429,8 @@ export default function SavedGamesPage() {
         )}
         {searchedContest !== null && !searchError && (
           <div className="status" role="status">
-            Jogos encontrados no concurso {searchedContest}: {items.filter((item) => Number(item.targetContest) === searchedContest).reduce((sum, item) => sum + item.games.length, 0)}
+            {historicalTest ? "Teste histórico" : "Conferência do concurso"} {searchedContest}: {items.filter((item) => searchedItemIds.includes(item.id)).reduce((sum, item) => sum + item.games.length, 0)} jogos
+            {historicalTest ? " do conjunto mais recente" : " encontrados"}.
           </div>
         )}
         <div className="status" role="status" aria-live="polite">
@@ -540,7 +558,7 @@ export default function SavedGamesPage() {
         </section>
       ) : (
         visible.map((item) => {
-          const contest = Number(item.targetContest);
+          const contest = searchedContest ?? Number(item.targetContest);
           const draw = contest
             ? draws[`${item.lottery}:${contest}`]
             : undefined;
