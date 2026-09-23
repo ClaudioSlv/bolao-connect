@@ -41,13 +41,8 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle();
   if (!session?.provider_order_id) return NextResponse.json({ paid: false });
-  const response = await fetchEfí(
-      `/orders/${encodeURIComponent(session.provider_order_id)}`,
-    ),
-    order = (await response.json().catch(() => null)) as Record<
-      string,
-      any
-    > | null;
+  const response = await efiRequest(`/v2/cob/${encodeURIComponent(session.provider_order_id)}`),
+    order = response.data as Record<string, any> | null;
   if (response.status < 200 || response.status >= 300 || !order) {
     await logAppError({
       source: "Efí - consultar Pix",
