@@ -285,6 +285,37 @@ export default function SavedGamesPage() {
     [items, searchedContest, searchedItemIds],
   );
 
+  const searchedDraw =
+    searchedContest === null
+      ? undefined
+      : draws[`${selectedLottery}:${searchedContest}`];
+  const lotofacilSearchSummary = useMemo(() => {
+    if (
+      selectedLottery !== "lotofacil" ||
+      searchedContest === null ||
+      !searchedDraw?.available
+    )
+      return null;
+
+    const counts = new Map<number, number>();
+    let total = 0;
+    for (const item of visible) {
+      for (const game of item.games) {
+        const checked = checkGame(item, game, searchedDraw);
+        counts.set(checked.hits, (counts.get(checked.hits) ?? 0) + 1);
+        total += 1;
+      }
+    }
+
+    return {
+      total,
+      rows: [15, 14, 13, 12, 11].map((hits) => ({
+        hits,
+        count: counts.get(hits) ?? 0,
+      })),
+    };
+  }, [searchedContest, searchedDraw, selectedLottery, visible]);
+
   const performance = useMemo(() => {
     const bars = items
       .flatMap((item) => {
@@ -441,6 +472,25 @@ export default function SavedGamesPage() {
               : "Aguardando a primeira conferência."}
         </div>
       </section>
+
+      {lotofacilSearchSummary && (
+        <section className="section">
+          <p className="eyebrow">RESULTADO DO TESTE — CONCURSO {searchedContest}</p>
+          <h2>Quantidade de acertos</h2>
+          <div className="list">
+            {lotofacilSearchSummary.rows.map(({ hits, count }) => (
+              <div className="list-item" key={hits}>
+                <strong>Jogos com {hits} pontos</strong>
+                <span className="status">{count} JOGO{count === 1 ? "" : "S"}</span>
+              </div>
+            ))}
+          </div>
+          <p className="muted">
+            Total conferido: {lotofacilSearchSummary.total} jogos. As dezenas
+            acertadas continuam destacadas em verde em cada jogo abaixo.
+          </p>
+        </section>
+      )}
 
       {items.length > 0 && (
         <section className="section performance-card">
