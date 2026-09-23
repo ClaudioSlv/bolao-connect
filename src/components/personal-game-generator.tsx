@@ -77,23 +77,6 @@ const primesUpTo = (max: number) => {
   }
   return out;
 };
-const combinations = (numbers: number[], size: number) => {
-  const out: number[][] = [];
-  const current: number[] = [];
-  const visit = (start: number) => {
-    if (current.length === size) {
-      out.push([...current]);
-      return;
-    }
-    for (let index = start; index <= numbers.length - (size - current.length); index++) {
-      current.push(numbers[index]);
-      visit(index + 1);
-      current.pop();
-    }
-  };
-  visit(0);
-  return out;
-};
 export function PersonalGameGenerator({
   lottery,
   results,
@@ -136,10 +119,7 @@ export function PersonalGameGenerator({
     () => allNumbers.filter((n) => n % 2 === 0 && !excludedPrimes.includes(n)),
     [allNumbers, excludedPrimes],
   );
-  const exclusionLimit =
-    lottery === "lotofacil"
-      ? 4
-      : Math.max(1, Math.floor((r.max - r.min + 1) / 4));
+  const exclusionLimit = Math.max(1, Math.floor((r.max - r.min + 1) / 4));
   const visibleGames = [...savedGamesOnPage, ...games];
   const excluded = new Set([...excludedOdd, ...excludedEven, ...excludedPrimes]);
   const available = allNumbers.filter((n) => !excluded.has(n));
@@ -280,13 +260,6 @@ export function PersonalGameGenerator({
     pickIsValid &&
     qtyIsValid &&
     (lottery === "super-sete" || available.length >= pick);
-  const canGenerateFullLotofacilClosure =
-    lottery === "lotofacil" &&
-    pick === 15 &&
-    excludedOdd.length === 4 &&
-    excludedEven.length === 4 &&
-    excludedPrimes.length === 0 &&
-    available.length === 17;
   const resetFeedback = () => {
     setSaved(false);
     setShared(false);
@@ -318,18 +291,6 @@ export function PersonalGameGenerator({
       resetFeedback();
       showGenerated();
     }
-  };
-  const generateFullLotofacilClosure = () => {
-    if (!canGenerateFullLotofacilClosure) return;
-    const closure = combinations(available, 15).map((numbers) => ({
-      numbers,
-      trevos: [],
-    }));
-    setQty(closure.length);
-    setQtyInput(String(closure.length));
-    setGames(closure);
-    resetFeedback();
-    showGenerated();
   };
   const buildManualGames = (numbers: number[]) => {
     if (numbers.length !== pick || numbers.some((n) => excluded.has(n))) return;
@@ -396,11 +357,7 @@ export function PersonalGameGenerator({
       return;
     }
     if (current.length >= exclusionLimit) {
-      setExclusionError(
-        lottery === "lotofacil"
-          ? `Na Lotofácil, escolha no máximo ${exclusionLimit} dezenas ${odd ? "ímpares" : "pares"} para deixar de fora.`
-          : `Escolha no máximo ${exclusionLimit} dezenas deste grupo.`,
-      );
+      setExclusionError(`Escolha no máximo ${exclusionLimit} dezenas deste grupo.`);
       return;
     }
     if (!excluded.has(n) && available.length - 1 < pick) {
@@ -749,13 +706,6 @@ export function PersonalGameGenerator({
             {exclusionLimit} pares. Os selecionados ficam fora de todos os
             jogos.
           </p>
-          {lottery === "lotofacil" && (
-            <p className="status">
-              Lógica invertida: escolhendo 4 ímpares e 4 pares para deixar de
-              fora, restam 17 dezenas. O fechamento completo gera 136 jogos de
-              15 dezenas.
-            </p>
-          )}
           <div
             style={{
               display: "grid",
@@ -839,31 +789,6 @@ export function PersonalGameGenerator({
         <p className="status" role="alert" style={{ color: "#facc15" }}>
           ⚠️ {exclusionError}
         </p>
-      )}
-      {lottery === "lotofacil" && (
-        <div className="section">
-          <h3>🔄 Fechamento invertido da Lotofácil</h3>
-          <p className="muted">
-            Marque exatamente 4 ímpares e 4 pares acima, sem excluir primos
-            adicionais. O app combinará todas as 17 dezenas restantes em 136
-            jogos diferentes.
-          </p>
-          <button
-            className="button primary"
-            type="button"
-            onClick={generateFullLotofacilClosure}
-            disabled={!canGenerateFullLotofacilClosure}
-          >
-            {canGenerateFullLotofacilClosure
-              ? "GERAR FECHAMENTO COMPLETO — 136 JOGOS"
-              : `SELECIONE 4 ÍMPARES E 4 PARES (${excludedOdd.length + excludedEven.length}/8)`}
-          </button>
-          <p className="muted" style={{ fontSize: "12px" }}>
-            A garantia de 15 pontos só existe se nenhuma das 8 dezenas deixadas
-            de fora for sorteada. Se uma delas sair, o máximo possível será 14
-            pontos.
-          </p>
-        </div>
       )}
       <div className="actions">
         <button
