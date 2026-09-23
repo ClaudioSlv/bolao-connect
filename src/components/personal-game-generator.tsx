@@ -77,6 +77,16 @@ const primesUpTo = (max: number) => {
   }
   return out;
 };
+const combinationCountUpTo = (total: number, pick: number, limit: number) => {
+  if (pick < 0 || pick > total) return 0;
+  const size = Math.min(pick, total - pick);
+  let result = 1;
+  for (let index = 1; index <= size; index++) {
+    result = (result * (total - size + index)) / index;
+    if (result > limit) return limit + 1;
+  }
+  return Math.round(result);
+};
 export function PersonalGameGenerator({
   lottery,
   results,
@@ -277,17 +287,51 @@ export function PersonalGameGenerator({
       const wanted = Math.max(1, Math.min(1000, qty)),
         out: Game[] = [],
         seen = new Set<string>();
+      const possible = combinationCountUpTo(available.length, pick, wanted);
+      const target = Math.min(wanted, possible);
+      const usage = new Map(available.map((number) => [number, 0]));
+      const balancedLotofacilNumbers = (gameIndex: number) => {
+        const preferred = new Set(oneNumbers());
+        const randomTie = new Map(available.map((number) => [number, Math.random()]));
+        const reverse = gameIndex % 2 === 1;
+        return [...available]
+          .sort((a, b) => {
+            const score = (number: number) =>
+              (usage.get(number) ?? 0) * 1000 -
+              Number(preferred.has(number)) * 10 +
+              (randomTie.get(number) ?? 0) +
+              (reverse ? -number : number) * 0.01;
+            return score(a) - score(b);
+          })
+          .slice(0, pick)
+          .sort((a, b) => a - b);
+      };
       let attempts = 0;
-      while (out.length < wanted && attempts < wanted * 30) {
+      while (out.length < target && attempts < Math.max(100, target * 50)) {
         attempts++;
-        const game = { numbers: oneNumbers(), trevos: oneTrevos() },
+        const game = {
+            numbers:
+              lottery === "lotofacil"
+                ? balancedLotofacilNumbers(out.length)
+                : oneNumbers(),
+            trevos: oneTrevos(),
+          },
           key = `${game.numbers.join("-")}|${game.trevos.join("-")}`;
         if (!seen.has(key)) {
           seen.add(key);
           out.push(game);
+          if (lottery === "lotofacil")
+            game.numbers.forEach((number) =>
+              usage.set(number, (usage.get(number) ?? 0) + 1),
+            );
         }
       }
       setGames(out);
+      setExclusionError(
+        possible < wanted
+          ? `Com as dezenas disponíveis existem somente ${possible} jogos diferentes de ${pick} dezenas. O app gerou todas as combinações possíveis.`
+          : "",
+      );
       resetFeedback();
       showGenerated();
     }
