@@ -232,7 +232,7 @@ export default async function Page({
     remaining = Math.max(0, credit - amount),
     paid = p.payment_status === "confirmed",
     automaticPixEnabled = paymentAccount?.connection_status === "connected",
-    manualPixKey = String(paymentAccount?.manual_pix_key || "97a2d669-3ce8-4b7a-b571-0403f2c0aa6d").trim(),
+    manualPixKey = "13991320205",
     rules = pool.rules_text || DEFAULT_POOL_RULES;
   const now = Date.now(),
     opens = pool.payment_opens_at
