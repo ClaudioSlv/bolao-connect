@@ -99,7 +99,7 @@ export default async function SavedGamesMenuPage({
           <span className={styles.chevron} aria-hidden="true">›</span>
         </Link>
 
-        <Link className={styles.card} href="/meus-jogos-salvos">
+        <Link className={styles.card} href={`/meus-jogos-salvos${suffix}`}>
           <span className={styles.icon}><ArchiveIcon /></span>
           <span className={styles.copy}>
             <strong>Meus jogos salvos</strong>
