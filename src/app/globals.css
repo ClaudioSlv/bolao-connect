@@ -473,9 +473,9 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .pool-history-link .card-chevron{flex:0 0 auto}
 @media(max-width:390px){.mega-globe-ball{width:21px;height:21px;font-size:8px}}
 @media(prefers-reduced-motion:reduce){.mega-globe-ball{animation:none}}
-.manual-pix-copy-button.payment-pulse{position:relative;isolation:isolate;overflow:hidden;animation:pixButtonPulse 1.45s ease-in-out infinite;box-shadow:0 5px 0 #8b6508,0 0 0 rgba(255,226,89,0)}
-.manual-pix-copy-button.payment-pulse::after{content:"";position:absolute;z-index:2;top:-55%;bottom:-55%;left:-42%;width:30%;pointer-events:none;background:linear-gradient(100deg,transparent 0%,rgba(255,255,255,.12) 25%,rgba(255,255,255,.92) 50%,rgba(255,255,255,.15) 75%,transparent 100%);filter:blur(1px);transform:skewX(-20deg);animation:pixButtonShine 2.15s ease-in-out infinite}
+.payment-main-button.payment-pulse{position:relative;isolation:isolate;overflow:hidden;animation:pixButtonPulse 1.45s ease-in-out infinite;box-shadow:0 5px 0 #8b6508,0 0 0 rgba(255,226,89,0)}
+.payment-main-button.payment-pulse::after{content:"";position:absolute;z-index:2;top:-55%;bottom:-55%;left:-42%;width:30%;pointer-events:none;background:linear-gradient(100deg,transparent 0%,rgba(255,255,255,.12) 25%,rgba(255,255,255,.92) 50%,rgba(255,255,255,.15) 75%,transparent 100%);filter:blur(1px);transform:skewX(-20deg);animation:pixButtonShine 2.15s ease-in-out infinite}
 @keyframes pixButtonPulse{0%,100%{transform:scale(1);box-shadow:0 5px 0 #8b6508,0 0 0 rgba(255,226,89,0)}50%{transform:scale(1.045);box-shadow:0 5px 0 #8b6508,0 0 24px rgba(255,226,89,.75)}}
 @keyframes pixButtonShine{0%,18%{left:-42%;opacity:0}28%{opacity:1}72%{opacity:1}82%,100%{left:116%;opacity:0}}
-@media(prefers-reduced-motion:reduce){.manual-pix-copy-button.payment-pulse,.manual-pix-copy-button.payment-pulse::after{animation:none}}
+@media(prefers-reduced-motion:reduce){.payment-main-button.payment-pulse,.payment-main-button.payment-pulse::after{animation:none}}
 .pool-create-feedback{display:grid;gap:6px;padding:15px 16px;border-radius:15px;text-align:center;font-size:15px;line-height:1.35}.pool-create-feedback.success{border:1px solid #45ef6c;background:#0c2c18;color:#dfffe7}.pool-create-feedback.error{border:1px solid #ff6b6b;background:#351010;color:#ffe4e4}.pool-create-feedback span{font-size:13px;color:inherit;opacity:.85}.create-pool-button:disabled{cursor:not-allowed;opacity:.78;transform:none}
