@@ -125,6 +125,9 @@ export default function SavedGamesPage() {
   const [checking, setChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const [backHref, setBackHref] = useState("/meu-jogo");
+  const [contestInput, setContestInput] = useState("");
+  const [searchedContest, setSearchedContest] = useState<number | null>(null);
+  const [searchError, setSearchError] = useState("");
 
   useEffect(() => {
     const requestedBack = new URLSearchParams(window.location.search).get("voltar");
@@ -192,14 +195,79 @@ export default function SavedGamesPage() {
     };
   }, [items]);
 
-  const lotteries = useMemo(
-    () =>
-      Array.from(
-        new Map(items.map((item) => [item.lottery, item.label])).entries(),
-      ),
-    [items],
+  const visible = items.filter(
+    (item) =>
+      item.lottery === selectedLottery &&
+      (searchedContest === null || Number(item.targetContest) === searchedContest),
   );
-  const visible = items.filter((item) => item.lottery === selectedLottery);
+
+  const searchContest = async () => {
+    const contest = Number(contestInput);
+    if (!Number.isInteger(contest) || contest <= 0) {
+      setSearchError("Informe um número de concurso válido.");
+      setSearchedContest(null);
+      return;
+    }
+
+    const found = items.filter((item) => Number(item.targetContest) === contest);
+    if (!found.length) {
+      setSearchError(`Nenhum jogo pessoal foi encontrado para o concurso ${contest}.`);
+      setSearchedContest(null);
+      return;
+    }
+
+    setSearchError("");
+    setSearchedContest(contest);
+    setSelectedLottery(found[0].lottery);
+
+    const targets = Array.from(
+      new Map(
+        found.map((item) => [
+          `${item.lottery}:${contest}`,
+          { lottery: item.lottery, contest },
+        ]),
+      ).values(),
+    );
+
+    setChecking(true);
+    const settled = await Promise.allSettled(
+      targets.map(async ({ lottery, contest: targetContest }) => {
+        const response = await fetch(
+          `/api/personal-game-result?lottery=${encodeURIComponent(lottery)}&contest=${targetContest}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error("resultado indisponível");
+        return (await response.json()) as Draw;
+      }),
+    );
+
+    setDraws((current) => {
+      const next = { ...current };
+      settled.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          const target = targets[index];
+          next[`${target.lottery}:${target.contest}`] = result.value;
+        }
+      });
+      return next;
+    });
+    setLastCheckedAt(new Date());
+    setChecking(false);
+  };
+
+  const searchedLotteries = useMemo(
+    () =>
+      searchedContest === null
+        ? []
+        : Array.from(
+            new Map(
+              items
+                .filter((item) => Number(item.targetContest) === searchedContest)
+                .map((item) => [item.lottery, item.label]),
+            ).entries(),
+          ),
+    [items, searchedContest],
+  );
 
   const performance = useMemo(() => {
     const bars = items
@@ -287,22 +355,64 @@ export default function SavedGamesPage() {
         <p className="eyebrow">JOGOS PESSOAIS</p>
         <h1>✅ Conferir resultado</h1>
         <p className="muted">
-          O sistema confere automaticamente os jogos deste aparelho usando o
-          resultado oficial da CAIXA.
+          Digite somente o número do concurso. O sistema localiza os jogos que
+          você fez neste aparelho e confere pelo resultado oficial da CAIXA.
         </p>
         {items.length > 0 && (
+          <>
+            <div className="field">
+              <label>Número do concurso</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                value={contestInput}
+                onChange={(event) => {
+                  setContestInput(event.target.value.replace(/\D/g, ""));
+                  setSearchError("");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void searchContest();
+                  }
+                }}
+                placeholder="Digite o número do concurso"
+              />
+            </div>
+            <button
+              className="button primary"
+              type="button"
+              onClick={() => void searchContest()}
+              disabled={checking}
+            >
+              {checking ? "AGUARDE, ESTAMOS CONFERINDO..." : "BUSCAR E CONFERIR MEUS JOGOS"}
+            </button>
+            {searchError && (
+              <p className="status" role="alert" style={{ color: "#facc15" }}>
+                {searchError}
+              </p>
+            )}
+          </>
+        )}
+        {searchedContest !== null && searchedLotteries.length > 1 && (
           <div className="field">
-            <label>Escolha a modalidade</label>
+            <label>Modalidades encontradas no concurso {searchedContest}</label>
             <select
               value={selectedLottery}
               onChange={(event) => setSelectedLottery(event.target.value)}
             >
-              {lotteries.map(([lottery, label]) => (
+              {searchedLotteries.map(([lottery, label]) => (
                 <option value={lottery} key={lottery}>
-                  {label} ({items.filter((item) => item.lottery === lottery).reduce((sum, item) => sum + item.games.length, 0)} jogos)
+                  {label} ({items.filter((item) => item.lottery === lottery && Number(item.targetContest) === searchedContest).reduce((sum, item) => sum + item.games.length, 0)} jogos)
                 </option>
               ))}
             </select>
+          </div>
+        )}
+        {searchedContest !== null && !searchError && (
+          <div className="status" role="status">
+            Jogos encontrados no concurso {searchedContest}: {items.filter((item) => Number(item.targetContest) === searchedContest).reduce((sum, item) => sum + item.games.length, 0)}
           </div>
         )}
         <div className="status" role="status" aria-live="polite">
