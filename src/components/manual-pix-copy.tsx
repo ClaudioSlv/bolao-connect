@@ -2,7 +2,7 @@
 
 import {useState} from "react";
 
-export function ManualPixCopy({pixKey,amountLabel}:{pixKey:string;amountLabel:string}){
+export function ManualPixCopy({pixKey,amountLabel,buttonLabel="PAGAR COM PIX"}:{pixKey:string;amountLabel:string;buttonLabel?:string}){
   const[copied,setCopied]=useState(false);
 
   async function copyPixKey(){
@@ -23,9 +23,9 @@ export function ManualPixCopy({pixKey,amountLabel}:{pixKey:string;amountLabel:st
   }
 
   return <div className="manual-pix-copy">
-    <button className="button secondary manual-pix-copy-button" type="button" onClick={copyPixKey}>
+    <button className="button primary manual-pix-copy-button payment-main-button payment-pulse" type="button" onClick={copyPixKey}>
       <img className="manual-pix-logo" src="/pix-logo.png" alt="" aria-hidden="true" />
-      {copied?"✓ CHAVE PIX COPIADA":"📋 COPIAR CHAVE PIX"}
+      {copied?"✓ CHAVE PIX COPIADA":buttonLabel}
     </button>
     {copied&&<p className="status" role="status">Abra seu banco, cole a chave Pix e pague {amountLabel}. Depois envie o comprovante abaixo.</p>}
   </div>;

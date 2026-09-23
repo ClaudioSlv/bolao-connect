@@ -112,8 +112,9 @@ export default async function TimerPage({
               <p className="eyebrow" style={{ textAlign: "center" }}>
                 🟢 PAGAMENTOS ABERTOS
               </p>
-              <h2 style={{ textAlign: "center" }}>Falta para o encerramento</h2>
-              <PoolCountdown target={pool.payment_deadline} />
+              <p className="muted" style={{ textAlign: "center" }}>
+                A participação e o pagamento por Pix já estão liberados.
+              </p>
             </>
           ) : (
             <>
@@ -215,7 +216,9 @@ export default async function TimerPage({
                 href={`/bolao/${slug}`}
                 label={
                   available > 0
-                    ? "🍀 PARTICIPAR DO BOLÃO"
+                    ? windowOpen
+                      ? "💠 PARTICIPAR E PAGAR COM PIX"
+                      : "🍀 PARTICIPAR DO BOLÃO"
                     : "⏳ ENTRAR NA LISTA DE ESPERA"
                 }
                 pulse={available > 0}

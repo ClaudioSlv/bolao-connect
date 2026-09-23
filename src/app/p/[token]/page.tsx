@@ -172,6 +172,7 @@ export default async function Page({
         .eq("rules_version", version)
         .maybeSingle();
       let credit = 0;
+      let paymentAccount: any = null;
       if (!p.is_test && pool?.owner_id && p.phone) {
         const { data: account } = await s
           .from("participant_credit_accounts")
@@ -180,6 +181,15 @@ export default async function Page({
           .eq("phone", phoneKey(p.phone))
           .maybeSingle();
         credit = Number(account?.balance_cents || 0);
+      }
+      if (pool?.owner_id) {
+        const { data: account } = await s
+          .from("organizer_payment_accounts")
+          .select("connection_status,manual_pix_key,manual_pix_key_type")
+          .eq("owner_id", pool.owner_id)
+          .eq("provider", "pagbank")
+          .maybeSingle();
+        paymentAccount = account;
       }
       let availablePools: any[] = [];
       if (pool?.owner_id && p.phone) {
@@ -201,7 +211,7 @@ export default async function Page({
           (item) => item.public_slug && !joined.has(item.id),
         );
       }
-      data = { p, pool, sub, acceptance, credit, availablePools };
+      data = { p, pool, sub, acceptance, credit, availablePools, paymentAccount };
     }
   } catch {}
   if (!data?.p || !data?.pool)
@@ -212,7 +222,7 @@ export default async function Page({
         </section>
       </main>
     );
-  const { p, pool, sub, acceptance, credit, availablePools } = data,
+  const { p, pool, sub, acceptance, credit, availablePools, paymentAccount } = data,
     isTest = Boolean(p.is_test),
     amount = isTest
       ? Number(p.test_amount_cents || 100)
@@ -221,6 +231,8 @@ export default async function Page({
     due = Math.max(0, amount - applied),
     remaining = Math.max(0, credit - amount),
     paid = p.payment_status === "confirmed",
+    automaticPixEnabled = paymentAccount?.connection_status === "connected",
+    manualPixKey = String(paymentAccount?.manual_pix_key || "97a2d669-3ce8-4b7a-b571-0403f2c0aa6d").trim(),
     rules = pool.rules_text || DEFAULT_POOL_RULES;
   const now = Date.now(),
     opens = pool.payment_opens_at
@@ -415,13 +427,11 @@ export default async function Page({
       )}
       {acceptance && !paid && !isWaitlisted && !isExpired && paymentOpen && (
         <section className="section">
-          <h2>Pagamento automático por Pix</h2>
+          <h2>{automaticPixEnabled ? "Pagamento automático por Pix" : "Pagamento por Pix"}</h2>
           <div className="card">
             <strong>Valor do Pix: {money(due)}</strong>
-            <span>Pagamento seguro pelo PagBank</span>
-            <span>
-              O QR Code será vinculado automaticamente ao seu cadastro.
-            </span>
+            <span>{automaticPixEnabled ? "Pagamento seguro pelo PagBank" : "Use a chave Pix do organizador e envie o comprovante."}</span>
+            {automaticPixEnabled&&<span>O QR Code será vinculado automaticamente ao seu cadastro.</span>}
           </div>
           {due === 0 ? (
             <p className="status">
@@ -430,22 +440,11 @@ export default async function Page({
             </p>
           ) : (
             <>
-              <p className="muted">
-                Gere sua cobrança individual. Assim que o PagBank confirmar o
-                Pix, sua cota mudará automaticamente para <strong>Pago</strong>.
-              </p>
-              <PagBankCheckout
-                token={token}
-                amountLabel={money(due)}
-                isTest={isTest}
-                requiresCustomerData={
-                  process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase() ===
-                  "production"
-                }
-              />
+              {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que o PagBank confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><PagBankCheckout token={token} amountLabel={money(due)} isTest={isTest} requiresCustomerData={process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase()==="production"}/></>}
               <ManualPixCopy
-                pixKey="97a2d669-3ce8-4b7a-b571-0403f2c0aa6d"
+                pixKey={manualPixKey}
                 amountLabel={money(due)}
+                buttonLabel="PAGAR COM PIX"
               />
               {sub || sent ? (
                 <details className="manual-payment">
@@ -455,7 +454,7 @@ export default async function Page({
                     Aguardando confirmação do organizador.
                   </p>
                 </details>
-              ) : (
+              ) : automaticPixEnabled ? (
                 <details className="manual-payment">
                   <summary>Prefiro enviar um comprovante manual</summary>
                   <p className="muted">
@@ -478,6 +477,15 @@ export default async function Page({
                     </button>
                   </form>
                 </details>
+              ) : (
+                <div className="manual-payment">
+                  <p className="muted">Depois de fazer o Pix, envie o comprovante para o organizador confirmar o pagamento.</p>
+                  <form className="form" action={submitReceipt}>
+                    <input type="hidden" name="token" value={token} />
+                    <div className="field"><label>Enviar comprovante</label><input name="receipt" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" required/></div>
+                    <button className="button secondary">ENVIAR COMPROVANTE</button>
+                  </form>
+                </div>
               )}
             </>
           )}
