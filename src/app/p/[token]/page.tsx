@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ReminderOptIn } from "@/components/reminder-opt-in";
 import { ReservationConfirmedModal } from "@/components/reservation-confirmed-modal";
-import { PagBankCheckout } from "@/components/pagbank-checkout";
+import { EfiCheckout } from "@/components/efi-checkout";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import { AvailablePoolsNotice } from "@/components/available-pools-notice";
@@ -253,7 +253,7 @@ export default async function Page({
     due = Math.max(0, amount - applied),
     remaining = Math.max(0, credit - amount),
     paid = p.payment_status === "confirmed",
-    automaticPixEnabled = paymentAccount?.connection_status === "connected",
+    automaticPixEnabled = Boolean(process.env.EFI_CLIENT_ID_PROD && process.env.EFI_CLIENT_SECRET_PROD && process.env.EFI_CERTIFICATE_BASE64 && process.env.EFI_PIX_KEY),
     manualPixKey = "13991320205",
     rules = pool.rules_text || DEFAULT_POOL_RULES;
   const now = Date.now(),
@@ -453,7 +453,7 @@ export default async function Page({
           <h2>{automaticPixEnabled ? "Pagamento automático por Pix" : "Pagamento por Pix"}</h2>
           <div className="card">
             <strong>Valor do Pix: {money(due)}</strong>
-            <span>{automaticPixEnabled ? "Pagamento seguro pelo PagBank" : "Use a chave Pix do organizador e envie o comprovante."}</span>
+            <span>{automaticPixEnabled ? "Pagamento automático pela Efí" : "Use a chave Pix do organizador e envie o comprovante."}</span>
             {automaticPixEnabled&&<span>O QR Code será vinculado automaticamente ao seu cadastro.</span>}
           </div>
           {due === 0 ? (
@@ -463,7 +463,7 @@ export default async function Page({
             </p>
           ) : (
             <>
-              {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que o PagBank confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><PagBankCheckout token={token} amountLabel={money(due)} isTest={isTest} requiresCustomerData={process.env.PAGBANK_ENVIRONMENT?.trim().toLowerCase()==="production"}/></>}
+              {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que a Efí confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><EfiCheckout token={token} amountLabel={money(due)}/></>}
               <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}
