@@ -308,7 +308,7 @@ export default async function Page({
         <div className="card">
           <div className="wallet-row">
             <span>
-              {isTest ? "Valor do teste InfinitePay" : "Valor da participação"}
+              {isTest ? "Valor do teste Efí" : "Valor da participação"}
             </span>
             <strong>{money(amount)}</strong>
           </div>
@@ -464,11 +464,11 @@ export default async function Page({
           ) : (
             <>
               {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que a Efí confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><EfiCheckout token={token} amountLabel={money(due)}/></>}
-              <ManualPixCopy
+              {!isTest && <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}
                 buttonLabel="PAGAR COM PIX"
-              />
+              />}
               {sub || sent ? (
                 <details className="manual-payment">
                   <summary>Já paguei por outra chave Pix</summary>
@@ -482,7 +482,7 @@ export default async function Page({
                   <summary>Prefiro enviar um comprovante manual</summary>
                   <p className="muted">
                     Use esta opção somente se você pagou fora da cobrança
-                    PagBank.
+                    Efí.
                   </p>
                   <form className="form" action={submitReceipt}>
                     <input type="hidden" name="token" value={token} />
