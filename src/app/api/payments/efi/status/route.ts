@@ -63,9 +63,10 @@ export async function POST(request: Request) {
   // Payment confirmation must be based on the received Pix list, not only on cob.status.
   const pixList = Array.isArray(order?.pix) ? order.pix : [];
   const pix = pixList.find((item: any) => Number(String(item?.valor || "0").replace(",", ".")) > 0) || null;
-  if (!pix)
-    return NextResponse.json({ paid: false, status: String(order?.status || "pending").toLowerCase() });
-  const transactionId = String(pix?.endToEndId || session.provider_order_id);
+  const chargeStatus = String(order?.status || "").toUpperCase();
+  if (chargeStatus !== "CONCLUIDA" && !pix)
+    return NextResponse.json({ paid: false, status: chargeStatus.toLowerCase() || "pending" });
+  const transactionId = String(pix?.endToEndId || order?.txid || session.provider_order_id);
   const { data: claimed } = await s
     .from("payment_checkout_sessions")
     .update({
