@@ -22,12 +22,18 @@ export async function POST(request:Request){
   const version=Number(pool.rules_version||DEFAULT_POOL_RULES_VERSION),{data:acceptance}=await s.from("pool_rule_acceptances").select("id").eq("pool_id",pool.id).eq("participant_id",p.id).eq("rules_version",version).maybeSingle();
   if(!acceptance)return NextResponse.json({error:"Aceite as Regras do Bolão antes de gerar o pagamento."},{status:403});
   const {data:existing}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  if(existing?.qr_code_text&&(!existing.qr_code_expires_at||new Date(existing.qr_code_expires_at).getTime()>now))return NextResponse.json({orderId:existing.provider_order_id,qrCodeText:existing.qr_code_text,qrCodeImage:await QRCode.toDataURL(existing.qr_code_text,{width:360,margin:1}),expiresAt:existing.qr_code_expires_at,reused:true});
-  // A previous attempt can leave an active row in "creating" without a QR code.
-  // Release that orphan before creating a replacement, otherwise the partial unique
-  // index rejects the new checkout and the participant gets stuck on HTTP 409.
-  if(existing&&!existing.qr_code_text){
-   await s.from("payment_checkout_sessions").update({status:"failed",failure_reason:"efi_orphan_without_qr_replaced",updated_at:new Date().toISOString()}).eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]);
+  if(existing?.qr_code_text&&existing.qr_code_expires_at&&new Date(existing.qr_code_expires_at).getTime()>now)
+   return NextResponse.json({orderId:existing.provider_order_id,qrCodeText:existing.qr_code_text,qrCodeImage:await QRCode.toDataURL(existing.qr_code_text,{width:360,margin:1}),expiresAt:existing.qr_code_expires_at,reused:true});
+
+  // Nunca reaproveite uma cobrança sem validade conhecida ou já expirada.
+  // Cada nova cobrança continua vinculada somente a este participante.
+  if(existing){
+   const expired=Boolean(existing.qr_code_text);
+   await s.from("payment_checkout_sessions").update({
+    status:"failed",
+    failure_reason:expired?"efi_qr_expired_replaced":"efi_orphan_without_qr_replaced",
+    updated_at:new Date().toISOString()
+   }).eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]);
   }
   const gross=p.is_test?Number(p.test_amount_cents||100):Number(p.shares)*Number(pool.share_price_cents);let credit=0;
   if(!p.is_test&&p.phone){const {data:a}=await s.from("participant_credit_accounts").select("balance_cents").eq("owner_id",pool.owner_id).eq("phone",digits(p.phone)).maybeSingle();credit=Number(a?.balance_cents||0)}
