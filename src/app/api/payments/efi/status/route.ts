@@ -62,9 +62,10 @@ export async function POST(request: Request) {
   const chargeStatus = String(order?.status || "").toUpperCase();
   let pixList = Array.isArray(order?.pix) ? order.pix : [];
 
-  // A cobrança CONCLUIDA confirma que houve Pix, mas antes de quitar a cota
-  // conciliamos o valor efetivamente recebido pelo txid.
-  if (chargeStatus === "CONCLUIDA" && pixList.length === 0) {
+  // A resposta de /v2/cob pode continuar sem a lista pix por alguns instantes.
+  // Consulte também os Pix recebidos pelo txid sempre que a cobrança ainda não
+  // trouxer o pagamento, para que a baixa automática não dependa desse atraso.
+  if (pixList.length === 0) {
     const start = new Date(new Date(session.created_at).getTime() - 60 * 60 * 1000).toISOString();
     const end = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     const received = await efiRequest(
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", session.id)
-    .eq("status", "pending")
+    .in("status", ["pending", "review_required"])
     .select("id")
     .maybeSingle();
   if (!claimed) {
