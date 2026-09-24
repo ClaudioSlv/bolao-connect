@@ -35,7 +35,22 @@ export async function POST(request:Request){
   if(due<=0)return NextResponse.json({error:"Sua participação está totalmente coberta pelo crédito."},{status:409});
   const referenceId=`efi-${p.id}-${crypto.randomUUID().slice(0,12)}`,expirationSeconds=1800,expiresAt=new Date(Date.now()+expirationSeconds*1000).toISOString();
   const {error:ie}=await s.from("payment_checkout_sessions").insert({pool_id:pool.id,participant_id:p.id,provider:"efi",order_nsu:referenceId,gross_amount_cents:gross,credit_used_cents:creditUsed,expected_amount_cents:due,status:"creating",is_test:Boolean(p.is_test)});
-  if(ie)return NextResponse.json({error:"Já existe uma cobrança ativa. Atualize a página."},{status:409});
+  if(ie){
+   // Pode haver concorrência entre dois cliques/requisições: a outra requisição
+   // cria a sessão primeiro. Recupere essa sessão em vez de mostrar erro ao participante.
+   const {data:active}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
+   if(active?.qr_code_text&&(!active.qr_code_expires_at||new Date(active.qr_code_expires_at).getTime()>Date.now()))
+    return NextResponse.json({orderId:active.provider_order_id,qrCodeText:active.qr_code_text,qrCodeImage:await QRCode.toDataURL(active.qr_code_text,{width:360,margin:1}),expiresAt:active.qr_code_expires_at,reused:true});
+   if(active){
+    for(let attempt=0;attempt<6;attempt++){
+     await new Promise(resolve=>setTimeout(resolve,500));
+     const {data:ready}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
+     if(ready?.qr_code_text)
+      return NextResponse.json({orderId:ready.provider_order_id,qrCodeText:ready.qr_code_text,qrCodeImage:await QRCode.toDataURL(ready.qr_code_text,{width:360,margin:1}),expiresAt:ready.qr_code_expires_at,reused:true});
+    }
+   }
+   return NextResponse.json({error:"Sua cobrança está sendo gerada. Aguarde alguns segundos e tente novamente."},{status:409});
+  }
   const charge=await efiRequest("/v2/cob",{method:"POST",body:{calendario:{expiracao:expirationSeconds},valor:{original:(due/100).toFixed(2)},chave:process.env.EFI_PIX_KEY,solicitacaoPagador:`Bolão Amigos BTP - ${pool.title}`,infoAdicionais:[{nome:"Participante",valor:String(p.name).slice(0,50)}]}});
   if(charge.status<200||charge.status>=300||!charge.data?.txid||!charge.data?.loc?.id){await s.from("payment_checkout_sessions").update({status:"failed",failure_reason:`efi_${charge.status}`,updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);return NextResponse.json({error:charge.data?.mensagem||charge.data?.detail||`A Efí recusou a cobrança (HTTP ${charge.status}).`},{status:502})}
   const qr=await efiRequest(`/v2/loc/${charge.data.loc.id}/qrcode`);
