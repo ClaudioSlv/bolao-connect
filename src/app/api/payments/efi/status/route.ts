@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   const { data: session } = await s
     .from("payment_checkout_sessions")
     .select(
-      "id,provider_order_id,order_nsu,gross_amount_cents,credit_used_cents,expected_amount_cents,is_test,status",
+      "id,provider_order_id,order_nsu,gross_amount_cents,credit_used_cents,expected_amount_cents,is_test,status,created_at",
     )
     .eq("participant_id", p.id)
     .eq("provider", "efi")
@@ -59,13 +59,65 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
-  // Efí returns the charge status as ATIVA even after a Pix is received.
-  // Payment confirmation must be based on the received Pix list, not only on cob.status.
-  const pixList = Array.isArray(order?.pix) ? order.pix : [];
-  const pix = pixList.find((item: any) => Number(String(item?.valor || "0").replace(",", ".")) > 0) || null;
   const chargeStatus = String(order?.status || "").toUpperCase();
-  if (chargeStatus !== "CONCLUIDA" && !pix)
+  let pixList = Array.isArray(order?.pix) ? order.pix : [];
+
+  // A cobrança CONCLUIDA confirma que houve Pix, mas antes de quitar a cota
+  // conciliamos o valor efetivamente recebido pelo txid.
+  if (chargeStatus === "CONCLUIDA" && pixList.length === 0) {
+    const start = new Date(new Date(session.created_at).getTime() - 60 * 60 * 1000).toISOString();
+    const end = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const received = await efiRequest(
+      `/v2/pix?inicio=${encodeURIComponent(start)}&fim=${encodeURIComponent(end)}&txid=${encodeURIComponent(session.provider_order_id)}`,
+    );
+    if (received.status >= 200 && received.status < 300)
+      pixList = Array.isArray(received.data?.pix) ? received.data.pix : [];
+  }
+
+  const matchingPix = pixList.filter(
+    (item: any) => !item?.txid || String(item.txid) === String(session.provider_order_id),
+  );
+  const receivedCents = matchingPix.reduce((sum: number, item: any) => {
+    const value = Number(String(item?.valor || "0").replace(",", "."));
+    return sum + (Number.isFinite(value) ? Math.round(value * 100) : 0);
+  }, 0);
+  const expectedCents = Number(session.expected_amount_cents);
+
+  if (chargeStatus !== "CONCLUIDA" && receivedCents <= 0)
     return NextResponse.json({ paid: false, status: chargeStatus.toLowerCase() || "pending" });
+
+  if (receivedCents !== expectedCents) {
+    await s
+      .from("payment_checkout_sessions")
+      .update({
+        status: "review_required",
+        paid_amount_cents: receivedCents || null,
+        failure_reason: receivedCents
+          ? "efi_received_amount_mismatch"
+          : "efi_received_amount_not_verified",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.id);
+    await logAppError({
+      source: "Efí - conciliar valor Pix",
+      message: receivedCents
+        ? "Valor recebido diferente do valor esperado."
+        : "Cobrança concluída sem valor recebido conciliado.",
+      poolId: p.pool_id,
+      details: {
+        participant_id: p.id,
+        order_id: session.provider_order_id,
+        expected_amount_cents: expectedCents,
+        received_amount_cents: receivedCents,
+      },
+    });
+    return NextResponse.json(
+      { paid: false, review: true, error: "Pagamento recebido; valor em conferência." },
+      { status: 409 },
+    );
+  }
+
+  const pix = matchingPix[0] || null;
   const transactionId = String(pix?.endToEndId || order?.txid || session.provider_order_id);
   const { data: claimed } = await s
     .from("payment_checkout_sessions")
