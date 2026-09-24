@@ -59,10 +59,7 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
-  if (String(order?.status || "").toUpperCase() !== "CONCLUIDA")
-    return NextResponse.json({ paid: false, status: String(order?.status || "pending").toLowerCase() });
-  const pix = Array.isArray(order?.pix) ? order.pix[0] : null,
-    transactionId = String(pix?.endToEndId || session.provider_order_id);
+  // Efí returns the charge status as ATIVA even after a Pix is received.\n  // Payment confirmation must be based on the received Pix list, not only on cob.status.\n  const pixList = Array.isArray(order?.pix) ? order.pix : [];\n  const pix = pixList.find((item: any) => Number(String(item?.valor || "0").replace(",", ".")) > 0) || null;\n  if (!pix)\n    return NextResponse.json({ paid: false, status: String(order?.status || "pending").toLowerCase() });\n  const transactionId = String(pix?.endToEndId || session.provider_order_id);
   const { data: claimed } = await s
     .from("payment_checkout_sessions")
     .update({
