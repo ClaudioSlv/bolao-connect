@@ -464,7 +464,7 @@ export default async function Page({
           ) : (
             <>
               {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que a Efí confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><EfiCheckout token={token} amountLabel={money(due)}/></>}
-              {!isTest && <ManualPixCopy
+              {!isTest && !automaticPixEnabled && <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}
                 buttonLabel="PAGAR COM PIX"
