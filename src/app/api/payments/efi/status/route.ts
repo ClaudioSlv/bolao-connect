@@ -75,6 +75,9 @@ export async function POST(request: Request) {
       pixList = Array.isArray(received.data?.pix) ? received.data.pix : [];
   }
 
+  // /v2/pix?txid=... já restringe a consulta à cobrança solicitada.
+  // Algumas respostas da Efí não repetem o txid dentro de cada item Pix;
+  // quando ele vier, exigimos correspondência exata.
   const matchingPix = pixList.filter(
     (item: any) => !item?.txid || String(item.txid) === String(session.provider_order_id),
   );
