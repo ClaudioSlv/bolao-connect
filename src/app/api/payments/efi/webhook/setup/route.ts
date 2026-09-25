@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const response = await efiRequest(`/v2/webhook/${encodeURIComponent(key)}`, {
     method: "PUT",
     headers: { "x-skip-mtls-checking": "true" },
-    body: { webhookUrl: "https://bolao-connect.vercel.app/api/payments/efi/webhook" },
+    body: { webhookUrl: "https://bolao-connect.vercel.app/api/payments/efi/webhook?ignorar=" },
   });
 
   return NextResponse.json({ ok: response.status >= 200 && response.status < 300, status: response.status, data: response.data }, { status: response.status >= 200 && response.status < 300 ? 200 : 502 });
