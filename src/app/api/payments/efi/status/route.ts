@@ -149,8 +149,21 @@ export async function reconcileEfiParticipant(token: string) {
       .eq("id", p.pool_id)
       .single(),
     gross = Number(session.gross_amount_cents),
-    cashPaid = Number(session.expected_amount_cents),
-    creditUsed = Number(session.credit_used_cents);
+    cashPaid = receivedCents,
+    creditUsed = Math.max(0, gross - cashPaid);
+
+  // O crédito é sempre calculado dinamicamente pelo valor total menos o Pix
+  // efetivamente recebido. Nunca depende de um valor fixo por participante.
+  if (creditUsed + cashPaid !== gross) {
+    await s
+      .from("payment_checkout_sessions")
+      .update({ status: "review_required", failure_reason: "gross_settlement_mismatch" })
+      .eq("id", session.id);
+    return NextResponse.json(
+      { error: "Pagamento recebido; composição entre crédito e Pix em conferência." },
+      { status: 409 },
+    );
+  }
   let account: any = null;
   if (!pool) {
     await s
