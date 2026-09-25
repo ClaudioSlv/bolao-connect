@@ -18,9 +18,9 @@ export const DEFAULT_POOL_RULES = `1. Divisão do prêmio — Qualquer prêmio o
 
 10. Proteção de dados e selfie (LGPD) — Para identificação do participante e segurança do cadastro, o Bolão Amigos BTP poderá solicitar uma fotografia do rosto (selfie). A imagem será vinculada ao cadastro, armazenada em área privada e protegida, não será exibida publicamente nem compartilhada com outros participantes e será utilizada somente para identificação e segurança do cadastro. O participante será informado da finalidade antes da coleta e deverá autorizar expressamente o armazenamento da imagem. A selfie não será utilizada para reconhecimento facial ou extração de biometria. O titular poderá exercer os direitos previstos na LGPD, inclusive solicitar informações sobre o tratamento e, quando aplicável, a eliminação da imagem, observadas as hipóteses legais de conservação.
 
-11. Aceite — Ao marcar “Li e estou de acordo com as Regras do Bolão”, o participante confirma que leu e aceitou estas condições.`;
+11. Independência da plataforma e registro das apostas — O aplicativo é uma plataforma independente para organização de grupos e criação e gerenciamento de jogos. Não possui vínculo, parceria, patrocínio ou representação da CAIXA Econômica Federal ou das Loterias CAIXA. Os jogos criados e salvos no aplicativo não constituem apostas registradas. Para participar oficialmente de um concurso, o usuário ou organizador deverá registrar a aposta pelos canais oficiais autorizados das Loterias CAIXA, conforme as regras aplicáveis. O aplicativo auxilia na organização e no acompanhamento dos jogos, mas não substitui o comprovante oficial de aposta emitido por canal autorizado.\n\n12. Aceite — Ao marcar “Li e estou de acordo com as Regras do Bolão”, o participante confirma que leu e aceitou estas condições.`;
 
-export const DEFAULT_POOL_RULES_VERSION = 3;
+export const DEFAULT_POOL_RULES_VERSION = 4;
 
 export const SELFIE_CONSENT_TEXT = "Autorizo a captura e o armazenamento da minha selfie, vinculada ao meu cadastro no Bolão Amigos BTP, exclusivamente para identificação e segurança do cadastro. Estou ciente de que a imagem ficará em armazenamento privado, não será pública e não será utilizada para reconhecimento facial ou extração de biometria.";
 export const SELFIE_CONSENT_VERSION = 2;
