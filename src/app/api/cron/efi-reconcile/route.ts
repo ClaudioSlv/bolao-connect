@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { reconcileEfiParticipant } from "@/app/api/payments/efi/status/route";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
