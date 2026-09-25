@@ -6,11 +6,8 @@ import { errorMessage, logAppError } from "@/lib/app-error-log";
 
 const phoneKey = (v: string) => v.replace(/\D/g, "");
 
-export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as {
-      token?: string;
-    } | null,
-    token = String(body?.token || "");
+export async function reconcileEfiParticipant(token: string) {
+  token = String(token || "");
   if (!token)
     return NextResponse.json(
       { error: "Participante inválido." },
@@ -332,4 +329,9 @@ export async function POST(request: Request) {
     console.error("Falha no push Efí", error);
   }
   return NextResponse.json({ paid: true });
+}
+
+export async function POST(request: Request) {
+  const body = (await request.json().catch(() => null)) as { token?: string } | null;
+  return reconcileEfiParticipant(String(body?.token || ""));
 }
