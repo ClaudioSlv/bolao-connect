@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
+import { BulkCollectionWhatsapp } from "@/components/bulk-collection-whatsapp";
 import { PoolSwitcher } from "@/components/pool-switcher";
 import { BackupRestoreForm } from "@/components/backup-restore-form";
 import { BtpIcon } from "@/components/btp-icon";
@@ -107,7 +108,7 @@ export default async function Page({
   if (needsPeople) {
     const { data: ps } = await s
       .from("participants")
-      .select("id,name,phone,shares,status,payment_status")
+      .select("id,name,phone,shares,status,payment_status,access_token")
       .eq("pool_id", pool.id)
       .neq("status", "cancelled")
       .order("name");
@@ -407,32 +408,34 @@ export default async function Page({
             </div>
           )}
           {peopleRows.length ? (
-            peopleRows.map((p) => {
-              const due = Math.max(0, p.total - p.received);
-              const message = encodeURIComponent(
-                `Olá, ${p.name}! No bolão ${pool.title}, recebemos ${money(p.received)} e ainda faltam ${money(due)} para quitar sua participação.`,
-              );
-              const phone = String(p.phone || "").replace(/\D/g, "");
-              return (
-                <div className="card" key={p.id}>
-                  <strong>{p.name}</strong>
-                  <span>
-                    Pago: {money(p.received)} · Falta: {money(due)}
-                  </span>
-                  {phone && (
-                    <a
-                      className="button secondary"
-                      target="_blank"
-                      rel="noreferrer"
-                      href={`https://wa.me/${phone.startsWith("55") ? phone : `55${phone}`}?text=${message}`}
-                    >
-                      ABRIR WHATSAPP
-                    </a>
-                  )}
-                </div>
-              );
-            })
-          ) : (
+            slug === "mensagens-cobranca" ? (
+              <BulkCollectionWhatsapp
+                poolTitle={pool.title}
+                participants={peopleRows.map((p) => ({
+                  id: p.id,
+                  name: p.name,
+                  phone: p.phone || "",
+                  accessToken: p.access_token,
+                  received: p.received,
+                  total: p.total,
+                }))}
+              />
+            ) : (
+              peopleRows.map((p) => {
+                const due = Math.max(0, p.total - p.received);
+                const message = encodeURIComponent(
+                  `Olá, ${p.name}! No bolão ${pool.title}, recebemos ${money(p.received)} e ainda faltam ${money(due)} para quitar sua participação.`,
+                );
+                const phone = String(p.phone || "").replace(/\\D/g, "");
+                return (
+                  <div className="card" key={p.id}>
+                    <strong>{p.name}</strong>
+                    <span>Pago: {money(p.received)} · Falta: {money(due)}</span>
+                    {phone && <a className="button secondary" target="_blank" rel="noreferrer" href={`https://wa.me/${phone.startsWith("55") ? phone : `55${phone}`}?text=${message}`}>ABRIR WHATSAPP</a>}
+                  </div>
+                );
+              })
+            )          ) : (
             <p className="muted">Nenhum participante nesta situação.</p>
           )}
         </section>
