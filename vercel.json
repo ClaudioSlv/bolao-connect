@@ -1,8 +1,24 @@
 {
   "crons": [
-    { "path": "/api/cron/reminders", "schedule": "0 11 * * *" },
-    { "path": "/api/cron/payment-deadlines", "schedule": "0 11 * * *" },
-    { "path": "/api/cron/lottery-results", "schedule": "30 0 * * *" },
-    { "path": "/api/cron/personal-game-prizes", "schedule": "0 4 * * *" }
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/payment-deadlines",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/cron/lottery-results",
+      "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/cron/personal-game-prizes",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/efi-reconcile",
+      "schedule": "*/10 * * * *"
+    }
   ]
 }
