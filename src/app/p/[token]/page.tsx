@@ -263,9 +263,14 @@ export default async function Page({
     closes = p.payment_deadline_override
       ? new Date(p.payment_deadline_override).getTime()
       : pool.payment_deadline
-        ? new Date(pool.payment_deadline).getTime()
-        : 0,
-    paymentOpen =
+const phoneKey = (v: string) => v.replace(/\D/g, "");        ? new Date(pool.payment_deadline).getTime()
+  const poolCover = (title: string, coverImageUrl: string | null | undefined) =>
+  coverImageUrl ||
+  (title.toLowerCase().includes("mega da virada")
+    ? "/mega-da-virada-2026.webp"
+    : null);
+              coverImageUrl: poolCover(item.title, item.cover_image_url),
+        {poolCover(pool.title,pool.cover_image_url)&&<img src={poolCover(pool.title,pool.cover_image_url)!} alt={"Capa de "+pool.title} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
       isTest || ((!opens || now >= opens) && (!closes || now <= closes)),
     paymentNotStarted = !isTest && Boolean(opens && now < opens),
     paymentClosed = !isTest && Boolean(closes && now > closes),
