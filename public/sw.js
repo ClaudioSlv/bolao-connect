@@ -56,6 +56,7 @@ self.addEventListener("push", event => {
     data: { url: data.url || "/" },
     tag: data.tag || "bolao-reminder",
     renotify: true,
+    vibrate: [400, 150, 400, 150, 700],
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
