@@ -38,17 +38,6 @@ export async function POST(req: Request) {
     if (!subscription?.keys?.p256dh || !subscription?.keys?.auth)
       return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
 
-    const { data: linked } = await s
-      .from("push_subscriptions")
-      .select("participant_id")
-      .eq("endpoint", endpoint)
-      .maybeSingle();
-    if (linked && linked.participant_id !== p.id)
-      return NextResponse.json(
-        { error: "Este celular já está vinculado a outro participante." },
-        { status: 409 },
-      );
-
     const { error } = await s.from("push_subscriptions").upsert(
       {
         pool_id: p.pool_id,
@@ -59,7 +48,7 @@ export async function POST(req: Request) {
         enabled: true,
         updated_at: new Date().toISOString(),
       },
-      { onConflict: "endpoint" },
+      { onConflict: "endpoint,participant_id" },
     );
     if (error) throw error;
     return NextResponse.json({ ok: true });
