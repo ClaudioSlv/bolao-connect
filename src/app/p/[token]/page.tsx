@@ -21,6 +21,11 @@ const money = (c: number) =>
     c / 100,
   );
 const phoneKey = (v: string) => v.replace(/\D/g, "");
+const poolCover = (title: string, coverImageUrl: string | null | undefined) =>
+  coverImageUrl ||
+  (title.toLowerCase().includes("mega da virada")
+    ? "/mega-da-virada-2026.webp"
+    : null);
 async function acceptRules(f: FormData) {
   "use server";
   const token = String(f.get("token") ?? "");
@@ -217,7 +222,7 @@ export default async function Page({
               id: item.id,
               title: item.title,
               lottery: item.lottery,
-              coverImageUrl: item.cover_image_url,
+              coverImageUrl: poolCover(item.title, item.cover_image_url),
               accessToken: membershipToken.get(item.id),
             }))
             .filter((item) => item.accessToken);
@@ -263,14 +268,9 @@ export default async function Page({
     closes = p.payment_deadline_override
       ? new Date(p.payment_deadline_override).getTime()
       : pool.payment_deadline
-const phoneKey = (v: string) => v.replace(/\D/g, "");        ? new Date(pool.payment_deadline).getTime()
-  const poolCover = (title: string, coverImageUrl: string | null | undefined) =>
-  coverImageUrl ||
-  (title.toLowerCase().includes("mega da virada")
-    ? "/mega-da-virada-2026.webp"
-    : null);
-              coverImageUrl: poolCover(item.title, item.cover_image_url),
-        {poolCover(pool.title,pool.cover_image_url)&&<img src={poolCover(pool.title,pool.cover_image_url)!} alt={"Capa de "+pool.title} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
+        ? new Date(pool.payment_deadline).getTime()
+        : 0,
+    paymentOpen =
       isTest || ((!opens || now >= opens) && (!closes || now <= closes)),
     paymentNotStarted = !isTest && Boolean(opens && now < opens),
     paymentClosed = !isTest && Boolean(closes && now > closes),
@@ -303,7 +303,7 @@ const phoneKey = (v: string) => v.replace(/\D/g, "");        ? new Date(pool.pay
           {isTest ? "PARTICIPAR DO BOLÃO · MODO TESTE" : "BOLÃO AMIGOS BTP"}
         </p>
         <h1>🍀 {pool.title}</h1>
-        {pool.cover_image_url&&<img src={pool.cover_image_url} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
+        {poolCover(pool.title,pool.cover_image_url)&&<img src={poolCover(pool.title,pool.cover_image_url)!} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
         <p>
           <strong>{p.name}</strong> ·{" "}
           {isTest
