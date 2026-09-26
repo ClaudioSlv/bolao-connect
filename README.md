@@ -13,3 +13,5 @@ Base inicial do projeto Bolão Connect.
 Cada cobrança usa um `order_nsu` exclusivo ligado ao participante. O webhook
 `/api/webhooks/infinitepay` confirma o valor diretamente na InfinitePay antes de
 atualizar a cota, a carteira, os créditos e enviar a notificação de pagamento.
+
+<!-- deploy-trigger: 2026-09-25 -->
