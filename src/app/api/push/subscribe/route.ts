@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const s = createAdminClient();
     const { data: p } = await s
       .from("participants")
-      .select("id,pool_id,status")
+      .select("id,pool_id,status,name,phone")
       .eq("access_token", token)
       .maybeSingle();
     if (!p || p.status === "cancelled")
@@ -38,16 +38,34 @@ export async function POST(req: Request) {
     if (!subscription?.keys?.p256dh || !subscription?.keys?.auth)
       return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
 
+    const { data: samePhoneParticipants, error: participantsError } = p.phone
+      ? await s
+          .from("participants")
+          .select("id,pool_id,name")
+          .eq("phone", p.phone)
+          .neq("status", "cancelled")
+      : { data: null, error: null };
+    if (participantsError) throw participantsError;
+
+    const normalizedName = p.name.trim().toLocaleLowerCase("pt-BR");
+    const linkedParticipants = (samePhoneParticipants ?? []).filter(
+      (participant) =>
+        participant.name.trim().toLocaleLowerCase("pt-BR") === normalizedName,
+    );
+    if (!linkedParticipants.some((participant) => participant.id === p.id))
+      linkedParticipants.push({ id: p.id, pool_id: p.pool_id, name: p.name });
+
+    const now = new Date().toISOString();
     const { error } = await s.from("push_subscriptions").upsert(
-      {
-        pool_id: p.pool_id,
-        participant_id: p.id,
+      linkedParticipants.map((participant) => ({
+        pool_id: participant.pool_id,
+        participant_id: participant.id,
         endpoint,
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
         enabled: true,
-        updated_at: new Date().toISOString(),
-      },
+        updated_at: now,
+      })),
       { onConflict: "endpoint,participant_id" },
     );
     if (error) throw error;
