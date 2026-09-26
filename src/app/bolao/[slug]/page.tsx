@@ -43,7 +43,7 @@ export default async function PublicPool({
     { data: wallet },
     { data: plan },
   ] = await Promise.all([
-    s.from("participants").select("shares,status").eq("pool_id", pool.id),
+    s.from("participants").select("shares,status,is_test,is_organizer_free_share").eq("pool_id", pool.id),
     s.from("games").select("id,numbers").eq("pool_id", pool.id),
     s.from("wallet_transactions").select("amount_cents").eq("pool_id", pool.id),
     s
@@ -54,13 +54,12 @@ export default async function PublicPool({
   ]);
 
   const confirmed = (participants ?? []).filter(
-    (p) => p.status === "confirmed",
+    (p) => p.status === "confirmed" && !p.is_test,
   );
   const participantCount = confirmed.length;
-  const usedShares = confirmed.reduce(
-    (sum, p) => sum + (Number(p.shares) || 0),
-    0,
-  );
+  const usedShares = confirmed
+    .filter((p) => !p.is_organizer_free_share)
+    .reduce((sum, p) => sum + (Number(p.shares) || 0), 0);
   const available = Math.max(0, Number(pool.total_shares) - usedShares);
   const waitlistCount = (participants ?? []).filter(
     (p) => p.status === "waitlisted",
