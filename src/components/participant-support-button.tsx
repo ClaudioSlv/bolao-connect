@@ -1,13 +1,29 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useRef, useState } from "react";
 
 export function ParticipantSupportButton({ token }: { token: string }) {
   const [open, setOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [message, setMessage] = useState("");
   const [status, setStatus] = useState("");
+  const [attachmentName, setAttachmentName] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+
+  function selectAttachment(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setAttachmentName("");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      event.target.value = "";
+      setAttachmentName("");
+      setStatus("A imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    setStatus("");
+    setAttachmentName(file.name);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,6 +38,7 @@ export function ParticipantSupportButton({ token }: { token: string }) {
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error || "Não foi possível enviar.");
       formRef.current?.reset();
+      setAttachmentName("");
       setStatus("Mensagem enviada ao organizador com sucesso!");
       window.setTimeout(() => { setOpen(false); setStatus(""); }, 1800);
     } catch (error) {
@@ -45,8 +62,13 @@ export function ParticipantSupportButton({ token }: { token: string }) {
             <input type="hidden" name="token" value={token} />
             <label className="field">Tipo da mensagem<select name="category" defaultValue="help" required><option value="help">Ajuda ou dúvida</option><option value="bug">Informar um bug</option><option value="suggestion">Enviar uma sugestão</option></select></label>
             <label className="field">Mensagem<textarea name="message" minLength={5} maxLength={1500} rows={5} required placeholder="Conte o que aconteceu ou escreva sua sugestão..." /></label>
-            <label className="participant-support-file">📎 Anexar print ou imagem<input name="attachment" type="file" accept="image/jpeg,image/png,image/webp" /></label>
-            <small className="muted">Imagem opcional de até 5 MB.</small>
+            <label className={`participant-support-file${attachmentName ? " has-file" : ""}`}>
+              {attachmentName ? "✅ Imagem anexada — toque para trocar" : "📎 Anexar print ou imagem"}
+              <input name="attachment" type="file" accept="image/jpeg,image/png,image/webp" onChange={selectAttachment} />
+            </label>
+            <small className={attachmentName ? "participant-support-file-name" : "muted"}>
+              {attachmentName || "Imagem opcional de até 5 MB."}
+            </small>
             {status ? <p className="status" role="status">{status}</p> : null}
             <button className="button primary" type="submit" disabled={sending}>{sending ? "ENVIANDO..." : "ENVIAR MENSAGEM"}</button>
           </form>
