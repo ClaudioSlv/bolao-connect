@@ -102,6 +102,7 @@ export default async function Page({
         "id,participant_id,amount_cents,credit_used_cents,status,payment_method,created_at,participants(name)",
       )
       .eq("pool_id", pool.id)
+      .eq("is_test", false)
       .order("created_at", { ascending: false });
     paymentRows = data ?? [];
   }
@@ -110,12 +111,14 @@ export default async function Page({
       .from("participants")
       .select("id,name,phone,shares,status,payment_status,access_token")
       .eq("pool_id", pool.id)
+      .eq("is_test", false)
       .neq("status", "cancelled")
       .order("name");
     const { data: pays } = await s
       .from("payments")
       .select("participant_id,amount_cents,credit_used_cents,status")
       .eq("pool_id", pool.id)
+      .eq("is_test", false)
       .in("status", ["partial", "confirmed"]);
     const received = new Map<string, number>();
     for (const row of pays ?? [])

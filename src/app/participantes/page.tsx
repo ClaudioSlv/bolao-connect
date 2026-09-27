@@ -121,7 +121,7 @@ export default async function Page({
     ? await s
         .from("participants")
         .select(
-          "id,name,phone,shares,payment_status,status,access_token,waitlist_position,notes",
+          "id,name,phone,shares,payment_status,status,access_token,waitlist_position,notes,is_test",
         )
         .eq("pool_id", pool.id)
         .order("created_at", { ascending: true })
@@ -174,7 +174,7 @@ export default async function Page({
         receiptUrls.set(sub.participant_id, signed.signedUrl);
     }
   }
-  const confirmed = visible.filter((p) => p.status === "confirmed"),
+  const confirmed = visible.filter((p) => p.status === "confirmed" && !p.is_test),
     used = confirmed.reduce((x, p) => x + Number(p.shares || 0), 0),
     waitlist = visible
       .filter((p) => p.status === "waitlisted")

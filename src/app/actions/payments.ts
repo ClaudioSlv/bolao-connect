@@ -36,12 +36,14 @@ export async function confirmPayment(input: {
     throw new Error("Somente o organizador pode confirmar pagamentos.");
   const { data: p } = await s
     .from("participants")
-    .select("id,name,phone,shares,payment_status,status")
+    .select("id,name,phone,shares,payment_status,status,is_test")
     .eq("id", input.participantId)
     .eq("pool_id", input.poolId)
     .single();
   if (!p || p.status === "cancelled")
     throw new Error("Participante não encontrado.");
+  if (p.is_test)
+    throw new Error("Pagamento de teste não pode ser confirmado financeiramente.");
   if (p.payment_status === "confirmed")
     throw new Error("Este pagamento já foi confirmado.");
   if (shares !== Number(p.shares))

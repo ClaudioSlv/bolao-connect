@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       .from("participants")
       .select("id,name,phone,shares,status,payment_status")
       .eq("pool_id", poolId)
+      .eq("is_test", false)
       .order("name"),
     s
       .from("payments")
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         "id,participant_id,amount_cents,credit_used_cents,status,payment_method,created_at",
       )
       .eq("pool_id", poolId)
+      .eq("is_test", false)
       .order("created_at"),
   ]);
   const paid = new Map<string, number>();

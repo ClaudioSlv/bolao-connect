@@ -25,7 +25,7 @@ async function applyCredits(f:FormData){
   if(!ids.length)throw new Error("Marque pelo menos um participante.");
   if(!Number.isFinite(totalCents)||totalCents<=0)throw new Error("Informe o valor total que será dividido.");
 
-  const{data:parts}=await s.from("participants").select("id,name,phone,shares").eq("pool_id",poolId).in("id",ids);
+  const{data:parts}=await s.from("participants").select("id,name,phone,shares").eq("pool_id",poolId).eq("is_test",false).in("id",ids);
   const selected=parts??[];
   if(selected.length!==ids.length)throw new Error("Não foi possível localizar todos os participantes marcados.");
   if(selected.some(p=>!phoneKey(p.phone||"")))throw new Error("Há participante marcado sem telefone cadastrado. Corrija o cadastro antes de aplicar o crédito.");
@@ -99,7 +99,7 @@ async function editCredit(f:FormData){
   const s=await createClient();
   const{data:a}=await s.auth.getUser();
   if(!a.user)throw new Error("Faça login.");
-  const{data:p}=await s.from("participants").select("id,name,phone,shares,pools!inner(owner_id,share_price_cents)").eq("id",participantId).eq("pool_id",poolId).single();
+  const{data:p}=await s.from("participants").select("id,name,phone,shares,pools!inner(owner_id,share_price_cents)").eq("id",participantId).eq("pool_id",poolId).eq("is_test",false).single();
   if(!p||((p.pools as any)?.owner_id)!==a.user.id)throw new Error("Participante inválido.");
   const phone=phoneKey(p.phone||"");
   let{data:account}=await s.from("participant_credit_accounts").select("id,balance_cents").eq("owner_id",a.user.id).eq("phone",phone).maybeSingle();
@@ -130,7 +130,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{pool?:s
   const pool=(pools??[]).find(x=>x.id===requested)??pools?.[0];
   if(!pool)return <main className="shell"><Link className="back" href="/carteira">← Carteira</Link><section className="section"><h1>💳 Créditos</h1><p>Crie um bolão primeiro.</p></section></main>;
 
-  const{data:parts}=await s.from("participants").select("id,name,phone,shares,status").eq("pool_id",pool.id).neq("status","cancelled").order("name");
+  const{data:parts}=await s.from("participants").select("id,name,phone,shares,status").eq("pool_id",pool.id).eq("is_test",false).neq("status","cancelled").order("name");
   const phones=(parts??[]).map(p=>phoneKey(p.phone||"")).filter(Boolean);
   const{data:accounts}=phones.length?await s.from("participant_credit_accounts").select("phone,balance_cents").eq("owner_id",a.user.id).in("phone",phones):{data:[] as any[]};
   const balances=new Map((accounts??[]).map(x=>[x.phone,Number(x.balance_cents||0)]));

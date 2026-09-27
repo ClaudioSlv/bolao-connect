@@ -143,13 +143,15 @@ export async function correctPayment(form: FormData) {
   const { data: p } = await s
     .from("payments")
     .select(
-      "participant_id,amount_cents,credit_used_cents,gross_amount_cents,status",
+      "participant_id,amount_cents,credit_used_cents,gross_amount_cents,status,is_test",
     )
     .eq("id", paymentId)
     .eq("pool_id", poolId)
     .single();
   if (!p || p.status === "cancelled")
     throw new Error("Pagamento não encontrado.");
+  if (p.is_test)
+    throw new Error("Pagamento de teste não pode alterar o financeiro do bolão.");
   if (Number(p.credit_used_cents || 0) > 0)
     throw new Error("Pagamento com crédito exige estorno assistido.");
   const old = Number(p.amount_cents);
@@ -196,13 +198,15 @@ export async function reversePayment(form: FormData) {
   const { data: p } = await s
     .from("payments")
     .select(
-      "participant_id,amount_cents,credit_used_cents,gross_amount_cents,status",
+      "participant_id,amount_cents,credit_used_cents,gross_amount_cents,status,is_test",
     )
     .eq("id", paymentId)
     .eq("pool_id", poolId)
     .single();
   if (!p || p.status === "cancelled")
     throw new Error("Pagamento não encontrado.");
+  if (p.is_test)
+    throw new Error("Pagamento de teste não pode alterar o financeiro do bolão.");
   if (Number(p.credit_used_cents || 0) > 0)
     throw new Error("Pagamento com crédito exige estorno assistido.");
   const old = Number(p.amount_cents);
