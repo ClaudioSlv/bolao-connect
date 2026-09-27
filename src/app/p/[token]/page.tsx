@@ -303,7 +303,7 @@ export default async function Page({
           {isTest ? "PARTICIPAR DO BOLÃO · MODO TESTE" : "BOLÃO AMIGOS BTP"}
         </p>
         <h1>🍀 {pool.title}</h1>
-        {poolCover(pool.title,pool.cover_image_url)&&<img src={poolCover(pool.title,pool.cover_image_url)!} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
+        {joinedPools.length<2&&poolCover(pool.title,pool.cover_image_url)&&<img src={poolCover(pool.title,pool.cover_image_url)!} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
         <p>
           <strong>{p.name}</strong> ·{" "}
           {isTest
