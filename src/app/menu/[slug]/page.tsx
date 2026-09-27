@@ -7,6 +7,7 @@ import { BackupRestoreForm } from "@/components/backup-restore-form";
 import { BtpIcon } from "@/components/btp-icon";
 import { saveManualPix } from "@/app/actions/payment-settings";
 import { adminMenu } from "@/lib/admin-menu";
+import { efiConfigured } from "@/lib/efi";
 import { createClient } from "@/lib/supabase/server";
 import {
   correctPayment,
@@ -193,23 +194,24 @@ export default async function Page({
       {slug === "conta-recebimento" ? (
         <section className="section list">
           <div className="card">
-            <strong>PagBank Connect</strong>
-            <span>
-              Status:{" "}
-              {moduleRows[0]?.connection_status === "connected"
-                ? "Conta conectada"
-                : "Aguardando liberação do PagBank"}
+            <strong>Efí Bank</strong>
+            <span className="status">
+              {efiConfigured()
+                ? "✅ Integração ativa"
+                : "⚠️ Integração não configurada"}
             </span>
             <p className="muted">
-              Quando o Connect for liberado, cada organizador autorizará a
-              própria conta e receberá diretamente nela.
+              {efiConfigured()
+                ? "Os pagamentos por Pix são identificados e confirmados automaticamente no cartão do participante."
+                : "Configure as credenciais da Efí Bank para gerar cobranças Pix com confirmação automática."}
             </p>
-            <button className="button secondary" disabled>
-              CONECTAR CONTA PAGBANK — EM BREVE
-            </button>
           </div>
           <form className="card form" action={saveManualPix}>
-            <strong>Chave Pix para confirmação manual</strong>
+            <strong>Chave Pix manual — opção de emergência</strong>
+            <p className="muted">
+              Use somente se o pagamento automático pela Efí Bank estiver
+              indisponível.
+            </p>
             <div className="field">
               <label>Tipo da chave</label>
               <select
