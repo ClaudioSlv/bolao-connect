@@ -27,10 +27,10 @@ export function PersistentPoolLink({
       className={className}
       style={style}
       aria-label={ariaLabel}
+      data-pool-id={poolId}
       onClick={rememberPool}
     >
       {children}
     </Link>
   );
 }
-
