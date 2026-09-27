@@ -482,8 +482,8 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 @media(prefers-reduced-motion:reduce){.payment-main-button.payment-pulse,.payment-main-button.payment-pulse::after{animation:none}}
 .pool-create-feedback{display:grid;gap:6px;padding:15px 16px;border-radius:15px;text-align:center;font-size:15px;line-height:1.35}.pool-create-feedback.success{border:1px solid #45ef6c;background:#0c2c18;color:#dfffe7}.pool-create-feedback.error{border:1px solid #ff6b6b;background:#351010;color:#ffe4e4}.pool-create-feedback span{font-size:13px;color:inherit;opacity:.85}.create-pool-button:disabled{cursor:not-allowed;opacity:.78;transform:none}
 
-/* Brilho global: atravessa todos os botões disponíveis de ponta a ponta. */
-button:not(:disabled),a.button:not([aria-disabled="true"]){position:relative;isolation:isolate;overflow:hidden}
-button:not(:disabled):not(.payment-pulse)::after,a.button:not([aria-disabled="true"]):not(.payment-pulse)::after{content:"";position:absolute;z-index:2;top:-65%;bottom:-65%;left:-48%;width:32%;pointer-events:none;background:linear-gradient(100deg,transparent 0%,rgba(255,255,255,.04) 20%,rgba(255,255,255,.7) 50%,rgba(255,255,255,.08) 80%,transparent 100%);filter:blur(1px);transform:skewX(-20deg);animation:globalButtonShine 3.2s ease-in-out infinite}
+/* Brilho somente nos botões amarelos disponíveis. */
+.button.primary:not(:disabled):not([aria-disabled="true"]),.reminder-3d:not(:disabled){position:relative;isolation:isolate;overflow:hidden}
+.button.primary:not(:disabled):not([aria-disabled="true"]):not(.payment-pulse)::after,.reminder-3d:not(:disabled)::after{content:"";position:absolute;z-index:2;top:-65%;bottom:-65%;left:-48%;width:32%;pointer-events:none;background:linear-gradient(100deg,transparent 0%,rgba(255,255,255,.04) 20%,rgba(255,255,255,.7) 50%,rgba(255,255,255,.08) 80%,transparent 100%);filter:blur(1px);transform:skewX(-20deg);animation:globalButtonShine 3.2s ease-in-out infinite}
 @keyframes globalButtonShine{0%,22%{left:-48%;opacity:0}30%{opacity:.9}62%{opacity:.9}72%,100%{left:120%;opacity:0}}
-@media(prefers-reduced-motion:reduce){button:not(:disabled):not(.payment-pulse)::after,a.button:not([aria-disabled="true"]):not(.payment-pulse)::after{animation:none;display:none}}
+@media(prefers-reduced-motion:reduce){.button.primary:not(:disabled):not([aria-disabled="true"]):not(.payment-pulse)::after,.reminder-3d:not(:disabled)::after{animation:none;display:none}}
