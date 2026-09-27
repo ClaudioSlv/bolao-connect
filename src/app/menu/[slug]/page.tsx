@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
@@ -194,7 +195,10 @@ export default async function Page({
       {slug === "conta-recebimento" ? (
         <section className="section list">
           <div className="card">
-            <strong>Efí Bank</strong>
+            <div className="payment-brand-title">
+              <Image src="/efi-bank-logo.svg" alt="Logo Efí Bank" width={30} height={30} className="payment-brand-logo efi-brand-logo" />
+              <strong>Efí Bank</strong>
+            </div>
             <span className="status">
               {efiConfigured()
                 ? "✅ Integração ativa"
@@ -207,7 +211,10 @@ export default async function Page({
             </p>
           </div>
           <form className="card form" action={saveManualPix}>
-            <strong>Chave Pix manual — opção de emergência</strong>
+            <div className="payment-brand-title">
+              <Image src="/pix-logo.png" alt="Logo Pix" width={34} height={34} className="payment-brand-logo" />
+              <strong>Chave Pix manual — opção de emergência</strong>
+            </div>
             <p className="muted">
               Use somente se o pagamento automático pela Efí Bank estiver
               indisponível.
