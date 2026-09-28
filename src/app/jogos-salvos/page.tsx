@@ -18,15 +18,6 @@ function ArchiveIcon({ className }: IconProps) {
   );
 }
 
-function CameraIcon({ className }: IconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 8h3l1.5-2h7L17 8h3a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z" />
-      <circle cx="12" cy="14" r="4" />
-    </svg>
-  );
-}
-
 function CheckIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -80,7 +71,7 @@ export default async function SavedGamesMenuPage({
           <h1>Jogos Salvos</h1>
         </div>
         <p className={styles.intro}>
-          Acesse seus jogos, leia bilhetes pela câmera e faça a conferência manual quando precisar.
+          Acesse seus jogos salvos e faça a conferência manual quando precisar.
         </p>
         {pools.length > 0 && (
           <div className={styles.switcherWrap}>
@@ -90,15 +81,6 @@ export default async function SavedGamesMenuPage({
       </section>
 
       <section className={styles.cards}>
-        <Link className={`${styles.card} ${styles.cameraCard}`} href="/ler-bilhete">
-          <span className={styles.icon}><CameraIcon /></span>
-          <span className={styles.copy}>
-            <strong>Ler bilhete com a câmera</strong>
-            <span>Fotografe ou escolha uma imagem da galeria para reconhecer os jogos.</span>
-          </span>
-          <span className={styles.chevron} aria-hidden="true">›</span>
-        </Link>
-
         <Link className={styles.card} href={`/meus-jogos-salvos${suffix}`}>
           <span className={styles.icon}><ArchiveIcon /></span>
           <span className={styles.copy}>
