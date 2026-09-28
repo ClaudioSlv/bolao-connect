@@ -1,5 +1,10 @@
-const CACHE = "bolao-amigos-btp-v5";
-const CORE = ["/manifest.webmanifest", "/icon.svg"];
+const CACHE = "bolao-amigos-btp-v6";
+const CORE = [
+  "/manifest.webmanifest",
+  "/icon.svg",
+  "/juntasorte-notification-icon.png",
+  "/juntasorte-notification-badge.png",
+];
 
 self.addEventListener("install", event => {
   event.waitUntil(
@@ -52,7 +57,8 @@ self.addEventListener("push", event => {
   const title = data.title || "🍀 Bolão Amigos BTP";
   const options = {
     body: data.body || "Não esqueça o prazo do seu bolão.",
-    icon: "/icon.svg",
+    icon: "/juntasorte-notification-icon.png",
+    badge: "/juntasorte-notification-badge.png",
     data: { url: data.url || "/" },
     tag: data.tag || "bolao-reminder",
     renotify: true,
