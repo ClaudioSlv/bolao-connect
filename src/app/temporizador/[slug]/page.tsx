@@ -9,6 +9,7 @@ import { JoinPoolButton } from "@/components/join-pool-button";
 import { ScrollPageTop } from "@/components/scroll-page-top";
 import { getOrganizerBrand } from "@/lib/organizer-brand";
 import { participantAccessCookieName } from "@/lib/participant-access-cookie";
+import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
 export const dynamic = "force-dynamic";
 const money = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -91,7 +92,7 @@ export default async function TimerPage({
             {pool.contest_number ? ` · Concurso ${pool.contest_number}` : ""}
           </p>
         </section>
-        {pool.cover_image_url&&<section className="section"><img src={pool.cover_image_url} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)"}}/></section>}
+        {pool.lottery === "lotofacil" && pool.contest_number && pool.contest_number % 20 === 0 ? <section className="section"><DynamicLotofacilCover contestNumber={pool.contest_number} drawAt={pool.draw_at} estimatedPrizeCents={pool.estimated_prize_cents} status={pool.status}/></section> : pool.cover_image_url ? <section className="section"><img src={pool.cover_image_url} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)"}}/></section> : null}
         <section className="section">
           {beforeOpen ? (
             <>

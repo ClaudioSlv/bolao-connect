@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
+import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
 
 type ParticipantPool = {
   id: string;
@@ -10,6 +11,10 @@ type ParticipantPool = {
   lottery: string;
   accessToken: string;
   coverImageUrl: string | null;
+  contestNumber: number | null;
+  drawAt: string | null;
+  estimatedPrizeCents: number | null;
+  status: string | null;
 };
 
 export function ParticipantPoolSwitcher({
@@ -57,7 +62,9 @@ export function ParticipantPoolSwitcher({
               aria-current={active ? "page" : undefined}
               prefetch={false}
             >
-              {pool.coverImageUrl ? (
+              {pool.lottery === "lotofacil" && Number(pool.contestNumber) % 20 === 0 ? (
+                <DynamicLotofacilCover contestNumber={pool.contestNumber} drawAt={pool.drawAt} estimatedPrizeCents={pool.estimatedPrizeCents} status={pool.status} compact />
+              ) : pool.coverImageUrl ? (
                 <img src={pool.coverImageUrl} alt="" />
               ) : (
                 <span className="participant-pool-mark" aria-hidden="true">🍀</span>

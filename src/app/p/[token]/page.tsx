@@ -10,6 +10,7 @@ import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import { AvailablePoolsNotice } from "@/components/available-pools-notice";
 import { RulesAcceptanceForm } from "@/components/rules-acceptance-form";
 import { ParticipantPoolSwitcher } from "@/components/participant-pool-switcher";
+import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
 import {
   DEFAULT_POOL_RULES,
   DEFAULT_POOL_RULES_VERSION,
@@ -157,7 +158,7 @@ export default async function Page({
       const { data: pool } = await s
         .from("pools")
         .select(
-          "owner_id,title,lottery,share_price_cents,payment_opens_at,payment_deadline,waitlist_payment_deadline,public_slug,rules_text,rules_version,cover_image_url",
+          "owner_id,title,lottery,share_price_cents,payment_opens_at,payment_deadline,waitlist_payment_deadline,public_slug,rules_text,rules_version,cover_image_url,contest_number,draw_at,estimated_prize_cents,status",
         )
         .eq("id", p.pool_id)
         .maybeSingle();
@@ -211,7 +212,7 @@ export default async function Page({
         const normalizedPhone = phoneKey(p.phone);
         const { data: organizerPools } = await s
           .from("pools")
-          .select("id,title,lottery,cover_image_url,created_at,status,payment_deadline,public_slug")
+          .select("id,title,lottery,cover_image_url,created_at,status,payment_deadline,public_slug,contest_number,draw_at,estimated_prize_cents")
           .eq("owner_id", pool.owner_id)
           .order("created_at", { ascending: false });
         const organizerPoolIds = (organizerPools ?? []).map((item) => item.id);
@@ -237,6 +238,10 @@ export default async function Page({
               lottery: item.lottery,
               coverImageUrl: poolCover(item.title, item.cover_image_url),
               accessToken: membershipToken.get(item.id),
+              contestNumber: item.contest_number,
+              drawAt: item.draw_at,
+              estimatedPrizeCents: item.estimated_prize_cents,
+              status: item.status,
             }))
             .filter((item) => item.accessToken);
         }
@@ -310,7 +315,7 @@ export default async function Page({
           {isTest ? "PARTICIPAR DO BOLÃO · MODO TESTE" : "BOLÃO AMIGOS BTP"}
         </p>
         <h1>🍀 {pool.title}</h1>
-        {joinedPools.length<2&&poolCover(pool.title,pool.cover_image_url)&&<img src={poolCover(pool.title,pool.cover_image_url)!} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/>}
+        {joinedPools.length < 2 && pool.lottery === "lotofacil" && Number(pool.contest_number) % 20 === 0 ? <div style={{marginBottom:16}}><DynamicLotofacilCover contestNumber={pool.contest_number} drawAt={pool.draw_at} estimatedPrizeCents={pool.estimated_prize_cents} status={pool.status}/></div> : joinedPools.length<2&&poolCover(pool.title,pool.cover_image_url) ? <img src={poolCover(pool.title,pool.cover_image_url)!} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/> : null}
         <p>
           <strong>{p.name}</strong> ·{" "}
           {isTest
