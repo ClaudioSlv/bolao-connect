@@ -254,9 +254,7 @@ export default async function Page({
     amount = isTest
       ? Number(p.test_amount_cents || 100)
       : Number(p.shares) * Number(pool.share_price_cents),
-    applied = Math.min(amount, credit),
-    due = Math.max(0, amount - applied),
-    remaining = Math.max(0, credit - amount),
+    due = amount,
     paid = p.payment_status === "confirmed",
     automaticPixEnabled = isTest || Boolean(process.env.EFI_CLIENT_ID_PROD && process.env.EFI_CLIENT_SECRET_PROD && process.env.EFI_CERTIFICATE_BASE64 && process.env.EFI_PIX_KEY),
     manualPixKey = "13991320205",
@@ -317,36 +315,25 @@ export default async function Page({
             </span>
             <strong>{money(amount)}</strong>
           </div>
-          {applied > 0 && (
+          {credit > 0 && !paid && (
             <div className="wallet-row">
-              <span>💳 Crédito aplicado</span>
-              <strong>- {money(applied)}</strong>
+              <span>💳 Crédito disponível</span>
+              <strong className="wallet-credit-text">{money(credit)}</strong>
             </div>
           )}
           <div className="wallet-row">
             <span>🟢 VALOR A PAGAR</span>
             <strong>{paid ? money(0) : money(due)}</strong>
           </div>
-          {remaining > 0 && (
-            <div className="wallet-row">
-              <span>Crédito restante</span>
-              <strong>{money(remaining)}</strong>
-            </div>
-          )}
         </div>
         {paid ? (
           <p className="status">
             ✅ SUA COTA JÁ ESTÁ QUITADA. Você não tem nenhuma cota pendente para
             pagar.
           </p>
-        ) : (
-          applied > 0 && (
-            <p className="status">
-              Seu crédito foi aplicado automaticamente. Faça o Pix somente do
-              valor indicado acima.
-            </p>
-          )
-        )}
+        ) : credit > 0 ? (
+          <p className="status">Ao pagar, você poderá escolher se deseja utilizar o crédito disponível.</p>
+        ) : null}
         <p className="muted">
           Abertura dos pagamentos:{" "}
           {pool.payment_opens_at
@@ -457,18 +444,12 @@ export default async function Page({
         <section className="section">
           <h2>{automaticPixEnabled ? "Pagamento automático por Pix" : "Pagamento por Pix"}</h2>
           <div className="card">
-            <strong>Valor do Pix: {money(due)}</strong>
+            <strong>Valor da cota: {money(amount)}</strong>
             <span>{automaticPixEnabled ? "Pagamento automático pela Efí" : "Use a chave Pix do organizador e envie o comprovante."}</span>
             {automaticPixEnabled&&<span>O QR Code será vinculado automaticamente ao seu cadastro.</span>}
           </div>
-          {due === 0 ? (
-            <p className="status">
-              ✓ Sua participação foi totalmente coberta pelo crédito. Não faça
-              Pix.
-            </p>
-          ) : (
-            <>
-              {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que a Efí confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><EfiCheckout token={token} amountLabel={money(due)}/></>}
+          <>
+              {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que a Efí confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><EfiCheckout token={token} amountCents={amount} creditCents={credit}/></>}
               {!isTest && !automaticPixEnabled && <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}
@@ -515,8 +496,7 @@ export default async function Page({
                   </form>
                 </div>
               )}
-            </>
-          )}
+          </>
         </section>
       )}
       {acceptance && (

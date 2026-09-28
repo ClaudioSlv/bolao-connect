@@ -8,7 +8,7 @@ export const runtime="nodejs";
 export async function POST(request:Request){
  try{
   if(!efiConfigured())return NextResponse.json({error:"A Efí ainda não está configurada."},{status:503});
-  const body=await request.json().catch(()=>null) as {token?:string}|null,token=String(body?.token||"");
+  const body=await request.json().catch(()=>null) as {token?:string;useCredit?:boolean}|null,token=String(body?.token||""),useCredit=body?.useCredit===true;
   if(!token)return NextResponse.json({error:"Participante inválido."},{status:400});
   const s=createAdminClient();
   const {data:p}=await s.from("participants").select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents,payment_deadline_override").eq("access_token",token).maybeSingle();
@@ -21,38 +21,39 @@ export async function POST(request:Request){
   if(!p.is_test&&closes&&now>closes)return NextResponse.json({error:"O prazo de pagamento foi encerrado."},{status:403});
   const version=Number(pool.rules_version||DEFAULT_POOL_RULES_VERSION),{data:acceptance}=await s.from("pool_rule_acceptances").select("id").eq("pool_id",pool.id).eq("participant_id",p.id).eq("rules_version",version).maybeSingle();
   if(!acceptance)return NextResponse.json({error:"Aceite as Regras do Bolão antes de gerar o pagamento."},{status:403});
-  const {data:existing}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
-  if(existing?.qr_code_text&&existing.qr_code_expires_at&&new Date(existing.qr_code_expires_at).getTime()>now)
-   return NextResponse.json({orderId:existing.provider_order_id,qrCodeText:existing.qr_code_text,qrCodeImage:await QRCode.toDataURL(existing.qr_code_text,{width:360,margin:1}),expiresAt:existing.qr_code_expires_at,reused:true});
+  const gross=p.is_test?Number(p.test_amount_cents||100):Number(p.shares)*Number(pool.share_price_cents);let credit=0;
+  if(useCredit&&!p.is_test&&p.phone){const {data:a}=await s.from("participant_credit_accounts").select("balance_cents").eq("owner_id",pool.owner_id).eq("phone",digits(p.phone)).maybeSingle();credit=Number(a?.balance_cents||0)}
+  const creditUsed=Math.min(gross,credit),due=gross-creditUsed;
+  const {data:existing}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at,gross_amount_cents,credit_used_cents,expected_amount_cents").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  const existingMatchesChoice=existing&&Number(existing.gross_amount_cents)===gross&&Number(existing.credit_used_cents)===creditUsed&&Number(existing.expected_amount_cents)===due;
+  if(existingMatchesChoice&&existing?.qr_code_text&&existing.qr_code_expires_at&&new Date(existing.qr_code_expires_at).getTime()>now)
+   return NextResponse.json({orderId:existing.provider_order_id,qrCodeText:existing.qr_code_text,qrCodeImage:await QRCode.toDataURL(existing.qr_code_text,{width:360,margin:1}),expiresAt:existing.qr_code_expires_at,grossAmountCents:Number(existing.gross_amount_cents),creditUsedCents:Number(existing.credit_used_cents),amountCents:Number(existing.expected_amount_cents),reused:true});
 
   // Nunca reaproveite uma cobrança sem validade conhecida ou já expirada.
   // Cada nova cobrança continua vinculada somente a este participante.
   if(existing){
-   const expired=Boolean(existing.qr_code_text);
+   const expired=Boolean(existing.qr_code_text)&&Boolean(existing.qr_code_expires_at&&new Date(existing.qr_code_expires_at).getTime()<=now);
    await s.from("payment_checkout_sessions").update({
     status:"failed",
-    failure_reason:expired?"efi_qr_expired_replaced":"efi_orphan_without_qr_replaced",
+    failure_reason:!existingMatchesChoice?"efi_payment_choice_changed":expired?"efi_qr_expired_replaced":"efi_orphan_without_qr_replaced",
     updated_at:new Date().toISOString()
    }).eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]);
   }
-  const gross=p.is_test?Number(p.test_amount_cents||100):Number(p.shares)*Number(pool.share_price_cents);let credit=0;
-  if(!p.is_test&&p.phone){const {data:a}=await s.from("participant_credit_accounts").select("balance_cents").eq("owner_id",pool.owner_id).eq("phone",digits(p.phone)).maybeSingle();credit=Number(a?.balance_cents||0)}
-  const creditUsed=Math.min(gross,credit),due=gross-creditUsed;
-  if(due<=0)return NextResponse.json({error:"Sua participação está totalmente coberta pelo crédito."},{status:409});
+  if(due<=0){const {data:settlement,error:settlementError}=await s.rpc("settle_participation_with_credit",{p_participant_id:p.id});if(settlementError)return NextResponse.json({error:settlementError.message||"Não foi possível utilizar o crédito."},{status:409});return NextResponse.json({paid:true,creditOnly:true,creditUsedCents:gross,amountCents:0,settlement})}
   const referenceId=`efi-${p.id}-${crypto.randomUUID().slice(0,12)}`,expirationSeconds=1800,expiresAt=new Date(Date.now()+expirationSeconds*1000).toISOString();
   const {error:ie}=await s.from("payment_checkout_sessions").insert({pool_id:pool.id,participant_id:p.id,provider:"efi",order_nsu:referenceId,gross_amount_cents:gross,credit_used_cents:creditUsed,expected_amount_cents:due,status:"creating",is_test:Boolean(p.is_test)});
   if(ie){
    // Pode haver concorrência entre dois cliques/requisições: a outra requisição
    // cria a sessão primeiro. Recupere essa sessão em vez de mostrar erro ao participante.
-   const {data:active}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
+   const {data:active}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at,gross_amount_cents,credit_used_cents,expected_amount_cents").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
    if(active?.qr_code_text&&(!active.qr_code_expires_at||new Date(active.qr_code_expires_at).getTime()>Date.now()))
-    return NextResponse.json({orderId:active.provider_order_id,qrCodeText:active.qr_code_text,qrCodeImage:await QRCode.toDataURL(active.qr_code_text,{width:360,margin:1}),expiresAt:active.qr_code_expires_at,reused:true});
+    return NextResponse.json({orderId:active.provider_order_id,qrCodeText:active.qr_code_text,qrCodeImage:await QRCode.toDataURL(active.qr_code_text,{width:360,margin:1}),expiresAt:active.qr_code_expires_at,grossAmountCents:Number(active.gross_amount_cents),creditUsedCents:Number(active.credit_used_cents),amountCents:Number(active.expected_amount_cents),reused:true});
    if(active){
     for(let attempt=0;attempt<6;attempt++){
      await new Promise(resolve=>setTimeout(resolve,500));
-     const {data:ready}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
+     const {data:ready}=await s.from("payment_checkout_sessions").select("provider_order_id,qr_code_text,qr_code_expires_at,gross_amount_cents,credit_used_cents,expected_amount_cents").eq("participant_id",p.id).eq("provider","efi").in("status",["creating","pending","processing"]).order("created_at",{ascending:false}).limit(1).maybeSingle();
      if(ready?.qr_code_text)
-      return NextResponse.json({orderId:ready.provider_order_id,qrCodeText:ready.qr_code_text,qrCodeImage:await QRCode.toDataURL(ready.qr_code_text,{width:360,margin:1}),expiresAt:ready.qr_code_expires_at,reused:true});
+      return NextResponse.json({orderId:ready.provider_order_id,qrCodeText:ready.qr_code_text,qrCodeImage:await QRCode.toDataURL(ready.qr_code_text,{width:360,margin:1}),expiresAt:ready.qr_code_expires_at,grossAmountCents:Number(ready.gross_amount_cents),creditUsedCents:Number(ready.credit_used_cents),amountCents:Number(ready.expected_amount_cents),reused:true});
     }
    }
    return NextResponse.json({error:"Sua cobrança está sendo gerada. Aguarde alguns segundos e tente novamente."},{status:409});
@@ -62,6 +63,6 @@ export async function POST(request:Request){
   const qr=await efiRequest(`/v2/loc/${charge.data.loc.id}/qrcode`);
   if(qr.status<200||qr.status>=300||!qr.data?.qrcode){await s.from("payment_checkout_sessions").update({status:"failed",provider_order_id:charge.data.txid,failure_reason:`efi_qr_${qr.status}`,updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);return NextResponse.json({error:qr.data?.mensagem||"Cobrança criada, mas não foi possível gerar o QR Code. Verifique o escopo Consultar locations na Efí."},{status:502})}
   await s.from("payment_checkout_sessions").update({provider_order_id:charge.data.txid,qr_code_text:qr.data.qrcode,qr_code_expires_at:expiresAt,status:"pending",updated_at:new Date().toISOString()}).eq("order_nsu",referenceId);
-  return NextResponse.json({orderId:charge.data.txid,qrCodeText:qr.data.qrcode,qrCodeImage:await QRCode.toDataURL(qr.data.qrcode,{width:360,margin:1}),expiresAt});
+  return NextResponse.json({orderId:charge.data.txid,qrCodeText:qr.data.qrcode,qrCodeImage:await QRCode.toDataURL(qr.data.qrcode,{width:360,margin:1}),expiresAt,grossAmountCents:gross,creditUsedCents:creditUsed,amountCents:due});
  }catch(e){console.error("Efi checkout",e);return NextResponse.json({error:e instanceof Error?e.message:"Falha ao gerar Pix Efí."},{status:500})}
 }

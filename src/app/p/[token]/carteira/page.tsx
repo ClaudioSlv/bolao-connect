@@ -26,10 +26,7 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
   const paid=p.payment_status==="confirmed";
   const received=(payments??[]).reduce((sum,row)=>sum+Number(row.amount_cents||0),0);
   const appliedPayments=(payments??[]).reduce((sum,row)=>sum+Number(row.credit_used_cents||0),0);
-  const availableCredit=paid?0:(isTest?0:Math.min(Math.max(0,amount-received-appliedPayments),balance));
-  const applied=appliedPayments+availableCredit;
-  const due=paid?0:Math.max(0,amount-received-applied);
-  const afterPayment=paid?balance:Math.max(0,balance-applied);
+  const due=paid?0:Math.max(0,amount-received-appliedPayments);
   return <main className="shell">
     <Link className="back" href={`/p/${token}`}>← Voltar</Link>
     <section className="section">
@@ -38,12 +35,12 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
       <p><strong>{p.name}</strong> · {pool.title}</p>
       {isTest&&<p className="muted">Modo teste: o pagamento de teste não movimenta o seu saldo real.</p>}
       <div className="wallet">
-        <div className="wallet-row"><span>Saldo disponível</span><strong>{money(balance)}</strong></div>
+        <div className="wallet-row wallet-credit"><span>Crédito disponível</span><strong>{money(balance)}</strong></div>
         <div className="wallet-row"><span>Valor desta participação</span><strong>{money(amount)}</strong></div>
-        <div className="wallet-row"><span>Valor já pago</span><strong>{money(received)}</strong></div>
-        <div className="wallet-row"><span>Crédito aplicado</span><strong>{money(applied)}</strong></div>
-        <div className="wallet-row"><span>Valor a pagar</span><strong>{money(due)}</strong></div>
-        <div className="wallet-row"><span>Saldo após esta participação</span><strong>{money(afterPayment)}</strong></div>
+        {paid
+          ? <div className="wallet-row wallet-paid"><span>Valor pago</span><strong>{money(amount)}</strong></div>
+          : <div className="wallet-row wallet-pending"><span>Valor pendente</span><strong>{money(due)}</strong></div>}
+        {appliedPayments>0&&<div className="wallet-row"><span>Crédito utilizado nesta cota</span><strong>{money(appliedPayments)}</strong></div>}
       </div>
       {paid&&<p className="status">✓ Pagamento confirmado</p>}
       {!paid&&received>0&&<p className="status">Pagamento parcial confirmado · falta {money(due)}</p>}
@@ -53,7 +50,7 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
     </section>
     <section className="section">
       <h2>Histórico de créditos</h2>
-      {history.length?<div className="list">{history.map(i=><div className="list-item" key={i.id}><div><strong>{kindLabel[i.kind]||i.description||i.kind}</strong><div className="muted">{new Date(i.created_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</div></div><strong style={{color:Number(i.amount_cents)>=0?"#ffd54a":"#fff"}}>{Number(i.amount_cents)>=0?"+ ":"- "}{money(Math.abs(Number(i.amount_cents)))}</strong></div>)}</div>:<p className="muted">Nenhuma movimentação de crédito registrada.</p>}
+      {history.length?<div className="list">{history.map(i=><div className="list-item" key={i.id}><div><strong>{kindLabel[i.kind]||i.description||i.kind}</strong><div className="muted">{new Date(i.created_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</div></div><strong className={Number(i.amount_cents)>=0?"wallet-credit-text":"wallet-pending-text"}>{Number(i.amount_cents)>=0?"+ ":"- "}{money(Math.abs(Number(i.amount_cents)))}</strong></div>)}</div>:<p className="muted">Nenhuma movimentação de crédito registrada.</p>}
       <p className="muted">A carteira registra créditos para abatimento em bolões. Ela não guarda nem transfere dinheiro.</p>
     </section>
     <Link className="button secondary" href={`/p/${token}`}>VOLTAR PARA MINHA PARTICIPAÇÃO</Link>
