@@ -209,23 +209,28 @@ export default async function Page({
       let joinedPools: any[] = [];
       if (pool?.owner_id && p.phone) {
         const normalizedPhone = phoneKey(p.phone);
-        const { data: memberships } = await s
+        const { data: organizerPools } = await s
+          .from("pools")
+          .select("id,title,lottery,cover_image_url,created_at,status,payment_deadline,public_slug")
+          .eq("owner_id", pool.owner_id)
+          .order("created_at", { ascending: false });
+        const organizerPoolIds = (organizerPools ?? []).map((item) => item.id);
+        const { data: membershipRows } = organizerPoolIds.length ? await s
           .from("participants")
-          .select("pool_id,access_token")
-          .eq("phone", normalizedPhone)
-          .neq("status", "cancelled");
-        const joined = new Set((memberships ?? []).map((item) => item.pool_id));
-        const membershipToken = new Map(
-          (memberships ?? []).map((item) => [item.pool_id, item.access_token]),
+          .select("pool_id,access_token,phone")
+          .in("pool_id", organizerPoolIds)
+          .neq("status", "cancelled") : { data: [] };
+        const memberships = (membershipRows ?? []).filter(
+          (item) => phoneKey(String(item.phone || "")) === normalizedPhone,
         );
+        const joined = new Set([p.pool_id, ...memberships.map((item) => item.pool_id)]);
+        const membershipToken = new Map(
+          memberships.map((item) => [item.pool_id, item.access_token]),
+        );
+        membershipToken.set(p.pool_id, token);
         if (joined.size) {
-          const { data: participantPools } = await s
-            .from("pools")
-            .select("id,title,lottery,cover_image_url,created_at")
-            .eq("owner_id", pool.owner_id)
-            .in("id", [...joined])
-            .order("created_at", { ascending: false });
-          joinedPools = (participantPools ?? [])
+          joinedPools = (organizerPools ?? [])
+            .filter((item) => joined.has(item.id))
             .map((item) => ({
               id: item.id,
               title: item.title,
@@ -235,15 +240,11 @@ export default async function Page({
             }))
             .filter((item) => item.accessToken);
         }
-        const { data: openPools } = await s
-          .from("pools")
-          .select("id,lottery,public_slug")
-          .eq("owner_id", pool.owner_id)
-          .eq("status", "open")
-          .gt("payment_deadline", new Date().toISOString())
-          .order("created_at", { ascending: false });
-        availablePools = (openPools ?? []).filter(
-          (item) => item.public_slug && !joined.has(item.id),
+        const currentTime = Date.now();
+        availablePools = (organizerPools ?? []).filter(
+          (item) => item.public_slug && item.status === "open" &&
+            new Date(item.payment_deadline).getTime() > currentTime &&
+            item.id !== p.pool_id && !joined.has(item.id),
         );
       }
       data = { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount };
