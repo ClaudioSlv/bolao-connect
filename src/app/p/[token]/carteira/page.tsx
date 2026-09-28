@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {createAdminClient} from "@/lib/supabase/admin";
+import {EfiCheckout} from "@/components/efi-checkout";
 
 export const dynamic = "force-dynamic";
 const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);
@@ -11,7 +12,7 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
   const s=createAdminClient();
   const{data:p}=await s.from("participants").select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents").eq("access_token",token).maybeSingle();
   if(!p||p.status==="cancelled")return <main className="shell"><section className="section"><h1>Carteira indisponível</h1><p className="muted">Este link de participante não é válido.</p></section></main>;
-  const{data:pool}=await s.from("pools").select("owner_id,title,share_price_cents").eq("id",p.pool_id).maybeSingle();
+  const{data:pool}=await s.from("pools").select("owner_id,title,share_price_cents,payment_opens_at,payment_deadline").eq("id",p.pool_id).maybeSingle();
   if(!pool)return <main className="shell"><section className="section"><h1>Carteira indisponível</h1></section></main>;
   let account:any=null,history:any[]=[];
   if(p.phone){
@@ -22,11 +23,20 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
   const isTest=Boolean(p.is_test);
   const amount=isTest?Number(p.test_amount_cents||100):Number(p.shares)*Number(pool.share_price_cents);
   const{data:payments}=await s.from("payments").select("credit_used_cents,amount_cents").eq("participant_id",p.id).in("status",["partial","confirmed"]);
+  const{data:plan}=await s.from("participant_payment_plans").select("installment_count,total_amount_cents").eq("participant_id",p.id).maybeSingle();
   const balance=Number(account?.balance_cents||0);
   const paid=p.payment_status==="confirmed";
   const received=(payments??[]).reduce((sum,row)=>sum+Number(row.amount_cents||0),0);
   const appliedPayments=(payments??[]).reduce((sum,row)=>sum+Number(row.credit_used_cents||0),0);
-  const due=paid?0:Math.max(0,amount-received-appliedPayments);
+  const paidTotal=received+appliedPayments;
+  const due=paid?0:Math.max(0,amount-paidTotal);
+  const schedule=plan?Array.from({length:Number(plan.installment_count)},(_,index)=>{const total=Number(plan.total_amount_cents),base=Math.floor(total/Number(plan.installment_count));return base+(index===Number(plan.installment_count)-1?total-base*Number(plan.installment_count):0)}):[];
+  let accumulated=0,paidInstallments=0;
+  while(paidInstallments<schedule.length&&accumulated+schedule[paidInstallments]<=paidTotal){accumulated+=schedule[paidInstallments];paidInstallments++}
+  const remainingInstallments=schedule.slice(paidInstallments);
+  const now=Date.now(),opens=pool.payment_opens_at?new Date(pool.payment_opens_at).getTime():0,closes=pool.payment_deadline?new Date(pool.payment_deadline).getTime():0;
+  const paymentOpen=(!opens||now>=opens)&&(!closes||now<=closes);
+  const automaticPixEnabled=Boolean(process.env.EFI_CLIENT_ID_PROD&&process.env.EFI_CLIENT_SECRET_PROD&&process.env.EFI_CERTIFICATE_BASE64&&process.env.EFI_PIX_KEY);
   return <main className="shell">
     <Link className="back" href={`/p/${token}`}>← Voltar</Link>
     <section className="section">
@@ -43,11 +53,19 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
         {appliedPayments>0&&<div className="wallet-row"><span>Crédito utilizado nesta cota</span><strong>{money(appliedPayments)}</strong></div>}
       </div>
       {paid&&<p className="status">✓ Pagamento confirmado</p>}
-      {!paid&&received>0&&<p className="status">Pagamento parcial confirmado · falta {money(due)}</p>}
+      {!paid&&paidTotal>0&&<p className="status">Pagamento parcial confirmado · falta {money(due)}</p>}
       <Link className="button secondary" href={`/p/${token}/comprovantes`}>
         📷 VER COMPROVANTES DOS JOGOS
       </Link>
     </section>
+    {plan&&!paid&&<section className="section installment-wallet-card">
+      <p className="eyebrow">PAGAMENTO PARCIAL</p>
+      <h2>🧾 Pagar parcelas</h2>
+      <p className="muted">Plano escolhido: <strong>{plan.installment_count}x</strong>. A cota será marcada como paga depois da quitação total.</p>
+      <div className="installment-list">{schedule.map((value,index)=>{const installmentPaid=index<paidInstallments;return <div className={installmentPaid?"installment-row paid":"installment-row pending"} key={index}><span>Parcela {index+1}</span><strong>{money(value)}</strong><b>{installmentPaid?"Paga":"Pendente"}</b></div>})}</div>
+      {!paymentOpen&&<p className="status">O pagamento das parcelas não está disponível fora do prazo do bolão.</p>}
+      {paymentOpen&&automaticPixEnabled&&remainingInstallments.length>0&&<EfiCheckout token={token} amountCents={due} creditCents={balance} installmentAmounts={remainingInstallments}/>}
+    </section>}
     <section className="section">
       <h2>Histórico de créditos</h2>
       {history.length?<div className="list">{history.map(i=><div className="list-item" key={i.id}><div><strong>{kindLabel[i.kind]||i.description||i.kind}</strong><div className="muted">{new Date(i.created_at).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</div></div><strong className={Number(i.amount_cents)>=0?"wallet-credit-text":"wallet-pending-text"}>{Number(i.amount_cents)>=0?"+ ":"- "}{money(Math.abs(Number(i.amount_cents)))}</strong></div>)}</div>:<p className="muted">Nenhuma movimentação de crédito registrada.</p>}

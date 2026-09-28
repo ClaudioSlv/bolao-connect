@@ -177,6 +177,14 @@ export default async function Page({
         .eq("pool_id", p.pool_id)
         .eq("rules_version", version)
         .maybeSingle();
+      const [{ data: confirmedPayments }, { data: paymentPlan }] = await Promise.all([
+        s.from("payments").select("amount_cents,credit_used_cents").eq("participant_id", p.id).in("status", ["partial", "confirmed"]),
+        s.from("participant_payment_plans").select("installment_count,total_amount_cents").eq("participant_id", p.id).maybeSingle(),
+      ]);
+      const paidCents = (confirmedPayments ?? []).reduce(
+        (sum, row) => sum + Number(row.amount_cents || 0) + Number(row.credit_used_cents || 0),
+        0,
+      );
       let credit = 0;
       let paymentAccount: any = null;
       if (!p.is_test && pool?.owner_id && p.phone) {
@@ -238,7 +246,7 @@ export default async function Page({
           (item) => item.public_slug && !joined.has(item.id),
         );
       }
-      data = { p, pool, sub, acceptance, credit, availablePools, joinedPools, paymentAccount };
+      data = { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount };
     }
   } catch {}
   if (!data?.p || !data?.pool)
@@ -249,12 +257,12 @@ export default async function Page({
         </section>
       </main>
     );
-  const { p, pool, sub, acceptance, credit, availablePools, joinedPools, paymentAccount } = data,
+  const { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount } = data,
     isTest = Boolean(p.is_test),
     amount = isTest
       ? Number(p.test_amount_cents || 100)
       : Number(p.shares) * Number(pool.share_price_cents),
-    due = amount,
+    due = Math.max(0, amount - Number(paidCents || 0)),
     paid = p.payment_status === "confirmed",
     automaticPixEnabled = isTest || Boolean(process.env.EFI_CLIENT_ID_PROD && process.env.EFI_CLIENT_SECRET_PROD && process.env.EFI_CERTIFICATE_BASE64 && process.env.EFI_PIX_KEY),
     manualPixKey = "13991320205",
@@ -325,6 +333,7 @@ export default async function Page({
             <span>🟢 VALOR A PAGAR</span>
             <strong>{paid ? money(0) : money(due)}</strong>
           </div>
+          {Number(paidCents || 0)>0&&!paid&&<div className="wallet-row wallet-paid"><span>Valor já pago</span><strong>{money(Number(paidCents))}</strong></div>}
         </div>
         {paid ? (
           <p className="status">
@@ -449,7 +458,7 @@ export default async function Page({
             {automaticPixEnabled&&<span>O QR Code será vinculado automaticamente ao seu cadastro.</span>}
           </div>
           <>
-              {automaticPixEnabled&&<><p className="muted">Gere sua cobrança individual. Assim que a Efí confirmar o Pix, sua cota mudará automaticamente para <strong>Pago</strong>.</p><EfiCheckout token={token} amountCents={amount} creditCents={credit}/></>}
+              {automaticPixEnabled&&<><p className="muted">{paymentPlan ? `Pagamento parcial ativo em ${paymentPlan.installment_count}x. Você pode quitar o restante integralmente ou continuar pelas parcelas.` : "Escolha pagar integralmente ou dividir de 2x a 8x. A cota muda para Pago somente após a quitação total."}</p><EfiCheckout token={token} amountCents={due} creditCents={credit} existingPlanCount={paymentPlan?.installment_count}/></>}
               {!isTest && !automaticPixEnabled && <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}

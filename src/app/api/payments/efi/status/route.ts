@@ -16,7 +16,7 @@ export async function reconcileEfiParticipant(token: string) {
   const s = createAdminClient(),
     { data: p } = await s
       .from("participants")
-      .select("id,pool_id,name,phone,shares,status,payment_status")
+      .select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents")
       .eq("access_token", token)
       .maybeSingle();
   if (!p)
@@ -144,8 +144,8 @@ export async function reconcileEfiParticipant(token: string) {
     });
   }
   const { data: pool } = await s
-      .from("pools")
-      .select("owner_id")
+    .from("pools")
+      .select("owner_id,share_price_cents")
       .eq("id", p.pool_id)
       .single(),
     gross = Number(session.gross_amount_cents),
@@ -259,7 +259,7 @@ export async function reconcileEfiParticipant(token: string) {
       await s
         .from("participant_credit_ledger")
         .insert({
-          owner_id: pool.owner_id,
+          account_id: account.id,
           pool_id: p.pool_id,
           participant_id: p.id,
           kind: "use",
@@ -268,11 +268,6 @@ export async function reconcileEfiParticipant(token: string) {
           created_by: pool.owner_id,
         });
     }
-    await s
-      .from("participants")
-      .update({ payment_status: "confirmed" })
-      .eq("id", p.id)
-      .in("payment_status", ["pending", "partial"]);
   } catch (caught) {
     await s
       .from("payment_checkout_sessions")
@@ -305,6 +300,23 @@ export async function reconcileEfiParticipant(token: string) {
     .update({ status: "approved", reviewed_at: new Date().toISOString() })
     .eq("participant_id", p.id)
     .eq("status", "pending");
+  const { data: allPayments } = await s
+    .from("payments")
+    .select("amount_cents,credit_used_cents")
+    .eq("participant_id", p.id)
+    .in("status", ["partial", "confirmed"]);
+  const paidTotal = (allPayments ?? []).reduce(
+    (sum, row) => sum + Number(row.amount_cents || 0) + Number(row.credit_used_cents || 0),
+    0,
+  );
+  const totalDue = p.is_test
+    ? Number(p.test_amount_cents || 100)
+    : Number(p.shares) * Number(pool.share_price_cents);
+  const fullyPaid = paidTotal >= totalDue;
+  await s
+    .from("participants")
+    .update({ payment_status: fullyPaid ? "confirmed" : "partial" })
+    .eq("id", p.id);
   await s
     .from("audit_events")
     .insert({
@@ -312,7 +324,7 @@ export async function reconcileEfiParticipant(token: string) {
       actor_id: pool.owner_id,
       event_type: session.is_test
         ? "test_payment_confirmed"
-        : "payment_confirmed_automatically",
+        : fullyPaid ? "payment_confirmed_automatically" : "partial_payment_confirmed_automatically",
       entity_type: "payment",
       entity_id: payment.id,
       details: {
@@ -325,9 +337,11 @@ export async function reconcileEfiParticipant(token: string) {
         cash_paid_cents: cashPaid,
         credit_used_cents: creditUsed,
         is_test: session.is_test,
+        participant_paid_total_cents: paidTotal,
+        participant_remaining_cents: Math.max(0, totalDue-paidTotal),
       },
     });
-  try {
+  if (fullyPaid) try {
     await sendPaymentConfirmedPush({
       participantId: p.id,
       amountCents: cashPaid,
@@ -341,7 +355,7 @@ export async function reconcileEfiParticipant(token: string) {
     });
     console.error("Falha no push Efí", error);
   }
-  return NextResponse.json({ paid: true });
+  return NextResponse.json({ paid: fullyPaid, partial: !fullyPaid, paymentConfirmed: true, paidTotalCents: paidTotal, remainingCents: Math.max(0, totalDue-paidTotal) });
 }
 
 export async function POST(request: Request) {
