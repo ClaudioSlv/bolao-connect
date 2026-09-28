@@ -6,6 +6,13 @@ import { DEFAULT_APP_BRAND, getOrganizerBrand } from "@/lib/organizer-brand";
 
 export const dynamic = "force-dynamic";
 const TEN_DAYS = 10 * 24 * 60 * 60 * 1000;
+const brasiliaDate = (value: string | number | Date) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(value));
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -29,7 +36,8 @@ export async function GET(req: Request) {
     timerSkipped = 0,
     prelaunchSent = 0,
     prelaunchDisabled = 0,
-    prelaunchSkipped = 0;
+    prelaunchSkipped = 0,
+    lastDaySent = 0;
   const now = Date.now();
 
   const { data: subs, error } = await s
@@ -43,10 +51,15 @@ export async function GET(req: Request) {
   for (const sub of subs ?? []) {
     const { data: p } = await s
       .from("participants")
-      .select("name,status,payment_status,access_token")
+      .select("name,status,payment_status,access_token,is_test")
       .eq("id", sub.participant_id)
       .maybeSingle();
-    if (!p || p.status === "cancelled" || p.status === "waitlisted") {
+    if (
+      !p ||
+      p.is_test ||
+      p.status === "cancelled" ||
+      p.status === "waitlisted"
+    ) {
       if (!p || p.status === "cancelled")
         await s
           .from("push_subscriptions")
@@ -80,6 +93,17 @@ export async function GET(req: Request) {
     const lastSentAt = sub.last_sent_at
       ? new Date(sub.last_sent_at).getTime()
       : 0;
+    const isLastPaymentDay =
+      p.payment_status !== "confirmed" &&
+      brasiliaDate(pool.payment_deadline) === brasiliaDate(now);
+    const lastDayAlreadySent =
+      isLastPaymentDay &&
+      Boolean(sub.last_sent_at) &&
+      brasiliaDate(sub.last_sent_at) === brasiliaDate(now);
+    if (lastDayAlreadySent) {
+      skipped++;
+      continue;
+    }
     const openingNotice = !lastSentAt || lastSentAt < opensAt;
     const anchor = sub.last_sent_at || sub.created_at;
     if (p.payment_status === "confirmed" && !openingNotice) {
@@ -87,6 +111,7 @@ export async function GET(req: Request) {
       continue;
     }
     if (
+      !isLastPaymentDay &&
       !openingNotice &&
       anchor &&
       now - new Date(anchor).getTime() < TEN_DAYS
@@ -96,12 +121,20 @@ export async function GET(req: Request) {
     }
     const brand = await getOrganizerBrand(s, pool.owner_id);
     const payload = JSON.stringify({
-      title: openingNotice ? "🟢 Pagamento liberado!" : `🍀 ${brand.name}`,
-      body: openingNotice
-        ? `${p.name}, toque aqui para pagar sua cota do ${pool.title}.`
-        : `${p.name}, não esqueça o pagamento do bolão ${pool.title}.`,
+      title: isLastPaymentDay
+        ? "⏰ Último dia para pagar!"
+        : openingNotice
+          ? "🟢 Pagamento liberado!"
+          : `🍀 ${brand.name}`,
+      body: isLastPaymentDay
+        ? `Hoje é o último dia para pagar a cota do Bolão ${pool.title}.`
+        : openingNotice
+          ? `${p.name}, toque aqui para pagar sua cota do ${pool.title}.`
+          : `${p.name}, não esqueça o pagamento do bolão ${pool.title}.`,
       url: `/p/${p.access_token}`,
-      tag: `bolao-${sub.pool_id}`,
+      tag: isLastPaymentDay
+        ? `ultimo-dia-${sub.pool_id}-${sub.participant_id}`
+        : `bolao-${sub.pool_id}`,
     });
     try {
       await webpush.sendNotification(
@@ -119,6 +152,7 @@ export async function GET(req: Request) {
         })
         .eq("id", sub.id);
       sent++;
+      if (isLastPaymentDay) lastDaySent++;
     } catch (e: any) {
       if (e?.statusCode === 404 || e?.statusCode === 410) {
         await s
@@ -334,5 +368,6 @@ export async function GET(req: Request) {
     prelaunchDisabled,
     prelaunchSkipped,
     prelaunchTableReady: !prelaunchError,
+    lastDaySent,
   });
 }
