@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Activity = { id: string; event_type: "participant_app_opened" | "personal_game_prize" | "participant_support_message"; details: { participant_name?: string; hits?: number } | null; created_at: string };
-const DISPLAY_MS = 3000;
+const DISPLAY_MS = 8000;
 const POLL_MS = 2500;
 
 function activityMessage(activity: Activity) {
