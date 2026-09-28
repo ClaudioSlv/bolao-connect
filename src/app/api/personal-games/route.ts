@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupportedLottery, type PersonalGame } from "@/lib/personal-game-prizes";
 import { syncLatestLotteryResult } from "@/lib/lottery-results/sync";
+import { withStableGameReferences } from "@/lib/game-reference";
 
 export async function POST(request: Request) {
   try {
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
         pool_id: participant.pool_id,
         lottery,
         contest_number: contest,
-        games,
+        games: withStableGameReferences(games),
       })
       .select("id")
       .single();

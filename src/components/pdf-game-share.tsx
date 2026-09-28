@@ -112,8 +112,9 @@ export function PdfGameShare() {
       const area = document.getElementById("generated-games");
       if (!area) return;
       const rows = [...area.querySelectorAll(".list-item")].map((element, index) => {
+        const reference = Number((element as HTMLElement).dataset.gameReference) || index + 1;
         const text = (element.textContent || "").replace(/^Jogo\s*\d+/i, "").trim();
-        return `Jogo ${index + 1}: ${text}`;
+        return `Jogo ${reference}: ${text}`;
       });
       if (!rows.length) return;
 

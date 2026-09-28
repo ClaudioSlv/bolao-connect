@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
+import { formatGameReference, withStableGameReferences } from "@/lib/game-reference";
 type Lottery =
   | "mega-sena"
   | "lotofacil"
@@ -453,10 +454,13 @@ export function PersonalGameGenerator({
     setExclusionError("");
     resetFeedback();
   };
-  const gameText = (game: Game, i: number) =>
-    `Jogo ${i + 1}: ${game.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}${lottery === "mais-milionaria" ? ` | Trevos: ${game.trevos.map((n) => String(n).padStart(2, "0")).join(" · ")}` : ""}`;
+  const referencedGames = () => withStableGameReferences(games);
+  const gameText = (game: Game & { referenceNumber?: number }, i: number) => {
+    const referenceNumber = game.referenceNumber ?? i + 1;
+    return `Jogo ${referenceNumber}: ${game.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}${lottery === "mais-milionaria" ? ` | Trevos: ${game.trevos.map((n) => String(n).padStart(2, "0")).join(" · ")}` : ""}`;
+  };
   const shareText = () =>
-    `🍀 ${r.label} — Bolão Amigos BTP\n\n${games.map(gameText).join("\n")}\n\nJogo gerado pelo Bolão Amigos BTP.`;
+    `🍀 ${r.label} — Bolão Amigos BTP\n\n${referencedGames().map(gameText).join("\n")}\n\nJogo gerado pelo Bolão Amigos BTP.`;
   const saveGames = async () => {
     try {
       if (
@@ -499,7 +503,7 @@ export function PersonalGameGenerator({
               token: participantToken,
               lottery,
               contest: targetContest,
-              games,
+              games: referencedGames(),
             }),
           });
           const data = (await response.json().catch(() => null)) as {
@@ -527,7 +531,7 @@ export function PersonalGameGenerator({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         lottery,
         label: r.label,
-        games,
+        games: referencedGames(),
         targetContest,
         totalCostCents: officialGamesCostCents(lottery, games),
         createdAt: new Date().toISOString(),
@@ -885,7 +889,7 @@ export function PersonalGameGenerator({
           <h2>Seus jogos</h2>
           <div className="list">
             {visibleGames.map((g, i) => (
-              <div className="list-item" key={i}>
+              <div className="list-item" key={i} data-game-reference={i + 1}>
                 <strong>Jogo {i + 1}</strong>
                 <span>
                   {g.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}
@@ -899,6 +903,7 @@ export function PersonalGameGenerator({
                     </>
                   )}
                 </span>
+                <small className="muted">{formatGameReference(i + 1)}</small>
               </div>
             ))}
           </div>

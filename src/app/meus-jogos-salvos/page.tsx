@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
+import { formatGameReference, withStableGameReferences } from "@/lib/game-reference";
 
-type Game = { numbers: number[]; trevos?: number[] };
+type Game = { numbers: number[]; trevos?: number[]; referenceNumber?: number };
 type Saved = {
   id: string;
   lottery: string;
@@ -137,7 +138,13 @@ export default function SavedGamesPage() {
     if (requestedBack?.startsWith("/p/")) setBackHref(requestedBack);
     try {
       const value = JSON.parse(localStorage.getItem(KEY) || "[]");
-      const saved = Array.isArray(value) ? (value as Saved[]) : [];
+      const saved = Array.isArray(value)
+        ? (value as Saved[]).map((item) => ({
+            ...item,
+            games: withStableGameReferences(item.games),
+          }))
+        : [];
+      localStorage.setItem(KEY, JSON.stringify(saved));
       setItems(saved);
       setSelectedLottery(saved[0]?.lottery ?? "");
     } catch {
@@ -349,7 +356,7 @@ export default function SavedGamesPage() {
           return {
             id: `${item.id}-${index}`,
             label: `${item.label.replace("Mega-Sena", "Mega").replace("Lotofácil", "Loto")} ${contest}`,
-            detail: `Jogo ${index + 1}`,
+            detail: `Jogo ${game.referenceNumber ?? index + 1}`,
             createdAt: item.createdAt,
             costCents,
             prizeCents,
@@ -694,6 +701,7 @@ export default function SavedGamesPage() {
 
               <div className="list">
                 {item.games.map((game, index) => {
+                  const referenceNumber = game.referenceNumber ?? index + 1;
                   const checked =
                     contest && draw?.available
                       ? checkGame(item, game, draw)
@@ -701,8 +709,9 @@ export default function SavedGamesPage() {
                   const matched = new Set(checked?.matched.map(Number) ?? []);
 
                   return (
-                    <div className="list-item" key={index}>
-                      <strong>Jogo {index + 1}</strong>
+                    <div className="list-item" key={referenceNumber}>
+                      <strong>Jogo {referenceNumber}</strong>
+                      <small className="muted">{formatGameReference(referenceNumber)}</small>
                       <span>
                         {game.numbers.map((number, numberIndex) => (
                           <b
