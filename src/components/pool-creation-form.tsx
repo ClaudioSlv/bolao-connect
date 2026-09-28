@@ -1,26 +1,345 @@
 "use client";
-import {useActionState,useEffect,useMemo,useState} from "react";
-import {useRouter} from "next/navigation";
-import type {LotteryId} from "@/lib/domain";
-import {calculatePoolPricing,LOTTERY_LABELS,LOTTERY_NUMBER_LIMITS,type GamePlanInput,type LotteryPriceMap} from "@/lib/lottery-pricing";
-type CreatePoolFormState={ok:boolean;message:string;publicSlug?:string};
-type Row=GamePlanInput&{id:string};type FormAction=(previousState:CreatePoolFormState,formData:FormData)=>Promise<CreatePoolFormState>;
-const LOTTERIES=Object.keys(LOTTERY_LABELS) as LotteryId[];const money=(c:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(c/100);const makeRow=(lottery:LotteryId):Row=>({id:crypto.randomUUID(),quantity:1,numbers:LOTTERY_NUMBER_LIMITS[lottery].defaultValue,trevos:lottery==="mais-milionaria"?2:undefined});
-export function PoolCreationForm({action,initialState,initialPrices}:{action:FormAction;initialState:CreatePoolFormState;initialPrices:LotteryPriceMap}){const router=useRouter();const[state,formAction,pending]=useActionState(action,initialState);const[lottery,setLottery]=useState<LotteryId>("mega-sena"),[participants,setParticipants]=useState(30),[rows,setRows]=useState<Row[]>(()=>[makeRow("mega-sena")]);const calculation=useMemo(()=>{try{return calculatePoolPricing(lottery,rows,participants,initialPrices)}catch{return null}},[lottery,rows,participants,initialPrices]);const limits=LOTTERY_NUMBER_LIMITS[lottery],numberOptions=Array.from({length:limits.max-limits.min+1},(_,i)=>limits.min+i);const changeLottery=(next:LotteryId)=>{setLottery(next);setRows([makeRow(next)])};const updateRow=(id:string,patch:Partial<Row>)=>setRows(c=>c.map(r=>r.id===id?{...r,...patch}:r));const addRow=()=>setRows(c=>[...c,makeRow(lottery)]);const removeRow=(id:string)=>setRows(c=>c.length>1?c.filter(r=>r.id!==id):c);
-useEffect(()=>{if(!state.ok||!state.publicSlug)return;const timer=window.setTimeout(()=>router.push(`/temporizador/${state.publicSlug}`),1800);return()=>window.clearTimeout(timer)},[router,state.ok,state.publicSlug]);
-return <form className="form" action={formAction} aria-busy={pending}>
-<div className="field"><label>Nome do bolão</label><input name="title" required maxLength={120} placeholder="Ex.: Mega da Virada 2026"/></div>
-<div className="field"><label>Imagem de capa do bolão</label><input name="coverImage" type="file" accept="image/jpeg,image/png,image/webp"/><small>Opcional. Use uma imagem horizontal JPG, PNG ou WebP, até 5 MB.</small></div>
-<div className="field"><label>Modalidade</label><select name="lottery" value={lottery} onChange={e=>changeLottery(e.target.value as LotteryId)}>{LOTTERIES.map(id=><option key={id} value={id}>{LOTTERY_LABELS[id]}</option>)}</select></div>
-<div className="field"><label>Número do concurso</label><input name="contestNumber" type="number" min="1" inputMode="numeric" placeholder="Opcional"/></div>
-<div className="field"><label>Número de participantes</label><input name="totalShares" type="number" min="1" required value={participants} onChange={e=>setParticipants(Math.max(1,Number(e.target.value)||1))}/></div>
-<section className="card" style={{display:"grid",gap:12}}><div><strong>🎟️ Planejamento dos jogos</strong><span>Informe quantos jogos serão feitos e quantas dezenas terá cada tipo de jogo.</span></div>{rows.map((row,index)=><div key={row.id} style={{display:"grid",gap:10,paddingTop:index?12:0,borderTop:index?"1px solid #294231":"none"}}><div className="field"><label>Quantidade de jogos</label><input className="game-plan-control" type="text" inputMode="numeric" pattern="[0-9]*" value={row.quantity} onFocus={e=>e.currentTarget.select()} onChange={e=>{const digits=e.target.value.replace(/\D/g,"");updateRow(row.id,{quantity:digits===""?1:Math.max(1,Number(digits))})}}/></div><div className="field"><label>{lottery==="super-sete"?"Prognósticos por jogo":"Dezenas por jogo"}</label><select className="game-plan-control" value={row.numbers} onChange={e=>updateRow(row.id,{numbers:Number(e.target.value)})}>{numberOptions.map(n=><option key={n} value={n}>{n}</option>)}</select></div>{lottery==="mais-milionaria"&&<div className="field"><label>Trevos por jogo</label><select className="game-plan-control" value={row.trevos??2} onChange={e=>updateRow(row.id,{trevos:Number(e.target.value)})}>{[2,3,4,5,6].map(n=><option key={n} value={n}>{n}</option>)}</select></div>}<div style={{display:"flex",justifyContent:"space-between",gap:10}}><span className="muted">Valor deste tipo: {calculation?money(calculation.items[index]?.subtotalCents??0):"—"}</span>{rows.length>1&&<button type="button" className="button secondary" onClick={()=>removeRow(row.id)}>Remover</button>}</div></div>)}<button type="button" className="button secondary" onClick={addRow}>+ Adicionar outro tipo de jogo</button></section>
-<section className="wallet"><div className="wallet-row"><span>Custo total dos jogos</span><strong>{calculation?money(calculation.totalCostCents):"—"}</strong></div><div className="wallet-row"><span>Total de jogos</span><strong>{calculation?.totalGames??0}</strong></div><div className="wallet-row"><span>Participantes</span><strong>{participants}</strong></div><div className="wallet-row"><span>💵 Valor por participante</span><strong style={{fontSize:22}}>{calculation?money(calculation.sharePriceCents):"—"}</strong></div></section>
-<input type="hidden" name="gamePlan" value={JSON.stringify(rows.map(({quantity,numbers,trevos})=>({quantity,numbers,trevos})))}/>
-<div className="field"><label>Prêmio estimado (R$)</label><input name="estimatedPrize" inputMode="decimal" placeholder="Opcional"/></div>
-<div className="field"><label>🟢 Início dos pagamentos</label><input name="paymentOpensAt" type="datetime-local" required/><small>Até esta data o Pix e o envio de comprovante ficam bloqueados.</small></div>
-<div className="field"><label>🔴 Encerramento dos pagamentos</label><input name="paymentDeadline" type="datetime-local" required/><small>Depois desta data o pagamento é fechado automaticamente.</small></div>
-<div className="field"><label>🎰 Data e hora do sorteio</label><input name="drawAt" type="datetime-local"/></div>
-<button className="button primary create-pool-button" disabled={!calculation||pending||state.ok}>{pending?"AGUARDE, ESTAMOS CRIANDO O BOLÃO...":state.ok?"BOLÃO CRIADO COM SUCESSO":"Criar bolão com cota automática"}</button>
-{(pending||state.message)&&<div className={`pool-create-feedback ${state.message&&!state.ok?"error":"success"}`} role={state.message&&!state.ok?"alert":"status"} aria-live="assertive"><strong>{pending?"AGUARDE, ESTAMOS CRIANDO O BOLÃO...":state.message}</strong>{state.ok&&<span>Você será direcionado para o bolão.</span>}</div>}
-</form>}
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { LotteryId } from "@/lib/domain";
+import {
+  calculatePoolPricing,
+  LOTTERY_LABELS,
+  LOTTERY_NUMBER_LIMITS,
+  type GamePlanInput,
+  type LotteryPriceMap,
+} from "@/lib/lottery-pricing";
+type CreatePoolFormState = {
+  ok: boolean;
+  message: string;
+  publicSlug?: string;
+};
+type Row = GamePlanInput & { id: string };
+type FormAction = (
+  previousState: CreatePoolFormState,
+  formData: FormData,
+) => Promise<CreatePoolFormState>;
+const LOTTERIES = Object.keys(LOTTERY_LABELS) as LotteryId[];
+const money = (c: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+    c / 100,
+  );
+const makeRow = (lottery: LotteryId): Row => ({
+  id: crypto.randomUUID(),
+  quantity: 1,
+  numbers: LOTTERY_NUMBER_LIMITS[lottery].defaultValue,
+  trevos: lottery === "mais-milionaria" ? 2 : undefined,
+});
+export function PoolCreationForm({
+  action,
+  initialState,
+  initialPrices,
+}: {
+  action: FormAction;
+  initialState: CreatePoolFormState;
+  initialPrices: LotteryPriceMap;
+}) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState(action, initialState);
+  const [lottery, setLottery] = useState<LotteryId>("mega-sena"),
+    [contestNumber, setContestNumber] = useState(""),
+    [participants, setParticipants] = useState(30),
+    [rows, setRows] = useState<Row[]>(() => [makeRow("mega-sena")]);
+  const calculation = useMemo(() => {
+    try {
+      return calculatePoolPricing(lottery, rows, participants, initialPrices);
+    } catch {
+      return null;
+    }
+  }, [lottery, rows, participants, initialPrices]);
+  const limits = LOTTERY_NUMBER_LIMITS[lottery],
+    numberOptions = Array.from(
+      { length: limits.max - limits.min + 1 },
+      (_, i) => limits.min + i,
+    );
+  const automaticLotofacilCover =
+    lottery === "lotofacil" &&
+    Number(contestNumber) > 0 &&
+    Number(contestNumber) % 20 === 0;
+  const changeLottery = (next: LotteryId) => {
+    setLottery(next);
+    setRows([makeRow(next)]);
+  };
+  const updateRow = (id: string, patch: Partial<Row>) =>
+    setRows((c) => c.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const addRow = () => setRows((c) => [...c, makeRow(lottery)]);
+  const removeRow = (id: string) =>
+    setRows((c) => (c.length > 1 ? c.filter((r) => r.id !== id) : c));
+  useEffect(() => {
+    if (!state.ok || !state.publicSlug) return;
+    const timer = window.setTimeout(
+      () => router.push(`/temporizador/${state.publicSlug}`),
+      1800,
+    );
+    return () => window.clearTimeout(timer);
+  }, [router, state.ok, state.publicSlug]);
+  return (
+    <form className="form" action={formAction} aria-busy={pending}>
+      <div className="field">
+        <label>Nome do bolão</label>
+        <input
+          name="title"
+          required
+          maxLength={120}
+          placeholder="Ex.: Mega da Virada 2026"
+        />
+      </div>
+      {automaticLotofacilCover ? (
+        <div
+          className="card"
+          role="status"
+          style={{
+            borderColor: "rgba(247,201,72,.72)",
+            background:
+              "linear-gradient(135deg,rgba(76,8,28,.94),rgba(18,5,10,.98))",
+          }}
+        >
+          <strong style={{ color: "#ffe06b" }}>
+            ✅ Capa dinâmica criada automaticamente
+          </strong>
+          <span>
+            O JuntaSorte usará o concurso {contestNumber}, a data do sorteio e o
+            status atual do bolão. Não é necessário escolher uma imagem.
+          </span>
+        </div>
+      ) : (
+        <div className="field">
+          <label>Imagem de capa do bolão</label>
+          <input
+            name="coverImage"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+          />
+          <small>
+            Opcional. Use uma imagem horizontal JPG, PNG ou WebP, até 5 MB.
+          </small>
+        </div>
+      )}
+      <div className="field">
+        <label>Modalidade</label>
+        <select
+          name="lottery"
+          value={lottery}
+          onChange={(e) => changeLottery(e.target.value as LotteryId)}
+        >
+          {LOTTERIES.map((id) => (
+            <option key={id} value={id}>
+              {LOTTERY_LABELS[id]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label>Número do concurso</label>
+        <input
+          name="contestNumber"
+          type="number"
+          min="1"
+          inputMode="numeric"
+          placeholder="Opcional"
+          value={contestNumber}
+          onChange={(e) => setContestNumber(e.target.value)}
+        />
+      </div>
+      <div className="field">
+        <label>Número de participantes</label>
+        <input
+          name="totalShares"
+          type="number"
+          min="1"
+          required
+          value={participants}
+          onChange={(e) =>
+            setParticipants(Math.max(1, Number(e.target.value) || 1))
+          }
+        />
+      </div>
+      <section className="card" style={{ display: "grid", gap: 12 }}>
+        <div>
+          <strong>🎟️ Planejamento dos jogos</strong>
+          <span>
+            Informe quantos jogos serão feitos e quantas dezenas terá cada tipo
+            de jogo.
+          </span>
+        </div>
+        {rows.map((row, index) => (
+          <div
+            key={row.id}
+            style={{
+              display: "grid",
+              gap: 10,
+              paddingTop: index ? 12 : 0,
+              borderTop: index ? "1px solid #294231" : "none",
+            }}
+          >
+            <div className="field">
+              <label>Quantidade de jogos</label>
+              <input
+                className="game-plan-control"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={row.quantity}
+                onFocus={(e) => e.currentTarget.select()}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "");
+                  updateRow(row.id, {
+                    quantity: digits === "" ? 1 : Math.max(1, Number(digits)),
+                  });
+                }}
+              />
+            </div>
+            <div className="field">
+              <label>
+                {lottery === "super-sete"
+                  ? "Prognósticos por jogo"
+                  : "Dezenas por jogo"}
+              </label>
+              <select
+                className="game-plan-control"
+                value={row.numbers}
+                onChange={(e) =>
+                  updateRow(row.id, { numbers: Number(e.target.value) })
+                }
+              >
+                {numberOptions.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {lottery === "mais-milionaria" && (
+              <div className="field">
+                <label>Trevos por jogo</label>
+                <select
+                  className="game-plan-control"
+                  value={row.trevos ?? 2}
+                  onChange={(e) =>
+                    updateRow(row.id, { trevos: Number(e.target.value) })
+                  }
+                >
+                  {[2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 10,
+              }}
+            >
+              <span className="muted">
+                Valor deste tipo:{" "}
+                {calculation
+                  ? money(calculation.items[index]?.subtotalCents ?? 0)
+                  : "—"}
+              </span>
+              {rows.length > 1 && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={() => removeRow(row.id)}
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        <button type="button" className="button secondary" onClick={addRow}>
+          + Adicionar outro tipo de jogo
+        </button>
+      </section>
+      <section className="wallet">
+        <div className="wallet-row">
+          <span>Custo total dos jogos</span>
+          <strong>
+            {calculation ? money(calculation.totalCostCents) : "—"}
+          </strong>
+        </div>
+        <div className="wallet-row">
+          <span>Total de jogos</span>
+          <strong>{calculation?.totalGames ?? 0}</strong>
+        </div>
+        <div className="wallet-row">
+          <span>Participantes</span>
+          <strong>{participants}</strong>
+        </div>
+        <div className="wallet-row">
+          <span>💵 Valor por participante</span>
+          <strong style={{ fontSize: 22 }}>
+            {calculation ? money(calculation.sharePriceCents) : "—"}
+          </strong>
+        </div>
+      </section>
+      <input
+        type="hidden"
+        name="gamePlan"
+        value={JSON.stringify(
+          rows.map(({ quantity, numbers, trevos }) => ({
+            quantity,
+            numbers,
+            trevos,
+          })),
+        )}
+      />
+      <div className="field">
+        <label>Prêmio estimado (R$)</label>
+        <input
+          name="estimatedPrize"
+          inputMode="decimal"
+          placeholder="Opcional"
+        />
+      </div>
+      <div className="field">
+        <label>🟢 Início dos pagamentos</label>
+        <input name="paymentOpensAt" type="datetime-local" required />
+        <small>
+          Até esta data o Pix e o envio de comprovante ficam bloqueados.
+        </small>
+      </div>
+      <div className="field">
+        <label>🔴 Encerramento dos pagamentos</label>
+        <input name="paymentDeadline" type="datetime-local" required />
+        <small>Depois desta data o pagamento é fechado automaticamente.</small>
+      </div>
+      <div className="field">
+        <label>🎰 Data e hora do sorteio</label>
+        <input name="drawAt" type="datetime-local" />
+      </div>
+      <button
+        className="button primary create-pool-button"
+        disabled={!calculation || pending || state.ok}
+      >
+        {pending
+          ? "AGUARDE, ESTAMOS CRIANDO O BOLÃO..."
+          : state.ok
+            ? "BOLÃO CRIADO COM SUCESSO"
+            : "Criar bolão com cota automática"}
+      </button>
+      {(pending || state.message) && (
+        <div
+          className={`pool-create-feedback ${state.message && !state.ok ? "error" : "success"}`}
+          role={state.message && !state.ok ? "alert" : "status"}
+          aria-live="assertive"
+        >
+          <strong>
+            {pending ? "AGUARDE, ESTAMOS CRIANDO O BOLÃO..." : state.message}
+          </strong>
+          {state.ok && <span>Você será direcionado para o bolão.</span>}
+        </div>
+      )}
+    </form>
+  );
+}
