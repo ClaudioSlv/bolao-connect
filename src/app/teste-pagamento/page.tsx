@@ -24,6 +24,7 @@ export default async function TestPayment() {
     .from("pools")
     .select("id,title,lottery,test_access_token")
     .eq("owner_id", auth.user.id)
+    .neq("status", "archived")
     .order("created_at", { ascending: false });
   return (
     <main className="shell">

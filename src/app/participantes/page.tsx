@@ -115,6 +115,7 @@ export default async function Page({
       .from("pools")
       .select("id,title,lottery,total_shares,share_price_cents,public_slug,payment_deadline,waitlist_payment_deadline")
       .eq("owner_id", a.user.id)
+      .neq("status", "archived")
       .order("created_at", { ascending: false }),
     pools = all ?? [],
     pool = pools.find((p) => p.id === requested) ?? pools[0] ?? null;

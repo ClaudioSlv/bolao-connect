@@ -29,6 +29,7 @@ export default async function Receipts({
     .from("pools")
     .select("id,title,lottery,contest_number")
     .eq("owner_id", auth.user.id)
+    .neq("status", "archived")
     .order("created_at", { ascending: false });
   const active =
       (pools ?? []).find((p) => p.id === requested) ?? pools?.[0] ?? null,

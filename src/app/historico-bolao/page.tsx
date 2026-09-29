@@ -44,6 +44,7 @@ export default async function HistoricoBolao({
     .from("pools")
     .select("id,title,lottery,contest_number")
     .eq("owner_id", auth.user.id)
+    .neq("status", "archived")
     .order("created_at", { ascending: false });
 
   const pools = ownedPools ?? [];

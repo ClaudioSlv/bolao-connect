@@ -51,6 +51,7 @@ export default async function SavedGamesMenuPage({
       .from("pools")
       .select("id,title,lottery")
       .eq("owner_id", auth.user.id)
+      .neq("status", "archived")
       .order("created_at", { ascending: false });
     pools = (data ?? []) as Pool[];
   }

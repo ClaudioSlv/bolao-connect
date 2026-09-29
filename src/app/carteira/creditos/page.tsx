@@ -126,7 +126,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{pool?:s
   const{data:a}=await s.auth.getUser();
   if(!a.user)redirect("/login");
 
-  const{data:pools}=await s.from("pools").select("id,title,share_price_cents").eq("owner_id",a.user.id).order("created_at",{ascending:false});
+  const{data:pools}=await s.from("pools").select("id,title,share_price_cents").eq("owner_id",a.user.id).neq("status","archived").order("created_at",{ascending:false});
   const pool=(pools??[]).find(x=>x.id===requested)??pools?.[0];
   if(!pool)return <main className="shell"><Link className="back" href="/carteira">← Carteira</Link><section className="section"><h1>💳 Créditos</h1><p>Crie um bolão primeiro.</p></section></main>;
 

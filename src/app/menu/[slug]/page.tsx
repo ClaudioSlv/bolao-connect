@@ -50,6 +50,7 @@ export default async function Page({
     .from("pools")
     .select("id,title,lottery,share_price_cents")
     .eq("owner_id", auth.user.id)
+    .neq("status", "archived")
     .order("created_at", { ascending: false });
   const pools = all ?? [];
   const pool = pools.find((x) => x.id === query.pool) ?? pools[0];
