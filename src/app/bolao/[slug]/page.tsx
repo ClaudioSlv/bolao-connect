@@ -97,6 +97,15 @@ export default async function PublicPool({
       </section>
       {pool.lottery === "lotofacil" && pool.contest_number && pool.contest_number % 20 === 0 ? <section className="section"><DynamicLotofacilCover contestNumber={pool.contest_number} drawAt={pool.draw_at} estimatedPrizeCents={pool.estimated_prize_cents} status={pool.status}/></section> : pool.cover_image_url ? <section className="section"><img src={pool.cover_image_url} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)"}}/></section> : null}
 
+      {pool.lottery === "lotofacil" && pool.contest_number && pool.contest_number % 20 === 0 ? (
+        <section className="section">
+          <div className="card">
+            <strong style={{display:"block",color:"#f7c948",marginBottom:8}}>🍀 Bolão especial a cada 20 concursos</strong>
+            <span className="muted">Este bolão acontece nos concursos da Lotofácil com final 0, com jogos de 15 dezenas. Antes de participar, confira como funciona e as regras do grupo.</span>
+          </div>
+        </section>
+      ) : null}
+
       <section className="section">
         <h2>Informações do bolão</h2>
         <div className="wallet">
