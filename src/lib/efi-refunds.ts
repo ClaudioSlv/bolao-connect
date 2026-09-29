@@ -76,6 +76,12 @@ export async function processEfiRefunds(participantId: string) {
     if (updated) console.error("Efí refund choice completion failed",participantId,updated);
     return {status:updated?"processing":"completed"};
   }
+  if (current?.length && current.every(item=>item.status==="failed")) {
+    await s.from("partial_payment_resolution_choices")
+      .update({status:"failed",updated_at:new Date().toISOString()})
+      .eq("participant_id",participantId).eq("status","processing");
+    return {status:"failed"};
+  }
   return {status:current?.some(item=>item.status==="failed")?"review_required":"processing"};
 }
 

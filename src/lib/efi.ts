@@ -32,6 +32,12 @@ export async function efiToken(){
   if(r.status<200||r.status>=300||!r.data?.access_token) throw new Error(r.data?.mensagem||r.data?.detail||`Falha OAuth Efí (${r.status})`);
   return String(r.data.access_token);
 }
+export async function efiAuthorizedScopes(){
+  const r=await request("/oauth/token",{method:"POST",body:{grant_type:"client_credentials"}});
+  if(r.status<200||r.status>=300||!r.data?.access_token) throw new Error(`Falha OAuth Efí (${r.status})`);
+  const scope=r.data.scope;
+  return typeof scope==="string" ? scope.split(/\s+/).filter(Boolean) : Array.isArray(scope) ? scope.map(String) : null;
+}
 export async function efiRequest(path:string,options:{method?:string;body?:unknown;headers?:Record<string,string>}={}){
   const token=await efiToken(); return request(path,{...options,token});
 }

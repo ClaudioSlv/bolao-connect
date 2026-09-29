@@ -5,6 +5,7 @@ import { PoolSwitcher } from "@/components/pool-switcher";
 import { CopyParticipantLink } from "@/components/copy-participant-link";
 import { ParticipantPaymentForm } from "@/components/participant-payment-form";
 import { CapacityForm } from "@/components/capacity-form";
+import {EfiRefundCheck} from "@/components/efi-refund-check";
 import { addParticipant, cancelParticipant } from "@/app/actions/participants";
 import { increasePoolCapacity } from "@/app/actions/pools";
 import { createClient } from "@/lib/supabase/server";
@@ -154,7 +155,7 @@ export default async function Page({
   const admin = createAdminClient();
   const {data: resolutionRequests} = pool ? await admin.from("partial_payment_resolution_choices")
     .select("participant_id,choice,paid_cents,retention_cents,amount_cents,status,created_at")
-    .eq("pool_id", pool.id).eq("status", "pending_review").order("created_at", {ascending: true}) : {data: []};
+    .eq("pool_id", pool.id).in("status", ["pending_review","failed","processing"]).order("created_at", {ascending: true}) : {data: []};
   const { data: pushSubs } = ids.length
     ? await admin
         .from("push_subscriptions")
@@ -218,7 +219,8 @@ export default async function Page({
           <p className="muted">A vaga é liberada após a conciliação, sem aguardar esta escolha. Estornos Pix elegíveis são enviados automaticamente à Efí; confira manualmente os outros casos e os créditos.</p>
           {resolutionRequests?.map(request => <div className="list-item" key={request.participant_id}>
             <strong>{visible.find(p => p.id === request.participant_id)?.name ?? "Participante"}</strong>
-            <span>{request.choice === "refund" ? "Estorno solicitado" : "Crédito solicitado"} · Pago: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.paid_cents)/100)} · Retenção: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.retention_cents)/100)} · Destino: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.amount_cents)/100)}</span>
+            <span>{request.choice === "refund" ? "Estorno solicitado" : "Crédito solicitado"} · {request.status === "failed" ? "FALHOU — confira na Efí" : request.status === "processing" ? "Em processamento" : "Aguardando"} · Pago: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.paid_cents)/100)} · Retenção: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.retention_cents)/100)} · Destino: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.amount_cents)/100)}</span>
+            {request.choice === "refund" && <EfiRefundCheck participantId={request.participant_id}/>}
           </div>)}
           <Link className="button secondary" href="/menu/estornar-pagamento">CONFERIR ESTORNOS</Link>
           <Link className="button secondary" href="/carteira/creditos">CONFERIR CRÉDITOS</Link>

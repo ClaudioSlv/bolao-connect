@@ -31,7 +31,7 @@ export function PartialPaymentChoice({token, paidCents, existingChoice, existing
   }
 
   return <>
-    {choice && <p className="status" role="status">{choice === "refund" ? `Estorno de ${money(paidCents-retention)} (retenção de ${money(retention)}): ${status === "completed" ? "devolvido pela Efí ao pagador original" : status === "processing" ? "solicitado à Efí; aguardando confirmação da devolução" : "registrado para tratamento financeiro"}.` : `Crédito de ${money(paidCents)} solicitado para outro bolão; ainda não lançado na carteira.`}</p>}
+    {choice && <p className="status" role="status">{choice === "refund" ? `Estorno de ${money(paidCents-retention)} (retenção de ${money(retention)}): ${status === "completed" ? "devolvido pela Efí ao pagador original" : status === "processing" ? "solicitado à Efí; aguardando confirmação da devolução" : status === "failed" || status === "review_required" ? "a devolução não foi confirmada; entre em contato com o organizador" : "registrado para tratamento financeiro"}.` : `Crédito de ${money(paidCents)} solicitado para outro bolão; ainda não lançado na carteira.`}</p>}
     {choice === "refund" && status === "processing" && <button className="button secondary" type="button" disabled={busy} onClick={() => void submit("refund")}>ATUALIZAR STATUS DO ESTORNO</button>}
     {!choice && !open && <button className="button secondary" type="button" onClick={() => setOpen(true)}>ESCOLHER ESTORNO OU CRÉDITO</button>}
     {open && <div className="credit-choice-backdrop" role="dialog" aria-modal="true" aria-labelledby="partial-resolution-title">
