@@ -498,7 +498,7 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 
 /* Escolha de crédito e identificação visual da carteira. */
 .credit-choice-backdrop{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:22px;background:rgba(0,8,4,.84);backdrop-filter:blur(5px)}
-.credit-choice-modal{position:relative;width:min(440px,100%);display:grid;gap:16px;padding:28px 22px;border:1px solid #f7c948;border-radius:24px;background:linear-gradient(155deg,#133b22,#08170e 72%);box-shadow:0 24px 70px rgba(0,0,0,.7);text-align:center}
+.credit-choice-modal{position:relative;width:min(440px,100%);max-height:calc(100dvh - 32px);overflow-y:auto;display:grid;gap:16px;padding:28px 22px;border:1px solid #f7c948;border-radius:24px;background:linear-gradient(155deg,#133b22,#08170e 72%);box-shadow:0 24px 70px rgba(0,0,0,.7);text-align:center}
 .credit-choice-modal h2,.credit-choice-modal p{margin:0}.credit-choice-modal p{color:#c2ccc5;line-height:1.5}
 .credit-choice-close{position:absolute;top:12px;right:12px;width:40px;height:40px;border:0;border-radius:50%;background:#27372d;color:#fff;font-size:28px;line-height:1;cursor:pointer}
 .credit-choice-icon{font-size:42px}.credit-choice-values{display:grid;gap:10px;padding:14px;border:1px solid #355340;border-radius:16px;background:rgba(2,12,6,.5)}

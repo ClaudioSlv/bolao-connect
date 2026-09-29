@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_POOL_RULES_VERSION } from "@/lib/pool-rules";
 import { efiConfigured, efiRequest } from "@/lib/efi";
+import { maxInstallments } from "@/lib/payment-installments";
 
 const digits = (value: string) => value.replace(/\D/g, "");
 const installmentValues = (total: number, count: number) => {
@@ -60,7 +61,8 @@ export async function POST(request: Request) {
       plan = existingPlan;
       if (!plan) {
         const count = Math.trunc(Number(body?.installmentCount));
-        if (count < 2 || count > 8) return NextResponse.json({ error: "Escolha de 2 a 8 parcelas." }, { status: 400 });
+        const maximum = maxInstallments(total);
+        if (!Number.isInteger(count) || count < 2 || count > maximum) return NextResponse.json({ error: `Escolha de 2 a ${maximum} parcelas para esta cota.` }, { status: 400 });
         const { data: created, error } = await s.from("participant_payment_plans").insert({ participant_id: p.id, pool_id: p.pool_id, installment_count: count, total_amount_cents: total }).select("id,installment_count,total_amount_cents").single();
         if (error) return NextResponse.json({ error: "Não foi possível criar o plano de pagamento." }, { status: 409 });
         plan = created;

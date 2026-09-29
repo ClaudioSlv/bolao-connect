@@ -501,7 +501,7 @@ export default async function Page({
             {automaticPixEnabled&&<span>O QR Code será vinculado automaticamente ao seu cadastro.</span>}
           </div>
           <>
-              {automaticPixEnabled&&<><p className="muted">{paymentPlan ? `Pagamento parcial ativo em ${paymentPlan.installment_count}x. Você pode quitar o restante integralmente ou continuar pelas parcelas.` : "Escolha pagar integralmente ou dividir de 2x a 8x. A cota muda para Pago somente após a quitação total."}</p><EfiCheckout token={token} amountCents={due} creditCents={credit} existingPlanCount={paymentPlan?.installment_count}/></>}
+              {automaticPixEnabled&&<><p className="muted">{paymentPlan ? `Pagamento parcial ativo em ${paymentPlan.installment_count}x. Você pode quitar o restante integralmente ou continuar pelas parcelas.` : "Escolha pagar integralmente ou dividir em parcelas. A cota muda para Pago somente após a quitação total."}</p><EfiCheckout token={token} amountCents={due} planTotalCents={amount} creditCents={credit} existingPlanCount={paymentPlan?.installment_count}/></>}
               {!isTest && !automaticPixEnabled && <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}
