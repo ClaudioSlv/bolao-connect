@@ -32,7 +32,32 @@ export async function POST(req: Request) {
         .eq("endpoint", endpoint)
         .eq("enabled", true)
         .maybeSingle();
-      return NextResponse.json({ active: Boolean(existing) });
+      if (existing) return NextResponse.json({ active: true });
+
+      // A autorização push pertence ao aparelho/navegador. Se este mesmo
+      // endpoint já estiver ativo para a mesma pessoa em outro bolão,
+      // considere-o reutilizável; o POST com a subscription completa fará
+      // a vinculação automática ao cadastro atual.
+      const { data: endpointRows } = await s
+        .from("push_subscriptions")
+        .select("participant_id")
+        .eq("endpoint", endpoint)
+        .eq("enabled", true);
+      const ids = [...new Set((endpointRows ?? []).map((row) => row.participant_id).filter(Boolean))];
+      if (!ids.length) return NextResponse.json({ active: false });
+
+      const { data: owners } = await s
+        .from("participants")
+        .select("id,name,phone")
+        .in("id", ids)
+        .neq("status", "cancelled");
+      const normalizedName = p.name.trim().toLocaleLowerCase("pt-BR");
+      const reusable = (owners ?? []).some(
+        (owner) =>
+          owner.phone === p.phone &&
+          owner.name.trim().toLocaleLowerCase("pt-BR") === normalizedName,
+      );
+      return NextResponse.json({ active: reusable });
     }
 
     if (!subscription?.keys?.p256dh || !subscription?.keys?.auth)
