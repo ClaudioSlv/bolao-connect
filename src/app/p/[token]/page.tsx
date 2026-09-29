@@ -274,7 +274,7 @@ export default async function Page({
         );
       }
       const {data: resolutionChoice} = await s.from("partial_payment_resolution_choices")
-        .select("choice").eq("participant_id", p.id).maybeSingle();
+        .select("choice,status").eq("participant_id", p.id).maybeSingle();
       data = { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount, nextLotofacilPool, resolutionChoice };
     }
   } catch {}
@@ -320,7 +320,7 @@ export default async function Page({
         justAccepted={rulesStatus === "accepted"}
       />
       {acceptance && !isTest && paymentClosed && !paid && !isWaitlisted && Number(pool.rules_version) >= 5 && Number(paidCents) > 0 &&
-        <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined} retentionPercent={Number(pool.rules_version) >= 6 ? 3 : 0}/>}
+        <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined} existingStatus={resolutionChoice?.status} retentionPercent={Number(pool.rules_version) >= 6 ? 3 : 0}/>}
       <AvailablePoolsNotice
         pools={availablePools}
         participant={{ token, name: p.name, phone: p.phone }}

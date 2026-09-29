@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolutionAmounts } from "@/lib/partial-payment-resolution";
+import {processEfiRefunds} from "@/lib/efi-refunds";
 
 export const runtime = "nodejs";
 
@@ -43,11 +44,15 @@ export async function POST(request: Request) {
   const {data: existing, error: existingError} = await s.from("partial_payment_resolution_choices").select("choice,status,amount_cents,retention_cents")
     .eq("participant_id", p.id).maybeSingle();
   if (existingError) return NextResponse.json({error: "Não foi possível conferir sua escolha."}, {status: 500});
-  if (existing) return NextResponse.json({ok: true, ...existing, alreadyRequested: true});
+  if (existing) {
+    const progress = existing.choice === "refund" ? await processEfiRefunds(p.id) : {status:existing.status};
+    return NextResponse.json({ok: true, ...existing, status:progress.status, alreadyRequested: true});
+  }
   const {data: row, error} = await s.from("partial_payment_resolution_choices").insert({
     participant_id: p.id, pool_id: p.pool_id, choice, paid_cents: paidCents,
     retention_cents: retentionCents, amount_cents: amountCents,
   }).select("choice,status,amount_cents,retention_cents").single();
   if (error) return NextResponse.json({error: "Não foi possível registrar sua escolha. Tente novamente."}, {status: 500});
-  return NextResponse.json({ok: true, ...row});
+  const progress = choice === "refund" ? await processEfiRefunds(p.id) : {status:row.status};
+  return NextResponse.json({ok: true, ...row, status:progress.status});
 }

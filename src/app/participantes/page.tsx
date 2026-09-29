@@ -210,12 +210,12 @@ export default async function Page({
             : "Crie um bolão antes de adicionar participantes."}
         </p>
         {overdueWithPayment.length > 0 && <p className="status" role="alert">
-          {overdueWithPayment.length} reserva(s) vencida(s) com pagamento parcial aguardam conferência e devolução antes da liberação das vagas:
+          {overdueWithPayment.length} reserva(s) vencida(s) com pagamento parcial; as vagas serão liberadas após 24 horas de conciliação, independentemente da escolha financeira:
           {overdueWithPayment.map(p => ` ${p.name} (${new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format((receivedByParticipant.get(p.id) ?? 0)/100)})`).join(";")}.
         </p>}
         {(resolutionRequests?.length ?? 0) > 0 && <section className="section">
           <h2>Valores vencidos para conferir</h2>
-          <p className="muted">Confira cada pagamento e conclua o estorno pela Efí ou registre o crédito antes de liberar a vaga. A escolha abaixo ainda não movimentou dinheiro.</p>
+          <p className="muted">A vaga é liberada após a conciliação, sem aguardar esta escolha. Estornos Pix elegíveis são enviados automaticamente à Efí; confira manualmente os outros casos e os créditos.</p>
           {resolutionRequests?.map(request => <div className="list-item" key={request.participant_id}>
             <strong>{visible.find(p => p.id === request.participant_id)?.name ?? "Participante"}</strong>
             <span>{request.choice === "refund" ? "Estorno solicitado" : "Crédito solicitado"} · Pago: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.paid_cents)/100)} · Retenção: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.retention_cents)/100)} · Destino: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.amount_cents)/100)}</span>

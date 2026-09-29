@@ -5,10 +5,11 @@ import {resolutionAmounts} from "@/lib/partial-payment-resolution";
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(cents/100);
 
-export function PartialPaymentChoice({token, paidCents, existingChoice, retentionPercent}: {
-  token: string; paidCents: number; existingChoice?: "refund" | "credit" | null; retentionPercent: number;
+export function PartialPaymentChoice({token, paidCents, existingChoice, existingStatus, retentionPercent}: {
+  token: string; paidCents: number; existingChoice?: "refund" | "credit" | null; existingStatus?: string | null; retentionPercent: number;
 }) {
   const [choice, setChoice] = useState(existingChoice ?? null);
+  const [status, setStatus] = useState(existingStatus ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(!existingChoice);
@@ -24,13 +25,14 @@ export function PartialPaymentChoice({token, paidCents, existingChoice, retentio
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Não foi possível registrar sua escolha.");
-      setChoice(result.choice); setOpen(false);
+      setChoice(result.choice); setStatus(result.status); setOpen(false);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Tente novamente."); }
     finally { setBusy(false); }
   }
 
   return <>
-    {choice && <p className="status" role="status">Sua escolha foi registrada: {choice === "refund" ? `solicitação de estorno de ${money(paidCents-retention)} (retenção administrativa de ${money(retention)})` : `crédito de ${money(paidCents)} para outro bolão`}. Aguarde a conferência financeira.</p>}
+    {choice && <p className="status" role="status">{choice === "refund" ? `Estorno de ${money(paidCents-retention)} (retenção de ${money(retention)}): ${status === "completed" ? "devolvido pela Efí ao pagador original" : status === "processing" ? "solicitado à Efí; aguardando confirmação da devolução" : "registrado para tratamento financeiro"}.` : `Crédito de ${money(paidCents)} solicitado para outro bolão; ainda não lançado na carteira.`}</p>}
+    {choice === "refund" && status === "processing" && <button className="button secondary" type="button" disabled={busy} onClick={() => void submit("refund")}>ATUALIZAR STATUS DO ESTORNO</button>}
     {!choice && !open && <button className="button secondary" type="button" onClick={() => setOpen(true)}>ESCOLHER ESTORNO OU CRÉDITO</button>}
     {open && <div className="credit-choice-backdrop" role="dialog" aria-modal="true" aria-labelledby="partial-resolution-title">
       <div className="credit-choice-modal">

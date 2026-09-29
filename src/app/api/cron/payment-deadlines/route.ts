@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWaitlistPromotionPush } from "@/lib/push/participant-notifications";
+import {processPendingEfiRefunds} from "@/lib/efi-refunds";
 
 export const dynamic = "force-dynamic";
 
@@ -60,5 +61,6 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, expired, promoted, notified, awaitingRefund });
+  const refundsChecked = await processPendingEfiRefunds(5);
+  return NextResponse.json({ ok: true, expired, promoted, notified, awaitingRefund, refundsChecked });
 }
