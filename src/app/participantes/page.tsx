@@ -112,7 +112,7 @@ export default async function Page({
     );
   const { data: all } = await s
       .from("pools")
-      .select("id,title,lottery,total_shares,share_price_cents,public_slug")
+      .select("id,title,lottery,total_shares,share_price_cents,public_slug,payment_deadline,waitlist_payment_deadline")
       .eq("owner_id", a.user.id)
       .order("created_at", { ascending: false }),
     pools = all ?? [],
@@ -183,6 +183,11 @@ export default async function Page({
           Number(a.waitlist_position ?? Number.MAX_SAFE_INTEGER) -
           Number(b.waitlist_position ?? Number.MAX_SAFE_INTEGER),
       );
+  const overdueWithPayment = confirmed.filter((p) => {
+    const deadline = pool?.payment_deadline;
+    return deadline && new Date(deadline).getTime() < Date.now() &&
+      p.payment_status !== "confirmed" && (receivedByParticipant.get(p.id) ?? 0) > 0;
+  });
   return (
     <main className="shell participants-shell">
       <style>{`.paid-ticket{display:grid;grid-template-columns:30px 1fr 30px;align-items:stretch;min-height:58px;margin-top:10px;border:2px solid #31f46e;border-radius:12px;overflow:hidden;background:linear-gradient(180deg,#063817,#021b0b);box-shadow:0 0 12px rgba(49,244,110,.42),inset 0 0 12px rgba(49,244,110,.13);color:#fff}.paid-ticket-side{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#075826,#063b1a);color:#bfffd0;font-size:9px;font-weight:900;letter-spacing:.08em;writing-mode:vertical-rl;transform:rotate(180deg);border-right:1px dashed rgba(153,255,181,.55)}.paid-ticket-side:last-child{transform:none;border-right:0;border-left:1px dashed rgba(153,255,181,.55)}.paid-ticket strong{display:flex;align-items:center;justify-content:center;gap:7px;font-size:18px;letter-spacing:.08em;text-shadow:0 0 9px rgba(255,255,255,.55)}.paid-ticket i{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border:2px solid #56ff85;border-radius:50%;color:#56ff85;font-size:13px;font-style:normal;box-shadow:0 0 8px rgba(49,244,110,.55)}.notification-status{display:block;margin-top:7px;font-size:12px;font-weight:800}.notification-on{color:#52f47d}.notification-off{color:#f4c852}.share-count{font-weight:900}.share-count-double{font-weight:900!important;color:#fff!important}@media(max-width:520px){.paid-ticket{grid-template-columns:18px 1fr 18px;min-height:46px;margin-top:7px;border-radius:9px}.paid-ticket-side{font-size:7px}.paid-ticket strong{gap:3px;font-size:11px}.paid-ticket i{width:15px;height:15px;font-size:9px;border-width:1px}.notification-status{font-size:9px}}`}</style>
@@ -201,6 +206,10 @@ export default async function Page({
             ? `${pool.title} · ${used}/${pool.total_shares} cotas confirmadas`
             : "Crie um bolão antes de adicionar participantes."}
         </p>
+        {overdueWithPayment.length > 0 && <p className="status" role="alert">
+          {overdueWithPayment.length} reserva(s) vencida(s) com pagamento parcial aguardam conferência e devolução antes da liberação das vagas:
+          {overdueWithPayment.map(p => ` ${p.name} (${new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format((receivedByParticipant.get(p.id) ?? 0)/100)})`).join(";")}.
+        </p>}
         {pool && (
           <>
             <form className="form" action={addF}>

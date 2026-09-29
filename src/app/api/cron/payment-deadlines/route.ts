@@ -22,6 +22,7 @@ export async function GET(req: Request) {
 
   let expired = 0;
   let promoted = 0;
+  let awaitingRefund = 0;
   const promotedIds: string[] = [];
 
   for (const pool of pools ?? []) {
@@ -39,6 +40,11 @@ export async function GET(req: Request) {
     expired += expiredList.length;
     promoted += promotedList.length;
     promotedIds.push(...promotedList);
+    const { count, error: reviewError } = await s.from("participants")
+      .select("id", { count: "exact", head: true })
+      .eq("pool_id", pool.id).eq("status", "confirmed").eq("payment_status", "partial");
+    if (reviewError) console.error("partial payment review count failed", pool.id, reviewError);
+    else awaitingRefund += count ?? 0;
   }
 
   for (const participantId of promotedIds) {
@@ -49,5 +55,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, expired, promoted });
+  return NextResponse.json({ ok: true, expired, promoted, awaitingRefund });
 }

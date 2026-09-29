@@ -10,9 +10,9 @@ const kindLabel:Record<string,string>={credit:"Crédito recebido",prize:"Prêmio
 export default async function ParticipantWallet({params}:{params:Promise<{token:string}>}){
   const{token}=await params;
   const s=createAdminClient();
-  const{data:p}=await s.from("participants").select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents").eq("access_token",token).maybeSingle();
+  const{data:p}=await s.from("participants").select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents,payment_deadline_override").eq("access_token",token).maybeSingle();
   if(!p||p.status==="cancelled")return <main className="shell"><section className="section"><h1>Carteira indisponível</h1><p className="muted">Este link de participante não é válido.</p></section></main>;
-  const{data:pool}=await s.from("pools").select("owner_id,title,share_price_cents,payment_opens_at,payment_deadline").eq("id",p.pool_id).maybeSingle();
+  const{data:pool}=await s.from("pools").select("owner_id,title,share_price_cents,payment_opens_at,payment_deadline,waitlist_payment_deadline").eq("id",p.pool_id).maybeSingle();
   if(!pool)return <main className="shell"><section className="section"><h1>Carteira indisponível</h1></section></main>;
   let account:any=null,history:any[]=[];
   if(p.phone){
@@ -34,7 +34,8 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
   let accumulated=0,paidInstallments=0;
   while(paidInstallments<schedule.length&&accumulated+schedule[paidInstallments]<=paidTotal){accumulated+=schedule[paidInstallments];paidInstallments++}
   const remainingInstallments=schedule.slice(paidInstallments);
-  const now=Date.now(),opens=pool.payment_opens_at?new Date(pool.payment_opens_at).getTime():0,closes=pool.payment_deadline?new Date(pool.payment_deadline).getTime():0;
+  const deadline=p.payment_deadline_override||pool.payment_deadline;
+  const now=Date.now(),opens=pool.payment_opens_at?new Date(pool.payment_opens_at).getTime():0,closes=deadline?new Date(deadline).getTime():0;
   const paymentOpen=(!opens||now>=opens)&&(!closes||now<=closes);
   const automaticPixEnabled=Boolean(process.env.EFI_CLIENT_ID_PROD&&process.env.EFI_CLIENT_SECRET_PROD&&process.env.EFI_CERTIFICATE_BASE64&&process.env.EFI_PIX_KEY);
   return <main className="shell">
@@ -61,10 +62,10 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
     {plan&&!paid&&<section className="section installment-wallet-card">
       <p className="eyebrow">PAGAMENTO PARCIAL</p>
       <h2>🧾 Pagar parcelas</h2>
-      <p className="muted">Plano escolhido: <strong>{plan.installment_count}x</strong>. A cota será marcada como paga depois da quitação total.</p>
+      <p className="muted">Plano escolhido: <strong>{plan.installment_count}x</strong>. A cota será confirmada após a quitação total até {deadline?new Date(deadline).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"}):"o prazo do bolão"}. Se não for quitada, a reserva poderá ser cancelada após a conferência dos valores pagos.</p>
       <div className="installment-list">{schedule.map((value,index)=>{const installmentPaid=index<paidInstallments;return <div className={installmentPaid?"installment-row paid":"installment-row pending"} key={index}><span>Parcela {index+1}</span><strong>{money(value)}</strong><b>{installmentPaid?"Paga":"Pendente"}</b></div>})}</div>
       {!paymentOpen&&<p className="status">O pagamento das parcelas não está disponível fora do prazo do bolão.</p>}
-      {paymentOpen&&automaticPixEnabled&&remainingInstallments.length>0&&<EfiCheckout token={token} amountCents={due} creditCents={balance} installmentAmounts={remainingInstallments}/>}
+      {paymentOpen&&automaticPixEnabled&&remainingInstallments.length>0&&<EfiCheckout token={token} amountCents={due} creditCents={balance} installmentAmounts={remainingInstallments} paymentDeadline={deadline}/>}
     </section>}
     <section className="section">
       <h2>Histórico de créditos</h2>
