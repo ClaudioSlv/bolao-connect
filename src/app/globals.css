@@ -84,9 +84,10 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .pool-heading .app-logo-mark{width:1em;height:1em}
 .summary-clover{z-index:1;width:82px;height:82px;margin-top:2px}
 .summary-card>.summary-clover.app-logo-mark{width:82px;height:82px}
+.summary-juntasorte-logo{display:block;width:82px;height:82px;object-fit:contain;border-radius:20%;background:#000;box-shadow:0 0 0 1px rgba(247,201,72,.65),0 3px 10px rgba(0,0,0,.5)}
 .summary-content{min-width:0}
 .summary-card .summary-stats,.summary-card .summary-progress-head,.summary-card .progress{grid-column:1/-1}
-@media(max-width:390px){.summary-card{grid-template-columns:67px minmax(0,1fr);gap:12px}.summary-clover{width:67px;height:67px}.summary-card>.summary-clover.app-logo-mark{width:67px;height:67px}.summary-card h2{font-size:19px}.summary-value{display:block}.summary-value span{display:block;margin-top:5px}}
+@media(max-width:390px){.summary-card{grid-template-columns:67px minmax(0,1fr);gap:12px}.summary-clover{width:67px;height:67px}.summary-card>.summary-clover.app-logo-mark{width:67px;height:67px}.summary-juntasorte-logo{width:67px;height:67px}.summary-card h2{font-size:19px}.summary-value{display:block}.summary-value span{display:block;margin-top:5px}}
 
 
 /* Widget rolante em blocos completos, como no conceito aprovado */
