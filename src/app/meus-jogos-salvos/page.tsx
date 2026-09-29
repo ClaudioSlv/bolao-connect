@@ -135,16 +135,35 @@ export default function SavedGamesPage() {
 
   useEffect(() => {
     const requestedBack = new URLSearchParams(window.location.search).get("voltar");
-    if (requestedBack?.startsWith("/p/")) setBackHref(requestedBack);
+    if (requestedBack?.startsWith("/p/")) {
+      setBackHref(requestedBack);
+      const token = requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] ?? "";
+      if (token) {
+        fetch(`/api/personal-games?token=${encodeURIComponent(token)}`, { cache: "no-store" })
+          .then(async (response) => {
+            const data = await response.json().catch(() => null) as { games?: Array<{ id:string; lottery:string; contest:number; games:Game[]; createdAt:string }> } | null;
+            if (!response.ok) throw new Error("load");
+            const saved: Saved[] = (data?.games ?? []).map((item) => ({
+              id: item.id,
+              lottery: item.lottery,
+              label: item.lottery === "mega-sena" ? "Mega-Sena" : item.lottery === "lotofacil" ? "Lotofácil" : item.lottery,
+              games: withStableGameReferences(item.games),
+              createdAt: item.createdAt,
+              targetContest: item.contest,
+              totalCostCents: officialGamesCostCents(item.lottery, item.games),
+            }));
+            setItems(saved);
+            setSelectedLottery(saved[0]?.lottery ?? "");
+          })
+          .catch(() => setItems([]));
+        return;
+      }
+    }
     try {
       const value = JSON.parse(localStorage.getItem(KEY) || "[]");
       const saved = Array.isArray(value)
-        ? (value as Saved[]).map((item) => ({
-            ...item,
-            games: withStableGameReferences(item.games),
-          }))
+        ? (value as Saved[]).map((item) => ({ ...item, games: withStableGameReferences(item.games) }))
         : [];
-      localStorage.setItem(KEY, JSON.stringify(saved));
       setItems(saved);
       setSelectedLottery(saved[0]?.lottery ?? "");
     } catch {
