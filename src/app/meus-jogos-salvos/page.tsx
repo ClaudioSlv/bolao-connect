@@ -756,6 +756,10 @@ export default function SavedGamesPage() {
                               ? ` · ${money.format(checked.prize.value)}`
                               : ""}
                           </div>
+                        ) : item.lottery === "lotofacil" && checked.hits >= 11 ? (
+                          <div style={{ marginTop: 8, color: "#31d67b", fontWeight: 800 }}>
+                            PREMIADO — {checked.hits} acertos
+                          </div>
                         ) : (
                           <div className="muted" style={{ marginTop: 8 }}>
                             Não premiado — {checked.hits} acertos.
