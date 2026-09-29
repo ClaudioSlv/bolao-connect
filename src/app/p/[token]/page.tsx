@@ -208,6 +208,7 @@ export default async function Page({
       }
       let availablePools: any[] = [];
       let joinedPools: any[] = [];
+      let nextLotofacilPool: { contestNumber: number; drawAt: string | null; href: string } | null = null;
       if (pool?.owner_id && p.phone) {
         const normalizedPhone = phoneKey(p.phone);
         const { data: organizerPools } = await s
@@ -246,13 +247,31 @@ export default async function Page({
             .filter((item) => item.accessToken);
         }
         const currentTime = Date.now();
+        if (pool.lottery === "lotofacil" && Number(pool.contest_number) > 0 && Number(pool.contest_number) % 20 === 0) {
+          const nextContest = Number(pool.contest_number) + 20;
+          const next = (organizerPools ?? []).find(
+            (item) => item.lottery === "lotofacil" && Number(item.contest_number) === nextContest &&
+              item.public_slug && item.status === "open" &&
+              new Date(item.payment_deadline).getTime() > currentTime,
+          );
+          if (next) {
+            const existingToken = membershipToken.get(next.id);
+            const query = new URLSearchParams({ name: p.name, phone: p.phone });
+            nextLotofacilPool = {
+              contestNumber: nextContest,
+              drawAt: next.draw_at,
+              href: existingToken ? `/p/${existingToken}` : `/bolao/${next.public_slug}/entrar?${query}`,
+            };
+          }
+        }
         availablePools = (organizerPools ?? []).filter(
           (item) => item.public_slug && item.status === "open" &&
             new Date(item.payment_deadline).getTime() > currentTime &&
-            item.id !== p.pool_id && !joined.has(item.id),
+            item.id !== p.pool_id && !joined.has(item.id) &&
+            !(nextLotofacilPool && item.lottery === "lotofacil" && Number(item.contest_number) === nextLotofacilPool.contestNumber),
         );
       }
-      data = { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount };
+      data = { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount, nextLotofacilPool };
     }
   } catch {}
   if (!data?.p || !data?.pool)
@@ -263,7 +282,7 @@ export default async function Page({
         </section>
       </main>
     );
-  const { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount } = data,
+  const { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount, nextLotofacilPool } = data,
     isTest = Boolean(p.is_test),
     amount = isTest
       ? Number(p.test_amount_cents || 100)
@@ -287,7 +306,8 @@ export default async function Page({
     paymentNotStarted = !isTest && Boolean(opens && now < opens),
     paymentClosed = !isTest && Boolean(closes && now > closes),
     isWaitlisted = p.status === "waitlisted",
-    isExpired = p.status === "expired";
+    isExpired = p.status === "expired",
+    isLotofacilSeries = pool.lottery === "lotofacil" && Number(pool.contest_number) > 0 && Number(pool.contest_number) % 20 === 0;
   return (
     <main className="shell">
       <ReservationConfirmedModal
@@ -409,7 +429,23 @@ export default async function Page({
           </p>
         </section>
       )}
-      {acceptance && !paid && isExpired && (
+      {acceptance && !paid && !isWaitlisted && (isExpired || paymentClosed) && isLotofacilSeries && (
+        <section className="section">
+          <h2>🔴 Prazo encerrado para o concurso {pool.contest_number}</h2>
+          <p className="muted">
+            O prazo para pagar a cota do concurso {pool.contest_number} já terminou.
+            {nextLotofacilPool ? ` Você quer participar do bolão da Lotofácil para o concurso ${nextLotofacilPool.contestNumber},` : ` O próximo bolão da série será para o concurso ${Number(pool.contest_number) + 20},`}
+            {nextLotofacilPool?.drawAt
+              ? ` previsto para ${new Date(nextLotofacilPool.drawAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}?`
+              : nextLotofacilPool ? " com data do sorteio a confirmar?" : " com data do sorteio a confirmar. Aguarde a abertura das inscrições."}
+          </p>
+          <p className="status">O pagamento do concurso {pool.contest_number} não está mais disponível.</p>
+          {nextLotofacilPool && <Link className="button primary" href={nextLotofacilPool.href}>
+            QUERO PARTICIPAR DO CONCURSO {nextLotofacilPool.contestNumber}
+          </Link>}
+        </section>
+      )}
+      {acceptance && !paid && isExpired && !isLotofacilSeries && (
         <section className="section">
           <h2>🔴 Prazo de pagamento encerrado</h2>
           <p className="muted">Sua reserva não foi paga dentro do prazo e a cota foi disponibilizada para a lista de espera.</p>
@@ -446,7 +482,7 @@ export default async function Page({
           </Link>
         </section>
       )}
-      {acceptance && !paid && !isWaitlisted && !isExpired && paymentClosed && (
+      {acceptance && !paid && !isWaitlisted && !isExpired && paymentClosed && !isLotofacilSeries && (
         <section className="section">
           <h2>🔴 Pagamentos encerrados</h2>
           <p className="muted">
