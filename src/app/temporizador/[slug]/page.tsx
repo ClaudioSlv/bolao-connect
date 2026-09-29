@@ -10,6 +10,7 @@ import { ScrollPageTop } from "@/components/scroll-page-top";
 import { getOrganizerBrand } from "@/lib/organizer-brand";
 import { participantAccessCookieName } from "@/lib/participant-access-cookie";
 import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
+import { AppLogoMark } from "@/components/app-logo-mark";
 export const dynamic = "force-dynamic";
 const money = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -86,7 +87,7 @@ export default async function TimerPage({
         <section className="section" style={{ textAlign: "center" }}>
           {brand.logoUrl&&<img src={brand.logoUrl} alt="" width="58" height="58" style={{borderRadius:15,objectFit:"cover"}}/>}
           <p className="eyebrow">{brand.name.toUpperCase()}</p>
-          <h1>🍀 {pool.title}</h1>
+          <h1 className="pool-heading"><AppLogoMark />{pool.title}</h1>
           <p className="muted">
             {pool.lottery}
             {pool.contest_number ? ` · Concurso ${pool.contest_number}` : ""}

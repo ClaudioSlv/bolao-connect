@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JoinPoolForm } from "@/components/join-pool-form";
+import { AppLogoMark } from "@/components/app-logo-mark";
 import { participantAccessCookieName } from "@/lib/participant-access-cookie";
 import {
   DEFAULT_POOL_RULES,
@@ -177,7 +178,7 @@ export default async function JoinPool({
       </Link>
       <section className="section">
         <p className="eyebrow">PARTICIPAR DO BOLÃO</p>
-        <h1>🍀 {pool.title}</h1>
+        <h1 className="pool-heading"><AppLogoMark />{pool.title}</h1>
         <p className="muted">
           {pool.lottery} ·{" "}
           {available > 0

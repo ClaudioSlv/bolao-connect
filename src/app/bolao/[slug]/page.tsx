@@ -6,6 +6,7 @@ import { TimerReminderOptIn } from "@/components/timer-reminder-opt-in";
 import { getOrganizerBrand } from "@/lib/organizer-brand";
 import { JoinPoolButton } from "@/components/join-pool-button";
 import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
+import { AppLogoMark } from "@/components/app-logo-mark";
 
 const money = (c: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -87,7 +88,7 @@ export default async function PublicPool({
       <TimerReminderOptIn slug={slug} />
       <section className="section">
         <div style={{display:"flex",alignItems:"center",gap:12}}>{organizerBrand.logoUrl&&<img src={organizerBrand.logoUrl} alt="" width="52" height="52" style={{borderRadius:14,objectFit:"cover"}}/>}<p className="eyebrow">{organizerBrand.name.toUpperCase()}</p></div>
-        <h1>🍀 {pool.title}</h1>
+        <h1 className="pool-heading"><AppLogoMark />{pool.title}</h1>
         <p className="muted">
           {pool.lottery}
           {pool.contest_number ? ` · Concurso ${pool.contest_number}` : ""}

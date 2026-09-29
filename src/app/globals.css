@@ -79,10 +79,14 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 
 /* Trevo do cartão de arrecadação */
 .summary-card{display:grid;grid-template-columns:82px minmax(0,1fr);gap:16px;align-items:start}
-.summary-clover{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:82px;height:82px;margin-top:2px;font-size:63px;line-height:1;filter:drop-shadow(0 5px 5px rgba(0,0,0,.55)) drop-shadow(0 0 10px rgba(247,201,72,.28));transform:rotate(-6deg)}
+.app-logo-mark{position:relative;display:inline-block;flex:none;width:1.2em;height:1.2em;overflow:hidden;border-radius:20%;background:#000;vertical-align:middle;box-shadow:0 0 0 1px rgba(247,201,72,.65),0 3px 10px rgba(0,0,0,.5)}
+.app-logo-mark img{display:block;width:100%;height:100%;object-fit:contain}
+.pool-heading{display:flex;align-items:center;justify-content:center;gap:.3em}
+.pool-heading .app-logo-mark{width:1em;height:1em}
+.summary-clover{z-index:1;width:82px;height:82px;margin-top:2px;filter:drop-shadow(0 5px 5px rgba(0,0,0,.55)) drop-shadow(0 0 10px rgba(247,201,72,.28))}
 .summary-content{min-width:0}
 .summary-card .summary-stats,.summary-card .summary-progress-head,.summary-card .progress{grid-column:1/-1}
-@media(max-width:390px){.summary-card{grid-template-columns:67px minmax(0,1fr);gap:12px}.summary-clover{width:67px;height:67px;font-size:52px}.summary-card h2{font-size:19px}.summary-value{display:block}.summary-value span{display:block;margin-top:5px}}
+@media(max-width:390px){.summary-card{grid-template-columns:67px minmax(0,1fr);gap:12px}.summary-clover{width:67px;height:67px}.summary-card h2{font-size:19px}.summary-value{display:block}.summary-value span{display:block;margin-top:5px}}
 
 
 /* Widget rolante em blocos completos, como no conceito aprovado */
