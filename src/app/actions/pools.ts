@@ -9,6 +9,7 @@ import { DEFAULT_APP_BRAND } from "@/lib/organizer-brand";
 import { sendWaitlistPromotionPush } from "@/lib/push/participant-notifications";
 import { sendNewPoolPush } from "@/lib/send-new-pool-push";
 import {removeOrganizerImage,uploadOrganizerImage} from "@/lib/organizer-images";
+import {DEFAULT_POOL_RULES_VERSION} from "@/lib/pool-rules";
 
 const LOTTERIES: LotteryId[] = [
   "mega-sena",
@@ -128,6 +129,7 @@ export async function createPool(input: CreatePoolInput) {
     game_plan: input.gamePlan ?? null,
     status: "open",
     public_slug: publicSlug,
+    rules_version: DEFAULT_POOL_RULES_VERSION,
   };
   const { data, error } = await supabase
     .from("pools")

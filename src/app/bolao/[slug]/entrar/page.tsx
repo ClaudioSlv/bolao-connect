@@ -6,7 +6,7 @@ import { JoinPoolForm } from "@/components/join-pool-form";
 import { AppLogoMark } from "@/components/app-logo-mark";
 import { participantAccessCookieName } from "@/lib/participant-access-cookie";
 import {
-  DEFAULT_POOL_RULES,
+  defaultRulesForVersion,
   DEFAULT_POOL_RULES_VERSION,
 } from "@/lib/pool-rules";
 export const dynamic = "force-dynamic";
@@ -75,8 +75,8 @@ async function joinPool(form: FormData) {
   const participant = Array.isArray(data) ? data[0] : data;
   if (!participant?.access_token)
     throw new Error("Não foi possível gerar o acesso do participante.");
-  const rulesText = pool.rules_text || DEFAULT_POOL_RULES,
-    rulesVersion = Number(pool.rules_version || DEFAULT_POOL_RULES_VERSION);
+  const rulesVersion = Number(pool.rules_version || DEFAULT_POOL_RULES_VERSION),
+    rulesText = pool.rules_text || defaultRulesForVersion(rulesVersion);
   const { error: acceptanceError } = await s
     .from("pool_rule_acceptances")
     .upsert(
@@ -247,7 +247,7 @@ export default async function JoinPool({
             <JoinPoolForm
               action={joinPool}
               slug={slug}
-              rules={pool.rules_text || DEFAULT_POOL_RULES}
+              rules={pool.rules_text || defaultRulesForVersion(Number(pool.rules_version || DEFAULT_POOL_RULES_VERSION))}
               defaultName={q.name}
               defaultPhone={q.phone}
               defaultShares={q.shares}

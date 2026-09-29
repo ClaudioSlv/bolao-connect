@@ -152,6 +152,9 @@ export default async function Page({
         .eq("status", "pending")
     : { data: [] };
   const admin = createAdminClient();
+  const {data: resolutionRequests} = pool ? await admin.from("partial_payment_resolution_choices")
+    .select("participant_id,choice,paid_cents,retention_cents,amount_cents,status,created_at")
+    .eq("pool_id", pool.id).eq("status", "pending_review").order("created_at", {ascending: true}) : {data: []};
   const { data: pushSubs } = ids.length
     ? await admin
         .from("push_subscriptions")
@@ -210,6 +213,16 @@ export default async function Page({
           {overdueWithPayment.length} reserva(s) vencida(s) com pagamento parcial aguardam conferência e devolução antes da liberação das vagas:
           {overdueWithPayment.map(p => ` ${p.name} (${new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format((receivedByParticipant.get(p.id) ?? 0)/100)})`).join(";")}.
         </p>}
+        {(resolutionRequests?.length ?? 0) > 0 && <section className="section">
+          <h2>Valores vencidos para conferir</h2>
+          <p className="muted">Confira cada pagamento e conclua o estorno pela Efí ou registre o crédito antes de liberar a vaga. A escolha abaixo ainda não movimentou dinheiro.</p>
+          {resolutionRequests?.map(request => <div className="list-item" key={request.participant_id}>
+            <strong>{visible.find(p => p.id === request.participant_id)?.name ?? "Participante"}</strong>
+            <span>{request.choice === "refund" ? "Estorno solicitado" : "Crédito solicitado"} · Pago: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.paid_cents)/100)} · Retenção: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.retention_cents)/100)} · Destino: {new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(Number(request.amount_cents)/100)}</span>
+          </div>)}
+          <Link className="button secondary" href="/menu/estornar-pagamento">CONFERIR ESTORNOS</Link>
+          <Link className="button secondary" href="/carteira/creditos">CONFERIR CRÉDITOS</Link>
+        </section>}
         {pool && (
           <>
             <form className="form" action={addF}>

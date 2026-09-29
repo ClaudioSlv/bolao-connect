@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ReminderOptIn } from "@/components/reminder-opt-in";
 import { ReservationConfirmedModal } from "@/components/reservation-confirmed-modal";
 import { EfiCheckout } from "@/components/efi-checkout";
+import { PartialPaymentChoice } from "@/components/partial-payment-choice";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import { AvailablePoolsNotice } from "@/components/available-pools-notice";
@@ -13,7 +14,7 @@ import { ParticipantPoolSwitcher } from "@/components/participant-pool-switcher"
 import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
 import { AppLogoMark } from "@/components/app-logo-mark";
 import {
-  DEFAULT_POOL_RULES,
+  defaultRulesForVersion,
   DEFAULT_POOL_RULES_VERSION,
 } from "@/lib/pool-rules";
 import { participantAccessCookieName } from "@/lib/participant-access-cookie";
@@ -45,8 +46,8 @@ async function acceptRules(f: FormData) {
     .select("rules_text,rules_version")
     .eq("id", p.pool_id)
     .maybeSingle();
-  const text = pool?.rules_text || DEFAULT_POOL_RULES,
-    version = Number(pool?.rules_version || DEFAULT_POOL_RULES_VERSION);
+  const version = Number(pool?.rules_version || DEFAULT_POOL_RULES_VERSION),
+    text = pool?.rules_text || defaultRulesForVersion(version);
   const { error } = await s.from("pool_rule_acceptances").upsert(
     {
       pool_id: p.pool_id,
@@ -272,7 +273,9 @@ export default async function Page({
             !(nextLotofacilPool && item.lottery === "lotofacil" && Number(item.contest_number) === nextLotofacilPool.contestNumber),
         );
       }
-      data = { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount, nextLotofacilPool };
+      const {data: resolutionChoice} = await s.from("partial_payment_resolution_choices")
+        .select("choice").eq("participant_id", p.id).maybeSingle();
+      data = { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount, nextLotofacilPool, resolutionChoice };
     }
   } catch {}
   if (!data?.p || !data?.pool)
@@ -283,7 +286,7 @@ export default async function Page({
         </section>
       </main>
     );
-  const { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount, nextLotofacilPool } = data,
+  const { p, pool, sub, acceptance, credit, paidCents, paymentPlan, availablePools, joinedPools, paymentAccount, nextLotofacilPool, resolutionChoice } = data,
     isTest = Boolean(p.is_test),
     amount = isTest
       ? Number(p.test_amount_cents || 100)
@@ -292,7 +295,7 @@ export default async function Page({
     paid = p.payment_status === "confirmed",
     automaticPixEnabled = isTest || Boolean(process.env.EFI_CLIENT_ID_PROD && process.env.EFI_CLIENT_SECRET_PROD && process.env.EFI_CERTIFICATE_BASE64 && process.env.EFI_PIX_KEY),
     manualPixKey = "13991320205",
-    rules = pool.rules_text || DEFAULT_POOL_RULES;
+    rules = pool.rules_text || defaultRulesForVersion(Number(pool.rules_version || DEFAULT_POOL_RULES_VERSION));
   const now = Date.now(),
     opens = pool.payment_opens_at
       ? new Date(pool.payment_opens_at).getTime()
@@ -316,6 +319,8 @@ export default async function Page({
         accepted={Boolean(acceptance)}
         justAccepted={rulesStatus === "accepted"}
       />
+      {acceptance && !isTest && paymentClosed && !paid && !isWaitlisted && Number(pool.rules_version) >= 6 && Number(paidCents) > 0 &&
+        <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined}/>}
       <AvailablePoolsNotice
         pools={availablePools}
         participant={{ token, name: p.name, phone: p.phone }}
@@ -501,7 +506,7 @@ export default async function Page({
             {automaticPixEnabled&&<span>O QR Code será vinculado automaticamente ao seu cadastro.</span>}
           </div>
           <>
-              {automaticPixEnabled&&<><p className="muted">{paymentPlan ? `Pagamento parcial ativo em ${paymentPlan.installment_count}x. Você pode quitar o restante integralmente ou continuar pelas parcelas.` : "Escolha pagar integralmente ou dividir em parcelas. A cota muda para Pago somente após a quitação total."}</p><EfiCheckout token={token} amountCents={due} planTotalCents={amount} creditCents={credit} existingPlanCount={paymentPlan?.installment_count} paymentDeadline={p.payment_deadline_override || pool.payment_deadline}/></>}
+              {automaticPixEnabled&&<><p className="muted">{paymentPlan ? `Pagamento parcial ativo em ${paymentPlan.installment_count}x. Você pode quitar o restante integralmente ou continuar pelas parcelas.` : "Escolha pagar integralmente ou dividir em parcelas. A cota muda para Pago somente após a quitação total."}</p><EfiCheckout token={token} amountCents={due} planTotalCents={amount} creditCents={credit} existingPlanCount={paymentPlan?.installment_count} paymentDeadline={p.payment_deadline_override || pool.payment_deadline} refundRetentionPercent={Number(pool.rules_version) >= 6 ? 3 : 0}/></>}
               {!isTest && !automaticPixEnabled && <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}

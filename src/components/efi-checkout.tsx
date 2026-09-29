@@ -7,7 +7,7 @@ type Pix = { qrCodeText: string; qrCodeImage: string; amountCents?: number; cred
 type PaymentRequest = { paymentMode: "full" | "partial"; installmentCount?: number; installmentsToPay?: number; targetCents: number };
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
-export function EfiCheckout({ token, amountCents, creditCents, installmentAmounts = [], existingPlanCount, planTotalCents = amountCents, paymentDeadline }: {
+export function EfiCheckout({ token, amountCents, creditCents, installmentAmounts = [], existingPlanCount, planTotalCents = amountCents, paymentDeadline, refundRetentionPercent = 0 }: {
   token: string;
   amountCents: number;
   creditCents: number;
@@ -15,6 +15,7 @@ export function EfiCheckout({ token, amountCents, creditCents, installmentAmount
   existingPlanCount?: number;
   planTotalCents?: number;
   paymentDeadline?: string | null;
+  refundRetentionPercent?: number;
 }) {
   const [busy, setBusy] = useState(false);
   const [pix, setPix] = useState<Pix | null>(null);
@@ -31,7 +32,7 @@ export function EfiCheckout({ token, amountCents, creditCents, installmentAmount
   const maximumInstallments = maxInstallments(planTotalCents);
   const selectedWalletAmount = useMemo(() => installmentAmounts.slice(0, units).reduce((sum, value) => sum + value, 0), [installmentAmounts, units]);
   const deadlineLabel = paymentDeadline ? new Date(paymentDeadline).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "o prazo informado no bolão";
-  const installmentRule = `A cota só será confirmada após a quitação de 100% até ${deadlineLabel}. Se o prazo terminar com saldo pendente, a reserva poderá ser cancelada e a vaga oferecida à lista de espera. Valores já pagos serão devolvidos conforme as regras do bolão.`;
+  const installmentRule = `A cota só será confirmada após a quitação de 100% até ${deadlineLabel}. Se o prazo terminar com saldo pendente, a reserva poderá ser cancelada e a vaga oferecida à lista de espera. ${refundRetentionPercent ? `Você poderá manter 100% do valor pago como crédito. Se optar pelo estorno, haverá retenção administrativa de ${refundRetentionPercent}% do valor pago, com devolução do restante.` : "Valores já pagos serão devolvidos conforme as regras do bolão."}`;
 
   function prepare(request: PaymentRequest) {
     setChoosingMode(false); setChoosingCount(false); setChoosingUnits(false); setPending(request);
