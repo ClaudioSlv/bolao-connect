@@ -40,8 +40,8 @@ export async function confirmPayment(input: {
     .eq("id", input.participantId)
     .eq("pool_id", input.poolId)
     .single();
-  if (!p || p.status === "cancelled")
-    throw new Error("Participante não encontrado.");
+  if (!p || p.status !== "confirmed")
+    throw new Error("Esta vaga não está mais reservada. Não confirme pagamento para uma cota liberada.");
   if (p.is_test)
     throw new Error("Pagamento de teste não pode ser confirmado financeiramente.");
   if (p.payment_status === "confirmed")

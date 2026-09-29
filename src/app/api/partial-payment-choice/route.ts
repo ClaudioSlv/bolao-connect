@@ -15,7 +15,9 @@ export async function POST(request: Request) {
   const {data: p} = await s.from("participants")
     .select("id,pool_id,status,payment_status,is_test,payment_deadline_override")
     .eq("access_token", token).maybeSingle();
-  if (!p || p.is_test || !["confirmed", "expired"].includes(p.status) || p.payment_status === "confirmed")
+  if (p?.payment_status === "confirmed")
+    return NextResponse.json({error: "Sua cota está quitada. Estorno e crédito indisponíveis."}, {status: 409});
+  if (!p || p.is_test || !["confirmed", "expired"].includes(p.status))
     return NextResponse.json({error: "Esta reserva não pode ser encerrada por aqui."}, {status: 403});
   const {data: pool} = await s.from("pools").select("rules_version,payment_deadline")
     .eq("id", p.pool_id).maybeSingle();

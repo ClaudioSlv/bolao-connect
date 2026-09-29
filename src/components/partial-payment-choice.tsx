@@ -36,11 +36,12 @@ export function PartialPaymentChoice({token, paidCents, existingChoice, retentio
       <div className="credit-choice-modal">
         <button className="credit-choice-close" type="button" onClick={() => setOpen(false)} aria-label="Fechar">×</button>
         <h2 id="partial-resolution-title">Prazo encerrado: escolha o destino do valor pago</h2>
-        <p>Você pagou <strong>{money(paidCents)}</strong>, mas a cota não foi quitada até o prazo. Sua participação não será confirmada.</p>
+        <p>Você pagou <strong>{money(paidCents)}</strong>, mas a cota não foi quitada até o prazo. Após 24 horas de conciliação, a vaga será oferecida à próxima pessoa da fila.</p>
+        <p>Você também pode falar com o organizador para combinar um Pix direto. Se ele confirmar a quitação da sua cota enquanto a vaga ainda estiver reservada, esta escolha de estorno ou crédito será encerrada.</p>
         <p className="status">{retentionPercent ? <>Se optar pelo estorno, haverá retenção administrativa de <strong>{retentionPercent}% do valor pago ({money(retention)})</strong>. Você receberá <strong>{money(paidCents-retention)}</strong>.</> : <>Se optar pelo estorno, você receberá <strong>100% do valor pago ({money(paidCents)})</strong>.</>}</p>
         <button className="button primary" type="button" disabled={busy} onClick={() => void submit("refund")}>SOLICITAR ESTORNO DE {money(paidCents-retention)}</button>
         <button className="button secondary" type="button" disabled={busy} onClick={() => void submit("credit")}>MANTER {money(paidCents)} COMO CRÉDITO</button>
-        <p className="muted">Sua escolha será registrada e os valores passarão por conferência antes da liberação da vaga.</p>
+        <p className="muted">Sua escolha financeira é independente da liberação da vaga. O pedido será registrado para execução financeira.</p>
         {error && <p className="status" role="alert">{error}</p>}
       </div>
     </div>}
