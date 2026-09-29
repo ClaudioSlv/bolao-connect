@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseMoneyToCents, splitPrize } from "@/lib/admin-finance";
 const digits = (v: string) => v.replace(/\D/g, "");
 async function owner(poolId: string) {
@@ -150,6 +151,10 @@ export async function correctPayment(form: FormData) {
     .single();
   if (!p || p.status === "cancelled")
     throw new Error("Pagamento não encontrado.");
+  const {data:automatedRefund,error:refundLookupError}=await createAdminClient().from("efi_refund_items")
+    .select("payment_id").eq("payment_id",paymentId).maybeSingle();
+  if(refundLookupError)throw new Error("Não foi possível conferir a devolução da Efí.");
+  if(automatedRefund)throw new Error("Este Pix está em devolução automática pela Efí. Confira o estorno na tela Pessoas; não faça a correção manual.");
   if (p.is_test)
     throw new Error("Pagamento de teste não pode alterar o financeiro do bolão.");
   if (Number(p.credit_used_cents || 0) > 0)
@@ -205,6 +210,10 @@ export async function reversePayment(form: FormData) {
     .single();
   if (!p || p.status === "cancelled")
     throw new Error("Pagamento não encontrado.");
+  const {data:automatedRefund,error:refundLookupError}=await createAdminClient().from("efi_refund_items")
+    .select("payment_id").eq("payment_id",paymentId).maybeSingle();
+  if(refundLookupError)throw new Error("Não foi possível conferir a devolução da Efí.");
+  if(automatedRefund)throw new Error("Este Pix está em devolução automática pela Efí. Confira o estorno na tela Pessoas; não faça o estorno manual.");
   if (p.is_test)
     throw new Error("Pagamento de teste não pode alterar o financeiro do bolão.");
   if (Number(p.credit_used_cents || 0) > 0)
