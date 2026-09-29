@@ -30,6 +30,11 @@ export async function POST(request: Request) {
     const { data: p } = await s.from("participants").select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents,payment_deadline_override").eq("access_token", token).maybeSingle();
     if (!p || p.status !== "confirmed") return NextResponse.json({ error: "Esta participação não está disponível para pagamento." }, { status: 404 });
     if (p.payment_status === "confirmed") return NextResponse.json({ error: "Esta cota já está paga." }, { status: 409 });
+    const {data:resolution,error:resolutionError}=await s.from("partial_payment_resolution_choices")
+      .select("choice,status").eq("participant_id",p.id).maybeSingle();
+    if(resolutionError)return NextResponse.json({error:"Não foi possível conferir a escolha financeira."},{status:500});
+    if(resolution&&resolution.status!=="cancelled_paid")
+      return NextResponse.json({error:"Esta participação já tem estorno ou crédito solicitado. Não é possível gerar outro QR Code."},{status:409});
     const { data: pool } = await s.from("pools").select("id,owner_id,title,share_price_cents,payment_opens_at,payment_deadline,rules_version").eq("id", p.pool_id).maybeSingle();
     if (!pool) return NextResponse.json({ error: "Bolão não encontrado." }, { status: 404 });
 
