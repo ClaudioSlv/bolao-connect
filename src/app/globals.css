@@ -439,7 +439,9 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 /* Meus bolões: cartões lado a lado com gesto horizontal */
 .pool-carousel{display:flex;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scroll-padding-inline:0;padding:2px 26px 14px 0;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;scrollbar-width:none}
 .pool-carousel::-webkit-scrollbar{display:none}
-.pool-carousel-card{flex:0 0 calc(100% - 26px);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+.pool-carousel-card{position:relative;flex:0 0 calc(100% - 26px);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+.pool-card-logo{position:absolute;right:8px;bottom:8px;z-index:2;width:clamp(88px,18%,112px);aspect-ratio:1536/566;overflow:hidden;border:1px solid rgba(255,210,71,.75);border-radius:8px;background:#000;box-shadow:0 2px 10px rgba(0,0,0,.8);pointer-events:none}
+.pool-card-logo img{display:block;width:100%;height:100%;object-fit:contain}
 .pool-carousel-card:focus-visible{outline:2px solid #f7c948;outline-offset:3px}
 @media(prefers-reduced-motion:no-preference){.pool-carousel{scroll-behavior:smooth}}
 .participant-pool-switcher{padding:16px;border:1px solid #294332;border-radius:20px;background:rgba(10,29,17,.88)}
