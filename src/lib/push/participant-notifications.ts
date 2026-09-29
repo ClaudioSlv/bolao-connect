@@ -33,5 +33,7 @@ export async function sendWaitlistPromotionPush(participantId:string){
     }
   }
   await s.from("audit_events").insert({pool_id:p.pool_id,event_type:"waitlist_promotion_push",entity_type:"participant",entity_id:p.id,details:{sent,brand:brand.name}});
+  await s.from("waitlist_promotion_outbox").update({dispatched_at:new Date().toISOString()})
+    .eq("pool_id",p.pool_id).eq("participant_id",p.id).is("dispatched_at",null);
   return {sent,skipped:false};
 }

@@ -54,12 +54,12 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
         {appliedPayments>0&&<div className="wallet-row"><span>Crédito utilizado nesta cota</span><strong>{money(appliedPayments)}</strong></div>}
       </div>
       {paid&&<p className="status">✓ Pagamento confirmado</p>}
-      {!paid&&paidTotal>0&&<p className="status">Pagamento parcial confirmado · falta {money(due)}</p>}
+      {!paid&&paidTotal>0&&<p className="status">{p.status==="expired" ? `Reserva encerrada · ${money(paidTotal)} pago. Escolha estorno ou crédito na sua participação.` : `Pagamento parcial confirmado · falta ${money(due)}`}</p>}
       <Link className="button secondary" href={`/p/${token}/comprovantes`}>
         📷 VER COMPROVANTES DOS JOGOS
       </Link>
     </section>
-    {plan&&!paid&&<section className="section installment-wallet-card">
+    {plan&&!paid&&p.status!=="expired"&&<section className="section installment-wallet-card">
       <p className="eyebrow">PAGAMENTO PARCIAL</p>
       <h2>🧾 Pagar parcelas</h2>
       <p className="muted">Plano escolhido: <strong>{plan.installment_count}x</strong>. A cota será confirmada após a quitação total até {deadline?new Date(deadline).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"}):"o prazo do bolão"}. Se não for quitada, a reserva poderá ser cancelada após a conferência dos valores pagos.</p>

@@ -5,14 +5,14 @@ import {resolutionAmounts} from "@/lib/partial-payment-resolution";
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", {style:"currency",currency:"BRL"}).format(cents/100);
 
-export function PartialPaymentChoice({token, paidCents, existingChoice}: {
-  token: string; paidCents: number; existingChoice?: "refund" | "credit" | null;
+export function PartialPaymentChoice({token, paidCents, existingChoice, retentionPercent}: {
+  token: string; paidCents: number; existingChoice?: "refund" | "credit" | null; retentionPercent: number;
 }) {
   const [choice, setChoice] = useState(existingChoice ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(!existingChoice);
-  const {retentionCents: retention} = resolutionAmounts(paidCents, "refund");
+  const {retentionCents: retention} = resolutionAmounts(paidCents, "refund", retentionPercent);
 
   async function submit(selected: "refund" | "credit") {
     if (busy) return;
@@ -37,7 +37,7 @@ export function PartialPaymentChoice({token, paidCents, existingChoice}: {
         <button className="credit-choice-close" type="button" onClick={() => setOpen(false)} aria-label="Fechar">×</button>
         <h2 id="partial-resolution-title">Prazo encerrado: escolha o destino do valor pago</h2>
         <p>Você pagou <strong>{money(paidCents)}</strong>, mas a cota não foi quitada até o prazo. Sua participação não será confirmada.</p>
-        <p className="status">Se optar pelo estorno, haverá retenção administrativa de <strong>3% do valor pago ({money(retention)})</strong>. Você receberá <strong>{money(paidCents-retention)}</strong>.</p>
+        <p className="status">{retentionPercent ? <>Se optar pelo estorno, haverá retenção administrativa de <strong>{retentionPercent}% do valor pago ({money(retention)})</strong>. Você receberá <strong>{money(paidCents-retention)}</strong>.</> : <>Se optar pelo estorno, você receberá <strong>100% do valor pago ({money(paidCents)})</strong>.</>}</p>
         <button className="button primary" type="button" disabled={busy} onClick={() => void submit("refund")}>SOLICITAR ESTORNO DE {money(paidCents-retention)}</button>
         <button className="button secondary" type="button" disabled={busy} onClick={() => void submit("credit")}>MANTER {money(paidCents)} COMO CRÉDITO</button>
         <p className="muted">Sua escolha será registrada e os valores passarão por conferência antes da liberação da vaga.</p>

@@ -2,7 +2,7 @@ export const DEFAULT_POOL_RULES = `1. Divisão do prêmio — Qualquer prêmio o
 
 2. Cotas — Cada participante terá direito à quantidade de cotas adquiridas e confirmadas no respectivo bolão.
 
-3. Reserva e quitação da cota — Pagamentos parciais mantêm a reserva durante o prazo, mas a participação somente será confirmada após a quitação de 100% do valor até a data e o horário limite informados para o bolão. Sem a quitação, a reserva poderá ser cancelada e a vaga oferecida à lista de espera. O participante poderá optar por manter 100% do valor pago como crédito para outro bolão ou solicitar o estorno. Na opção de estorno, haverá retenção administrativa de 3% do valor pago, previamente informada, e devolução dos 97% restantes. Esta retenção não é a tarifa cobrada pela Efí Bank.
+3. Reserva e quitação da cota — Pagamentos parciais mantêm a reserva durante o prazo, mas a participação somente será confirmada após a quitação de 100% do valor até a data e o horário limite informados para o bolão. O prazo não é prorrogado para novos pagamentos. Se houver saldo pendente, a vaga será liberada para a lista de espera após 24 horas destinadas à conciliação dos pagamentos realizados. A escolha sobre o valor pago não impede a liberação da vaga. O participante poderá optar por manter 100% do valor pago como crédito para outro bolão ou solicitar o estorno. Na opção de estorno, haverá retenção administrativa de 3% do valor pago, previamente informada, e devolução dos 97% restantes. Esta retenção não é a tarifa cobrada pela Efí Bank.
 
 4. Desistência — Caso o participante desista voluntariamente após realizar pagamento parcial ou integral, o valor já pago não será ressarcido, conforme as condições previamente aceitas para aquele bolão.
 

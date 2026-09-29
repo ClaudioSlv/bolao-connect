@@ -319,8 +319,8 @@ export default async function Page({
         accepted={Boolean(acceptance)}
         justAccepted={rulesStatus === "accepted"}
       />
-      {acceptance && !isTest && paymentClosed && !paid && !isWaitlisted && Number(pool.rules_version) >= 6 && Number(paidCents) > 0 &&
-        <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined}/>}
+      {acceptance && !isTest && paymentClosed && !paid && !isWaitlisted && Number(pool.rules_version) >= 5 && Number(paidCents) > 0 &&
+        <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined} retentionPercent={Number(pool.rules_version) >= 6 ? 3 : 0}/>}
       <AvailablePoolsNotice
         pools={availablePools}
         participant={{ token, name: p.name, phone: p.phone }}
@@ -492,8 +492,9 @@ export default async function Page({
         <section className="section">
           <h2>🔴 Pagamentos encerrados</h2>
           <p className="muted">
-            O prazo para enviar um novo comprovante terminou. Fale com o
-            organizador se precisar de ajuda.
+            O prazo para pagar terminou. A reserva com saldo pendente será liberada
+            para a lista de espera 24 horas após o prazo, após a conciliação dos Pix
+            já realizados. {Number(paidCents) > 0 ? "O valor pago será tratado separadamente, conforme sua escolha." : ""}
           </p>
         </section>
       )}

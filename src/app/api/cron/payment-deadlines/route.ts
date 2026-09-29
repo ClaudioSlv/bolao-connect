@@ -23,7 +23,6 @@ export async function GET(req: Request) {
   let expired = 0;
   let promoted = 0;
   let awaitingRefund = 0;
-  const promotedIds: string[] = [];
 
   for (const pool of pools ?? []) {
     const { data, error: rpcError } = await s.rpc("process_payment_deadlines", {
@@ -39,7 +38,6 @@ export async function GET(req: Request) {
     const promotedList = (row?.promoted_ids ?? []) as string[];
     expired += expiredList.length;
     promoted += promotedList.length;
-    promotedIds.push(...promotedList);
     const { count, error: reviewError } = await s.from("participants")
       .select("id", { count: "exact", head: true })
       .eq("pool_id", pool.id).eq("status", "confirmed").eq("payment_status", "partial");
@@ -47,13 +45,20 @@ export async function GET(req: Request) {
     else awaitingRefund += count ?? 0;
   }
 
-  for (const participantId of promotedIds) {
+  const { data: queuedPromotions, error: queueError } = await s.from("waitlist_promotion_outbox")
+    .select("pool_id,participant_id").is("dispatched_at", null).order("created_at", { ascending: true }).limit(100);
+  if (queueError) return NextResponse.json({ error: queueError.message }, { status: 500 });
+  let notified = 0;
+  for (const item of queuedPromotions ?? []) {
     try {
-      await sendWaitlistPromotionPush(participantId);
+      await sendWaitlistPromotionPush(item.participant_id);
+      await s.from("waitlist_promotion_outbox").update({ dispatched_at: new Date().toISOString() })
+        .eq("pool_id", item.pool_id).eq("participant_id", item.participant_id).is("dispatched_at", null);
+      notified++;
     } catch (error) {
-      console.error("waitlist promotion push failed", participantId, error);
+      console.error("waitlist promotion push failed", item.participant_id, error);
     }
   }
 
-  return NextResponse.json({ ok: true, expired, promoted, awaitingRefund });
+  return NextResponse.json({ ok: true, expired, promoted, notified, awaitingRefund });
 }

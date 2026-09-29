@@ -82,6 +82,13 @@ export async function reconcileEfiParticipant(token: string) {
     const value = Number(String(item?.valor || "0").replace(",", "."));
     return sum + (Number.isFinite(value) ? Math.round(value * 100) : 0);
   }, 0);
+  if (p.status === "expired" && receivedCents > 0) {
+    await s.from("payment_checkout_sessions").update({
+      status: "review_required", paid_amount_cents: receivedCents,
+      failure_reason: "pix_received_after_reservation_expired", updated_at: new Date().toISOString(),
+    }).eq("id", session.id);
+    return NextResponse.json({paid: false, review: true, error: "Pix recebido após a liberação da vaga; valor aguardando devolução."}, {status: 409});
+  }
   const expectedCents = Number(session.expected_amount_cents);
 
   if (chargeStatus !== "CONCLUIDA" && receivedCents <= 0)

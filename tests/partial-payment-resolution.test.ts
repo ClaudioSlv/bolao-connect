@@ -6,6 +6,7 @@ test("retém 3% apenas no pedido de estorno, com arredondamento em centavos", ()
   assert.deepEqual(resolutionAmounts(8000, "refund"), {retentionCents: 240, amountCents: 7760});
   assert.deepEqual(resolutionAmounts(8000, "credit"), {retentionCents: 0, amountCents: 8000});
   assert.deepEqual(resolutionAmounts(101, "refund"), {retentionCents: 3, amountCents: 98});
+  assert.deepEqual(resolutionAmounts(8000, "refund", 0), {retentionCents: 0, amountCents: 8000});
 });
 
 test("preserva o texto de estorno integral dos bolões existentes", async () => {
