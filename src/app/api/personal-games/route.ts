@@ -1,3 +1,42 @@
+
+export async function GET(request: Request) {
+  try {
+    const token = new URL(request.url).searchParams.get("token") ?? "";
+    if (!token) return NextResponse.json({ error: "Participante inválido." }, { status: 400 });
+
+    const admin = createAdminClient();
+    const { data: participant } = await admin
+      .from("participants")
+      .select("id,pool_id,status")
+      .eq("access_token", token)
+      .maybeSingle();
+    if (!participant || participant.status === "cancelled")
+      return NextResponse.json({ error: "Participante inválido." }, { status: 404 });
+
+    const { data, error } = await admin
+      .from("personal_saved_games")
+      .select("id,lottery,contest_number,games,created_at")
+      .eq("participant_id", participant.id)
+      .eq("pool_id", participant.pool_id)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+
+    return NextResponse.json({
+      ok: true,
+      games: (data ?? []).map((row) => ({
+        id: row.id,
+        lottery: row.lottery,
+        contest: row.contest_number,
+        games: row.games,
+        createdAt: row.created_at,
+      })),
+    });
+  } catch (error) {
+    console.error("load-personal-games:", error);
+    return NextResponse.json({ error: "Não foi possível carregar os jogos deste participante." }, { status: 500 });
+  }
+}
+
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupportedLottery, type PersonalGame } from "@/lib/personal-game-prizes";
