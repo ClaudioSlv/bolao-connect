@@ -141,7 +141,7 @@ export default async function JoinPool({
   const { data: pool } = await s
     .from("pools")
     .select(
-      "id,title,lottery,total_shares,share_price_cents,payment_deadline,status,rules_text,rules_version",
+      "id,title,lottery,contest_number,total_shares,share_price_cents,payment_deadline,status,rules_text,rules_version",
     )
     .eq("public_slug", slug)
     .maybeSingle();
@@ -252,6 +252,7 @@ export default async function JoinPool({
               defaultPhone={q.phone}
               defaultShares={q.shares}
               isWaitlist={isWaitlist}
+              specialLotofacil={pool.lottery === "lotofacil" && Number(pool.contest_number) > 0 && Number(pool.contest_number) % 20 === 0}
             />
           </>
         )}
