@@ -10,7 +10,8 @@ export function EfiRefundCheck({participantId}:{participantId:string}){
       const data=await response.json();
       if(!response.ok)throw new Error(data.error??"Consulta indisponível.");
       setMessage(`Permissão pix.write: ${data.pixWrite===true?"ativa":data.pixWrite===false?"ausente":"não informada pela Efí"}. Devolução na Efí: ${data.bankStatus??data.bankError??`HTTP ${data.bankHttpStatus}`}. Registro no app: ${data.localStatus}.`);
-      setCanRetry(data.pixWrite===true&&data.localStatus==="failed"&&data.bankHttpStatus===404);
+      setCanRetry(data.pixWrite===true&&data.localStatus==="failed"&&
+        (data.bankHttpStatus===404||data.bankError==="devolucao_nao_encontrada"));
     }catch(error){setMessage(error instanceof Error?error.message:"Consulta indisponível.");}
     finally{setBusy(false);}
   }
