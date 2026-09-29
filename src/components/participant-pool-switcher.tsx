@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
 
 type ParticipantPool = {
@@ -26,12 +26,24 @@ export function ParticipantPoolSwitcher({
 }) {
   const router = useRouter();
   const touchStartX = useRef<number | null>(null);
+  const listRef = useRef<HTMLElement>(null);
+  const navigatingRef = useRef(false);
+
+  useEffect(() => {
+    navigatingRef.current = false;
+    const active = listRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    active?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
+  }, [currentPoolId]);
+
   if (pools.length < 2) return null;
 
   const currentIndex = pools.findIndex((pool) => pool.id === currentPoolId);
   const openAdjacentPool = (direction: -1 | 1) => {
     const nextIndex = Math.min(pools.length - 1, Math.max(0, currentIndex + direction));
-    if (nextIndex !== currentIndex) router.push(`/p/${pools[nextIndex].accessToken}`);
+    if (nextIndex !== currentIndex && !navigatingRef.current) {
+      navigatingRef.current = true;
+      router.push(`/p/${pools[nextIndex].accessToken}`);
+    }
   };
 
   return (
@@ -39,6 +51,7 @@ export function ParticipantPoolSwitcher({
       <h2>Meus bolões</h2>
       <p className="muted">Selecione o bolão que deseja acompanhar.</p>
       <nav
+        ref={listRef}
         className="participant-pool-list"
         aria-label="Bolões em que participo"
         onTouchStart={(event) => {
