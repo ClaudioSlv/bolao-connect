@@ -17,8 +17,12 @@ export async function processEfiRefunds(participantId: string) {
     return {status: choice?.status ?? "pending_review"};
   if (choice.status === "completed") return {status: "completed"};
   const {data: participant} = await s.from("participants")
-    .select("payment_status").eq("id",participantId).single();
-  if (!participant || participant.payment_status === "confirmed") return {status: "blocked"};
+    .select("payment_status,is_test,pool_id").eq("id",participantId).single();
+  if (!participant) return {status:"blocked"};
+  if (participant.payment_status === "confirmed") {
+    const {data: pool} = await s.from("pools").select("public_slug").eq("id",participant.pool_id).single();
+    if (!participant.is_test || pool?.public_slug !== "teste-estorno-5-reais-20260929") return {status:"blocked"};
+  }
   const {data: items, error} = await s.from("efi_refund_items")
     .select("payment_id,participant_id,e2e_id,txid,refund_id,original_cents,refund_cents,status,attempted_at")
     .eq("participant_id",participantId).order("created_at",{ascending:true});

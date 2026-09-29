@@ -6,6 +6,7 @@ import { ReminderOptIn } from "@/components/reminder-opt-in";
 import { ReservationConfirmedModal } from "@/components/reservation-confirmed-modal";
 import { EfiCheckout } from "@/components/efi-checkout";
 import { PartialPaymentChoice } from "@/components/partial-payment-choice";
+import {TestEfiRefund} from "@/components/test-efi-refund";
 import { ManualPixCopy } from "@/components/manual-pix-copy";
 import { ParticipantActionGrid } from "@/components/participant-action-grid";
 import { AvailablePoolsNotice } from "@/components/available-pools-notice";
@@ -321,6 +322,7 @@ export default async function Page({
       />
       {acceptance && !isTest && paymentClosed && !paid && !isWaitlisted && Number(pool.rules_version) >= 5 && Number(paidCents) > 0 &&
         <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined} existingStatus={resolutionChoice?.status} retentionPercent={Number(pool.rules_version) >= 6 ? 3 : 0}/>}
+      {isTest && paid && pool.public_slug === "teste-estorno-5-reais-20260929" && <TestEfiRefund token={token}/>}
       <AvailablePoolsNotice
         pools={availablePools}
         participant={{ token, name: p.name, phone: p.phone }}
