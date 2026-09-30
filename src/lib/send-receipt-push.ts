@@ -74,7 +74,7 @@ export async function sendReceiptPublishedPush(input: {
               enabled: false,
               updated_at: new Date().toISOString(),
             })
-            .eq("id", subscription.id);
+            .eq("endpoint", subscription.endpoint);
         }
       }
     }),

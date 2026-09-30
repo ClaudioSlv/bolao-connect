@@ -87,8 +87,8 @@ export async function sendNewPoolPush(input: {
         if (error?.statusCode === 404 || error?.statusCode === 410)
           await s
             .from("push_subscriptions")
-            .update({ enabled: false })
-            .eq("id", subscription.id);
+            .update({ enabled: false, updated_at: new Date().toISOString() })
+            .eq("endpoint", subscription.endpoint);
       }
     }),
   );
