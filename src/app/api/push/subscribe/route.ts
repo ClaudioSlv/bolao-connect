@@ -63,6 +63,36 @@ export async function POST(req: Request) {
     if (!subscription?.keys?.p256dh || !subscription?.keys?.auth)
       return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
 
+    // A inscrição push pertence ao navegador, não ao link do participante.
+    // Abrir o link de outra pessoa no mesmo aparelho não pode vincular as
+    // notificações financeiras dela a este aparelho automaticamente.
+    const { data: existingEndpointRows, error: endpointError } = await s
+      .from("push_subscriptions")
+      .select("participant_id")
+      .eq("endpoint", endpoint)
+      .eq("enabled", true);
+    if (endpointError) throw endpointError;
+    const otherParticipantIds = [...new Set((existingEndpointRows ?? [])
+      .map((row) => row.participant_id)
+      .filter((id) => id && id !== p.id))];
+    if (otherParticipantIds.length) {
+      const { data: owners, error: ownersError } = await s
+        .from("participants")
+        .select("id,name,phone,status")
+        .in("id", otherParticipantIds);
+      if (ownersError) throw ownersError;
+      const normalizedName = p.name.trim().toLocaleLowerCase("pt-BR");
+      const belongsToAnotherPerson = (owners ?? []).some(
+        (owner) => owner.status !== "cancelled" &&
+          (owner.phone !== p.phone || owner.name.trim().toLocaleLowerCase("pt-BR") !== normalizedName),
+      );
+      if (belongsToAnotherPerson)
+        return NextResponse.json(
+          { error: "Este aparelho já recebe notificações de outro participante." },
+          { status: 409 },
+        );
+    }
+
     const { data: samePhoneParticipants, error: participantsError } = p.phone
       ? await s
           .from("participants")
