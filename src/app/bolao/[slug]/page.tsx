@@ -86,7 +86,7 @@ export default async function PublicPool({
     <main className="shell">
       <TimerReminderOptIn slug={slug} />
       <section className="section">
-        <div style={{display:"flex",justifyContent:"center",marginBottom:18}}><img src="/juntasorte-logo-transparent.png" alt="JuntaSorte - Bolão entre Amigos" style={{width:"min(352px,80vw)",height:"auto",objectFit:"contain"}}/></div>
+        <div style={{display:"flex",justifyContent:"center",alignItems:"center",marginBottom:18}}><img src="/juntasorte-logo-cutout.png" alt="JuntaSorte - Bolão entre Amigos" style={{width:"min(300px,72vw)",height:"auto",maxHeight:190,display:"block",objectFit:"contain",objectPosition:"center"}}/></div>
         <h1 className="pool-heading">{pool.title}</h1>
         <p className="muted">
           {pool.lottery}
