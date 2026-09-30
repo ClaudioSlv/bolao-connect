@@ -49,7 +49,7 @@ export function ParticipantPoolSwitcher({
   return (
     <section className="section participant-pool-switcher">
       <h2>Meus bolões</h2>
-      <p className="muted">Selecione o bolão que deseja acompanhar.</p>
+      <p className="muted">Selecione o bolão que deseja acompanhar. Deslize para o lado para ver os demais.</p>
       <nav
         ref={listRef}
         className="participant-pool-list"
