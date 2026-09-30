@@ -517,3 +517,5 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 
 /* Transparent JuntaSorte logo on organizer summary cards */
 .summary-juntasorte-logo.summary-juntasorte-logo-transparent{background:transparent!important;border-radius:0;box-shadow:none!important;object-fit:contain}
+
+.summary-card .summary-juntasorte-logo-transparent{width:132px;height:92px;margin-left:-18px;margin-right:-16px;object-fit:contain;object-position:center;overflow:visible}@media(max-width:390px){.summary-card .summary-juntasorte-logo-transparent{width:108px;height:78px;margin-left:-17px;margin-right:-24px}}
