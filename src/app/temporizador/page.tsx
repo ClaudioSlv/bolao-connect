@@ -4,7 +4,6 @@ import {PoolCountdown} from "@/components/pool-countdown";
 import {TimerReminderOptIn} from "@/components/timer-reminder-opt-in";
 import {OrganizerCta} from "@/components/organizer-cta";
 import {NEXT_POOL_PRELAUNCH} from "@/lib/next-pool";
-import {DEFAULT_APP_BRAND} from "@/lib/organizer-brand";
 import {AppLogoMark} from "@/components/app-logo-mark";
 
 export const dynamic="force-dynamic";
@@ -23,7 +22,6 @@ export default async function TimerRedirect(){
 
   return <main className="shell">
     <section className="section" style={{textAlign:"center"}}>
-      <p className="eyebrow">{DEFAULT_APP_BRAND.toUpperCase()}</p>
       <h1 className="pool-heading timer-heading"><AppLogoMark />{NEXT_POOL_PRELAUNCH.title}</h1>
       <p className="muted">Próximo bolão</p>
     </section>
