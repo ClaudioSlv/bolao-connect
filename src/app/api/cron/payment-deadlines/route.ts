@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendWaitlistPromotionPush } from "@/lib/push/participant-notifications";
+import { sendPaymentDeadlinePush, sendWaitlistPromotionPush } from "@/lib/push/participant-notifications";
 import {processPendingEfiRefunds} from "@/lib/efi-refunds";
 
 export const dynamic = "force-dynamic";
@@ -46,9 +46,28 @@ export async function GET(req: Request) {
     else awaitingRefund += count ?? 0;
   }
 
-  const { data: queuedPromotions, error: queueError } = await s.from("waitlist_promotion_outbox")
+  const {error:queueError} = await s.rpc("queue_payment_deadline_pushes");
+  if(queueError)console.error("payment deadline push queue failed",queueError);
+  let deadlineNotified=0;
+  if(!queueError){
+    const {data:deadlineNotices,error:noticeError}=await s.from("payment_deadline_push_outbox")
+      .select("participant_id,deadline").is("dispatched_at",null).order("created_at",{ascending:true}).limit(100);
+    if(noticeError)console.error("payment deadline push lookup failed",noticeError);
+    for(const notice of deadlineNotices??[]){
+      try{
+        await sendPaymentDeadlinePush(notice.participant_id,notice.deadline);
+        const {error:updateError}=await s.from("payment_deadline_push_outbox")
+          .update({dispatched_at:new Date().toISOString()}).eq("participant_id",notice.participant_id)
+          .eq("deadline",notice.deadline).is("dispatched_at",null);
+        if(updateError)throw updateError;
+        deadlineNotified++;
+      }catch(error){console.error("payment deadline push failed",notice.participant_id,error)}
+    }
+  }
+
+  const { data: queuedPromotions, error: promotionQueueError } = await s.from("waitlist_promotion_outbox")
     .select("pool_id,participant_id").is("dispatched_at", null).order("created_at", { ascending: true }).limit(100);
-  if (queueError) return NextResponse.json({ error: queueError.message }, { status: 500 });
+  if (promotionQueueError) return NextResponse.json({ error: promotionQueueError.message }, { status: 500 });
   let notified = 0;
   for (const item of queuedPromotions ?? []) {
     try {
@@ -62,5 +81,5 @@ export async function GET(req: Request) {
   }
 
   const refundsChecked = await processPendingEfiRefunds(5);
-  return NextResponse.json({ ok: true, expired, promoted, notified, awaitingRefund, refundsChecked });
+  return NextResponse.json({ ok: true, expired, promoted, notified, deadlineNotified, awaitingRefund, refundsChecked });
 }
