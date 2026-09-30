@@ -37,3 +37,23 @@ export async function sendWaitlistPromotionPush(participantId:string){
     .eq("pool_id",p.pool_id).eq("participant_id",p.id).is("dispatched_at",null);
   return {sent,skipped:false};
 }
+
+export async function sendPaymentDeadlinePush(participantId:string, deadline:string){
+  if(!configureWebPush())throw new Error("As chaves VAPID não estão configuradas.");
+  const s=createAdminClient();
+  const {data:p}=await s.from("participants").select("id,pool_id,name,status,payment_status,access_token,is_test,payment_deadline_override").eq("id",participantId).maybeSingle();
+  if(!p || p.is_test || p.payment_status==="confirmed" || !["confirmed","expired"].includes(p.status))return {sent:0,skipped:true};
+  const {data:pool}=await s.from("pools").select("title,payment_deadline,status").eq("id",p.pool_id).maybeSingle();
+  if(!pool || ["drawn","archived"].includes(pool.status) || new Date(p.payment_deadline_override||pool.payment_deadline).getTime()!==new Date(deadline).getTime())return {sent:0,skipped:true};
+  const {data:subs,error}=await s.from("push_subscriptions").select("id,endpoint,p256dh,auth").eq("participant_id",p.id).eq("enabled",true);
+  if(error)throw error;
+  let sent=0,failed=0;
+  const payload=JSON.stringify({title:"⏰ Prazo de pagamento encerrado",body:`${p.name}, o prazo de pagamento do ${pool.title} terminou. Não é possível gerar outro QR Code. A vaga com saldo pendente poderá ser liberada após 24 horas de conciliação.`,url:`/p/${p.access_token}`,tag:`prazo-encerrado-${p.pool_id}-${p.id}-${deadline}`});
+  for(const sub of subs??[]){
+    try{await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},payload);sent++}
+    catch(e:any){if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("id",sub.id);else failed++}
+  }
+  if(failed)throw new Error(`Falha no envio para ${failed} dispositivo(s).`);
+  await s.from("audit_events").insert({pool_id:p.pool_id,event_type:"payment_deadline_push",entity_type:"participant",entity_id:p.id,details:{sent,deadline}});
+  return {sent,skipped:false};
+}
