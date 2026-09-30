@@ -24,7 +24,7 @@ export default async function TimerRedirect(){
   return <main className="shell">
     <section className="section" style={{textAlign:"center"}}>
       <p className="eyebrow">{DEFAULT_APP_BRAND.toUpperCase()}</p>
-      <h1 className="pool-heading"><AppLogoMark />{NEXT_POOL_PRELAUNCH.title}</h1>
+      <h1 className="pool-heading timer-heading"><AppLogoMark />{NEXT_POOL_PRELAUNCH.title}</h1>
       <p className="muted">Próximo bolão</p>
     </section>
 
