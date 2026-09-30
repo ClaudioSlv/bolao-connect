@@ -514,3 +514,6 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 
 /* Full JuntaSorte mark beside participant pool title */
 .pool-heading .pool-title-logo{display:block;flex:0 0 auto;width:1.35em;height:1.35em;object-fit:contain;border-radius:22%;background:#000;box-shadow:0 0 0 1px rgba(247,201,72,.55)}
+
+/* Transparent JuntaSorte logo on organizer summary cards */
+.summary-juntasorte-logo.summary-juntasorte-logo-transparent{background:transparent!important;border-radius:0;box-shadow:none!important;object-fit:contain}
