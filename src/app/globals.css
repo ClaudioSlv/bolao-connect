@@ -455,7 +455,7 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .participant-pool-switcher>p{margin:-4px 0 12px}
 .participant-pool-list{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding:2px 18px 8px 1px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .participant-pool-list::-webkit-scrollbar{display:none}
-.participant-pool-option{flex:0 0 calc(100% - 18px);min-width:0;min-height:68px;display:grid;grid-template-columns:68px 1fr auto;align-items:center;gap:12px;overflow:hidden;padding:7px 12px 7px 7px;border:1px solid #35513e;border-radius:15px;background:#0b1810;color:#fff;text-decoration:none;scroll-snap-align:center;scroll-snap-stop:always}
+.participant-pool-option{flex:0 0 86%;min-width:0;min-height:68px;display:grid;grid-template-columns:68px 1fr auto;align-items:center;gap:12px;overflow:hidden;padding:7px 12px 7px 7px;border:1px solid #35513e;border-radius:15px;background:#0b1810;color:#fff;text-decoration:none;scroll-snap-align:center;scroll-snap-stop:always}
 .participant-pool-option.active{border:2px solid #f7c948;background:linear-gradient(135deg,#17341f,#0b1810)}
 .participant-pool-option img,.participant-pool-mark{width:68px;height:52px;border-radius:11px;object-fit:cover;display:grid;place-items:center;background:#17341f;font-size:28px}
 .participant-pool-option span:nth-child(2){min-width:0;display:grid;gap:4px}
