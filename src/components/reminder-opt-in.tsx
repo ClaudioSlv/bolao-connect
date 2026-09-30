@@ -23,7 +23,7 @@ function errorText(error:unknown){
   if(code==="permission")return "A permissão de notificações não foi concedida. Toque no botão novamente e escolha Permitir quando o navegador perguntar.";
   if(code==="unsupported")return "Este navegador não oferece suporte às notificações push deste aplicativo. Abra o link no Chrome atualizado ou instale o app na tela inicial e tente novamente.";
   if(code==="key")return "A chave de notificações do aplicativo não está disponível neste ambiente. Atualize a página e tente novamente.";
-  if(code==="already-linked")return "Este celular já está vinculado às notificações de outro participante.";
+  if(code==="already-linked")return "Este celular já está vinculado às notificações de outro participante. Para receber as suas, abra o seu próprio link no seu celular.";
   if(code==="service-worker")return "Não foi possível preparar o serviço de notificações neste aparelho. Feche e abra o navegador, atualize a página e tente novamente.";
   if(code==="timeout")return "A ativação demorou mais do que o esperado. Verifique sua internet, atualize a página e tente novamente.";
   if(code==="server")return "O celular aceitou a notificação, mas o aplicativo não conseguiu salvar a inscrição. Tente novamente em alguns instantes.";
