@@ -519,3 +519,6 @@ body{padding-top:136px}.lottery-ticker{height:78px;padding:6px 0}.lottery-ticker
 .summary-juntasorte-logo.summary-juntasorte-logo-transparent{background:transparent!important;border-radius:0;box-shadow:none!important;object-fit:contain}
 
 .summary-card .summary-juntasorte-logo-transparent{width:132px;height:92px;margin-left:-18px;margin-right:-16px;object-fit:contain;object-position:center;overflow:visible}@media(max-width:390px){.summary-card .summary-juntasorte-logo-transparent{width:108px;height:78px;margin-left:-17px;margin-right:-24px}}
+
+/* Align full JuntaSorte mark cleanly inside summary card */
+.summary-card .summary-juntasorte-logo-transparent{width:132px;height:92px;margin:-2px -16px 0 -18px;align-self:center;object-fit:contain;object-position:center}@media(max-width:390px){.summary-card .summary-juntasorte-logo-transparent{width:108px;height:78px;margin:0 -24px 0 -17px;align-self:center}}
