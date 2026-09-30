@@ -158,7 +158,7 @@ export async function GET(req: Request) {
         await s
           .from("push_subscriptions")
           .update({ enabled: false, updated_at: new Date().toISOString() })
-          .eq("id", sub.id);
+          .eq("endpoint", sub.endpoint);
         disabled++;
       }
     }

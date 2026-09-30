@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useState} from "react";
+import {useEffect,useRef,useState} from "react";
 import {ensureCurrentPushSubscription} from "@/lib/push/browser-subscription";
 
 function withTimeout<T>(promise:Promise<T>,ms=12000):Promise<T>{
@@ -34,6 +34,7 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
   const[visible,setVisible]=useState(false);
   const[state,setState]=useState<"checking"|"idle"|"busy"|"ok"|"error">("checking");
   const[errorMessage,setErrorMessage]=useState("");
+  const expiredSubscription=useRef(false);
 
   useEffect(()=>{
     let cancelled=false;
@@ -45,6 +46,12 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
         if(Notification.permission==="granted"){
           const existing=await withTimeout(reg.pushManager.getSubscription(),8000);
           if(existing){
+            const statusRes=await withTimeout(fetch("/api/push/subscribe",{
+              method:"POST",headers:{"content-type":"application/json"},
+              body:JSON.stringify({token,endpoint:existing.endpoint,action:"status"}),
+            }),8000);
+            const status=statusRes.ok?await statusRes.json():{};
+            if(status.expired){expiredSubscription.current=true;throw new Error("expired");}
             // Quem chega pelo temporizador pode já ter autorizado um lembrete
             // anônimo antes de reservar. Ao abrir o painel pela primeira vez,
             // vincule essa mesma inscrição ao cadastro recém-criado para que o
@@ -77,6 +84,11 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
       try{reg=await ensureServiceWorker();}catch{throw new Error("service-worker");}
       const publicKey=process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if(!publicKey)throw new Error("key");
+      if(expiredSubscription.current){
+        const stale=await withTimeout(reg.pushManager.getSubscription(),8000);
+        if(stale)await withTimeout(stale.unsubscribe(),8000);
+        expiredSubscription.current=false;
+      }
       const sub=await withTimeout(ensureCurrentPushSubscription(reg,publicKey),15000);
       const res=await withTimeout(fetch("/api/push/subscribe",{
         method:"POST",

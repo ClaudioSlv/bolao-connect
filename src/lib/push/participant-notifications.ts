@@ -29,7 +29,7 @@ export async function sendWaitlistPromotionPush(participantId:string){
       await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},payload);
       sent++;
     }catch(e:any){
-      if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("id",sub.id);
+      if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("endpoint",sub.endpoint);
     }
   }
   await s.from("audit_events").insert({pool_id:p.pool_id,event_type:"waitlist_promotion_push",entity_type:"participant",entity_id:p.id,details:{sent,brand:brand.name}});
@@ -51,7 +51,7 @@ export async function sendPaymentDeadlinePush(participantId:string, deadline:str
   const payload=JSON.stringify({title:"⏰ Prazo de pagamento encerrado",body:`${p.name}, o prazo de pagamento do ${pool.title} terminou. Não é possível gerar outro QR Code. A vaga com saldo pendente poderá ser liberada após 24 horas de conciliação.`,url:`/p/${p.access_token}`,tag:`prazo-encerrado-${p.pool_id}-${p.id}-${deadline}`});
   for(const sub of subs??[]){
     try{await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},payload);sent++}
-    catch(e:any){if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("id",sub.id);else failed++}
+    catch(e:any){if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("endpoint",sub.endpoint);else failed++}
   }
   if(failed)throw new Error(`Falha no envio para ${failed} dispositivo(s).`);
   await s.from("audit_events").insert({pool_id:p.pool_id,event_type:"payment_deadline_push",entity_type:"participant",entity_id:p.id,details:{sent,deadline}});

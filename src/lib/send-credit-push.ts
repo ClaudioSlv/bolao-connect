@@ -24,7 +24,7 @@ export async function sendCreditPush(input:{participantId:string;creditCents:num
       await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},payload);
       sent++;
     }catch(e:any){
-      if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("id",sub.id);
+      if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("endpoint",sub.endpoint);
     }
   }
   return {sent};

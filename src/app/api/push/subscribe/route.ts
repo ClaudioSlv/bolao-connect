@@ -44,7 +44,11 @@ export async function POST(req: Request) {
         .eq("endpoint", endpoint)
         .eq("enabled", true);
       const ids = [...new Set((endpointRows ?? []).map((row) => row.participant_id).filter(Boolean))];
-      if (!ids.length) return NextResponse.json({ active: false });
+      if (!ids.length) {
+        const { data: expired } = await s.from("push_subscriptions")
+          .select("id").eq("endpoint", endpoint).eq("enabled", false).limit(1);
+        return NextResponse.json({ active: false, expired: Boolean(expired?.length) });
+      }
 
       const { data: owners } = await s
         .from("participants")
@@ -72,6 +76,14 @@ export async function POST(req: Request) {
       .eq("endpoint", endpoint)
       .eq("enabled", true);
     if (endpointError) throw endpointError;
+    if (!existingEndpointRows?.length) {
+      const { data: expired, error: expiredError } = await s
+        .from("push_subscriptions").select("id")
+        .eq("endpoint", endpoint).eq("enabled", false).limit(1);
+      if (expiredError) throw expiredError;
+      if (expired?.length)
+        return NextResponse.json({ error: "Inscrição expirada. Ative novamente no aparelho." }, { status: 410 });
+    }
     const otherParticipantIds = [...new Set((existingEndpointRows ?? [])
       .map((row) => row.participant_id)
       .filter((id) => id && id !== p.id))];

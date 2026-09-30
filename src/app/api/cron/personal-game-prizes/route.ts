@@ -154,7 +154,7 @@ export async function GET(request: Request) {
           await admin
             .from("push_subscriptions")
             .update({ enabled: false, updated_at: now })
-            .eq("id", subscription.id);
+            .eq("endpoint", subscription.endpoint);
           disabled++;
         }
       }
