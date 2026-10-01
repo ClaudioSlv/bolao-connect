@@ -87,12 +87,12 @@ async function createPoolFromForm(
       numbersPerGame: pricing.uniformNumbers,
       gamePlan: pricing.items,
     });
-    const automaticLotofacilCover =
-      lottery === "lotofacil" &&
+    const automaticStandardCover =
       contestNumber != null &&
-      contestNumber % 20 === 0;
+      (lottery === "mega-sena" ||
+        (lottery === "lotofacil" && contestNumber % 20 === 0));
     if (
-      !automaticLotofacilCover &&
+      !automaticStandardCover &&
       coverImage instanceof File &&
       coverImage.size > 0
     ) {
