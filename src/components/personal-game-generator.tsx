@@ -500,6 +500,23 @@ export function PersonalGameGenerator({
 
       const key = "bolao-amigos-btp:jogos-salvos";
       const current = JSON.parse(localStorage.getItem(key) || "[]");
+      const currentEntries = Array.isArray(current) ? current : [];
+      const gameKey = (game: Game) =>
+        `${[...game.numbers].sort((a, b) => a - b).join("-")}|${[...(game.trevos ?? [])].sort((a, b) => a - b).join("-")}`;
+      const localExistingKeys = new Set<string>();
+      for (const entry of currentEntries) {
+        if (entry?.lottery !== lottery || !Array.isArray(entry?.games)) continue;
+        for (const game of entry.games as Game[]) localExistingKeys.add(gameKey(game));
+      }
+      const localBatchKeys = new Set<string>();
+      const uniqueLocalGames = games.filter((game) => {
+        const gameId = gameKey(game);
+        if (localExistingKeys.has(gameId) || localBatchKeys.has(gameId)) return false;
+        localBatchKeys.add(gameId);
+        return true;
+      });
+      let duplicateCount = games.length - uniqueLocalGames.length;
+      let gamesToSave = uniqueLocalGames;
       let targetContest = latestContest ? latestContest + 1 : null;
 
       if (!targetContest) {
@@ -531,10 +548,17 @@ export function PersonalGameGenerator({
           const data = (await response.json().catch(() => null)) as {
             contest?: number;
             error?: string;
+            savedCount?: number;
+            duplicateCount?: number;
           } | null;
           if (!response.ok) throw new Error(data?.error);
           if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
             targetContest = Number(data?.contest);
+          if (Number.isInteger(data?.duplicateCount)) {
+            duplicateCount = Number(data?.duplicateCount);
+            const serverSavedCount = Math.max(0, Number(data?.savedCount ?? 0));
+            gamesToSave = uniqueLocalGames.slice(0, serverSavedCount);
+          }
         } catch (error) {
           alert(
             `${error instanceof Error && error.message ? error.message : "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
@@ -553,17 +577,20 @@ export function PersonalGameGenerator({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         lottery,
         label: r.label,
-        games: referencedGames(),
+        games: withStableGameReferences(gamesToSave),
         targetContest,
-        totalCostCents: officialGamesCostCents(lottery, games),
+        totalCostCents: officialGamesCostCents(lottery, gamesToSave),
         createdAt: new Date().toISOString(),
       };
       localStorage.setItem(
         key,
-        JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
+        JSON.stringify(gamesToSave.length ? [entry, ...currentEntries] : currentEntries),
       );
 
       setSaved(true);
+      alert(
+        `${gamesToSave.length.toLocaleString("pt-BR")} jogos novos salvos. ${duplicateCount.toLocaleString("pt-BR")} jogos repetidos foram ignorados.`,
+      );
       setShowSaveDialog(true);
     } catch {
       alert("Não foi possível salvar este jogo neste aparelho.");
