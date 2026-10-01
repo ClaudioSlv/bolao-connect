@@ -929,7 +929,24 @@ export function PersonalGameGenerator({
               </div>
             ))}
           </div>
-          {visibleGames.length > visibleGameCount && (\n            <div className="actions" style={{ marginTop: "16px" }}>\n              <button className="button secondary" type="button" onClick={() => setVisibleGameCount((current) => Math.min(current + 1000, visibleGames.length))}>\n                VER MAIS 1.000 JOGOS ({Math.min(visibleGameCount, visibleGames.length).toLocaleString("pt-BR")} / {visibleGames.length.toLocaleString("pt-BR")})\n              </button>\n            </div>\n          )}\n          {games.length > 0 && (
+          {visibleGames.length > visibleGameCount && (
+            <div className="actions" style={{ marginTop: "16px" }}>
+              <button
+                className="button secondary"
+                type="button"
+                onClick={() =>
+                  setVisibleGameCount((current) =>
+                    Math.min(current + 1000, visibleGames.length),
+                  )
+                }
+              >
+                VER MAIS 1.000 JOGOS (
+                {Math.min(visibleGameCount, visibleGames.length).toLocaleString("pt-BR")} /{" "}
+                {visibleGames.length.toLocaleString("pt-BR")})
+              </button>
+            </div>
+          )}
+          {games.length > 0 && (
             <>
               <div className="actions" style={{ marginTop: "16px" }}>
                 <button
