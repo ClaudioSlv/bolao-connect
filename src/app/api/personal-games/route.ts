@@ -103,6 +103,42 @@ export async function POST(request: Request) {
         { status: 503 },
       );
 
+    const gameKey = (game: PersonalGame) =>
+      `${[...game.numbers].map(Number).sort((a, b) => a - b).join("-")}|${[...(game.trevos ?? [])].map(Number).sort((a, b) => a - b).join("-")}`;
+
+    const { data: previousRows, error: previousError } = await admin
+      .from("personal_saved_games")
+      .select("games")
+      .eq("participant_id", participant.id)
+      .eq("pool_id", participant.pool_id)
+      .eq("lottery", lottery);
+    if (previousError) throw previousError;
+
+    const existingKeys = new Set<string>();
+    for (const row of previousRows ?? []) {
+      if (!Array.isArray(row.games)) continue;
+      for (const game of row.games as PersonalGame[]) existingKeys.add(gameKey(game));
+    }
+
+    const uniqueGames: PersonalGame[] = [];
+    const batchKeys = new Set<string>();
+    for (const game of games) {
+      const key = gameKey(game);
+      if (existingKeys.has(key) || batchKeys.has(key)) continue;
+      batchKeys.add(key);
+      uniqueGames.push(game);
+    }
+    const duplicates = games.length - uniqueGames.length;
+
+    if (!uniqueGames.length)
+      return NextResponse.json({
+        ok: true,
+        contest,
+        savedCount: 0,
+        duplicateCount: duplicates,
+        allDuplicates: true,
+      });
+
     const { data, error } = await admin
       .from("personal_saved_games")
       .insert({
@@ -110,13 +146,19 @@ export async function POST(request: Request) {
         pool_id: participant.pool_id,
         lottery,
         contest_number: contest,
-        games: withStableGameReferences(games),
+        games: withStableGameReferences(uniqueGames),
       })
       .select("id")
       .single();
 
     if (error) throw error;
-    return NextResponse.json({ ok: true, id: data.id, contest });
+    return NextResponse.json({
+      ok: true,
+      id: data.id,
+      contest,
+      savedCount: uniqueGames.length,
+      duplicateCount: duplicates,
+    });
   } catch (error) {
     console.error("save-personal-game:", error);
     return NextResponse.json(
