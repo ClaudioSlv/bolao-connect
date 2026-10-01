@@ -93,14 +93,12 @@ export function PersonalGameGenerator({
   results,
   latestContest,
   participantToken,
-  participantPoolId,
   returnHref,
 }: {
   lottery: Lottery;
   results: Result[];
   latestContest: number | null;
   participantToken: string | null;
-  participantPoolId: string | null;
   returnHref: string;
 }) {
   const r = rules[lottery];
@@ -514,6 +512,8 @@ export function PersonalGameGenerator({
         }
       }
 
+      const key = "bolao-amigos-btp:jogos-salvos";
+      const current = JSON.parse(localStorage.getItem(key) || "[]");
       let targetContest = latestContest ? latestContest + 1 : null;
 
       if (!targetContest) {
@@ -563,25 +563,19 @@ export function PersonalGameGenerator({
         return;
       }
 
-      // Participante: os jogos já foram persistidos no banco acima.
-      // Não duplicamos o fechamento inteiro no localStorage, evitando reinício da PWA.
-      if (!participantToken) {
-        const key = "bolao-amigos-btp:jogos-salvos";
-        const rawCurrent = JSON.parse(localStorage.getItem(key) || "[]");
-        const entry = {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          lottery,
-          label: r.label,
-          games: referencedGames(),
-          targetContest,
-          totalCostCents: officialGamesCostCents(lottery, games),
-          createdAt: new Date().toISOString(),
-        };
-        localStorage.setItem(
-          key,
-          JSON.stringify([entry, ...(Array.isArray(rawCurrent) ? rawCurrent : [])]),
-        );
-      }
+      const entry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        lottery,
+        label: r.label,
+        games: referencedGames(),
+        targetContest,
+        totalCostCents: officialGamesCostCents(lottery, games),
+        createdAt: new Date().toISOString(),
+      };
+      localStorage.setItem(
+        key,
+        JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
+      );
 
       setSaved(true);
       setShowSaveDialog(true);
