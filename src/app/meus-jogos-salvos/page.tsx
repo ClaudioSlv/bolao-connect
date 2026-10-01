@@ -159,16 +159,34 @@ export default function SavedGamesPage() {
         return;
       }
     }
-    try {
-      const value = JSON.parse(localStorage.getItem(KEY) || "[]");
-      const saved = Array.isArray(value)
-        ? (value as Saved[]).map((item) => ({ ...item, games: withStableGameReferences(item.games) }))
-        : [];
-      setItems(saved);
-      setSelectedLottery(saved[0]?.lottery ?? "");
-    } catch {
-      setItems([]);
-    }
+    fetch("/api/organizer-personal-games", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null) as { games?: Array<{ id:string; lottery:string; contest_number:number; games:Game[]; created_at:string }> } | null;
+        if (!response.ok) throw new Error("load");
+        const saved: Saved[] = (data?.games ?? []).map((item) => ({
+          id: item.id,
+          lottery: item.lottery,
+          label: item.lottery === "mega-sena" ? "Mega-Sena" : item.lottery === "lotofacil" ? "Lotofácil" : item.lottery,
+          games: withStableGameReferences(item.games),
+          createdAt: item.created_at,
+          targetContest: item.contest_number,
+          totalCostCents: officialGamesCostCents(item.lottery, item.games),
+        }));
+        setItems(saved);
+        setSelectedLottery(saved[0]?.lottery ?? "");
+      })
+      .catch(() => {
+        try {
+          const value = JSON.parse(localStorage.getItem(KEY) || "[]");
+          const saved = Array.isArray(value)
+            ? (value as Saved[]).map((item) => ({ ...item, games: withStableGameReferences(item.games) }))
+            : [];
+          setItems(saved);
+          setSelectedLottery(saved[0]?.lottery ?? "");
+        } catch {
+          setItems([]);
+        }
+      });
   }, []);
 
   useEffect(() => {
