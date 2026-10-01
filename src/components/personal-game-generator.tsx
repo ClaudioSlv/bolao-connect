@@ -880,6 +880,30 @@ export function PersonalGameGenerator({
           </button>
         )}
       </div>
+      <div
+        aria-label="Progresso da geração dos jogos"
+        style={{
+          height: "4px",
+          borderRadius: "999px",
+          overflow: "hidden",
+          background: "rgba(255,255,255,.14)",
+          marginTop: "-8px",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: `${generating && qty > 0 ? Math.min(100, (generationProgress / Math.min(qty, 5000)) * 100) : 0}%`,
+            background: "#ffd54a",
+            transition: "width .2s ease",
+          }}
+        />
+      </div>
+      {generating && (
+        <small className="muted">
+          {generationProgress.toLocaleString("pt-BR")} de {Math.min(qty, 5000).toLocaleString("pt-BR")} jogos
+        </small>
+      )}
       {lottery !== "super-sete" && (
         <div id="manual-number-selection" style={{ scrollMarginTop: "150px" }}>
           <p className="muted">Escolha manualmente {pick} números:</p>
