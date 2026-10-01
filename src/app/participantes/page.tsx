@@ -157,15 +157,36 @@ export default async function Page({
   const {data: resolutionRequests} = pool ? await admin.from("partial_payment_resolution_choices")
     .select("participant_id,choice,paid_cents,retention_cents,amount_cents,status,created_at")
     .eq("pool_id", pool.id).in("status", ["pending_review","failed","processing"]).order("created_at", {ascending: true}) : {data: []};
-  const { data: pushSubs } = ids.length
+  // A mesma pessoa pode participar de vários bolões com registros
+  // diferentes. O push pertence ao aparelho/pessoa, então o painel deve
+  // reconhecer a inscrição ativa também nos outros bolões vinculados ao
+  // mesmo telefone.
+  const phones = [...new Set(visible.map((p) => String(p.phone ?? "").replace(/\\D/g, "")).filter(Boolean))];
+  const { data: relatedParticipants } = phones.length
+    ? await admin
+        .from("participants")
+        .select("id,phone")
+        .in("phone", phones)
+    : { data: [] };
+  const relatedIds = [...new Set([...(relatedParticipants ?? []).map((p) => p.id), ...ids])];
+  const { data: pushSubs } = relatedIds.length
     ? await admin
         .from("push_subscriptions")
         .select("participant_id,enabled")
-        .in("participant_id", ids)
+        .in("participant_id", relatedIds)
         .eq("enabled", true)
     : { data: [] };
+  const activeRelatedIds = new Set((pushSubs ?? []).map((x) => x.participant_id));
+  const activePhones = new Set(
+    (relatedParticipants ?? [])
+      .filter((p) => activeRelatedIds.has(p.id))
+      .map((p) => String(p.phone ?? "").replace(/\\D/g, ""))
+      .filter(Boolean),
+  );
   const notificationActive = new Set(
-      (pushSubs ?? []).map((x) => x.participant_id),
+      visible
+        .filter((p) => activeRelatedIds.has(p.id) || activePhones.has(String(p.phone ?? "").replace(/\\D/g, "")))
+        .map((p) => p.id),
     ),
     pending = new Set((subs ?? []).map((x) => x.participant_id)),
     receiptUrls = new Map<string, string>();
