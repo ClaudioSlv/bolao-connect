@@ -57,3 +57,27 @@ export async function sendPaymentDeadlinePush(participantId:string, deadline:str
   await s.from("audit_events").insert({pool_id:p.pool_id,event_type:"payment_deadline_push",entity_type:"participant",entity_id:p.id,details:{sent,deadline}});
   return {sent,skipped:false};
 }
+
+
+export async function sendPaymentDeadlineReminderPush(participantId:string, deadline:string){
+  if(!configureWebPush())throw new Error("As chaves VAPID não estão configuradas.");
+  const s=createAdminClient();
+  const {data:p}=await s.from("participants").select("id,pool_id,name,status,payment_status,access_token,is_test").eq("id",participantId).maybeSingle();
+  if(!p || p.is_test || p.status!=="confirmed" || p.payment_status==="confirmed")return {sent:0,skipped:true};
+  const {data:pool}=await s.from("pools").select("title,payment_deadline,status").eq("id",p.pool_id).maybeSingle();
+  if(!pool || ["drawn","archived"].includes(pool.status) || new Date(pool.payment_deadline).getTime()!==new Date(deadline).getTime())return {sent:0,skipped:true};
+  const {data:already}=await s.from("audit_events").select("id").eq("pool_id",p.pool_id).eq("event_type","payment_deadline_reminder_push").eq("entity_id",p.id).limit(1);
+  if(already?.length)return {sent:0,skipped:true};
+  const {data:subs,error}=await s.from("push_subscriptions").select("id,endpoint,p256dh,auth").eq("participant_id",p.id).eq("enabled",true);
+  if(error)throw error;
+  const deadlineText=new Date(deadline).toLocaleTimeString("pt-BR",{timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit"});
+  const payload=JSON.stringify({title:"⏰ Último dia para pagar",body:`${p.name}, hoje é o último dia para pagar a cota do ${pool.title}. O prazo termina às ${deadlineText}.`,url:`/p/${p.access_token}`,tag:`ultimo-dia-${p.pool_id}-${p.id}-${deadline}`});
+  let sent=0,failed=0;
+  for(const sub of subs??[]){
+    try{await webpush.sendNotification({endpoint:sub.endpoint,keys:{p256dh:sub.p256dh,auth:sub.auth}},payload);sent++}
+    catch(e:any){if(e?.statusCode===404||e?.statusCode===410)await s.from("push_subscriptions").update({enabled:false,updated_at:new Date().toISOString()}).eq("endpoint",sub.endpoint);else failed++}
+  }
+  if(failed)throw new Error(`Falha no envio para ${failed} dispositivo(s).`);
+  if(sent>0)await s.from("audit_events").insert({pool_id:p.pool_id,event_type:"payment_deadline_reminder_push",entity_type:"participant",entity_id:p.id,details:{sent,deadline}});
+  return {sent,skipped:false};
+}
