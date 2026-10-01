@@ -498,6 +498,21 @@ export function PersonalGameGenerator({
         return;
       }
 
+      // No painel do organizador, persiste o fechamento no banco antes da cópia local.
+      // Assim fechamentos grandes continuam disponíveis mesmo se o histórico/cache do navegador for limpo.
+      if (!participantToken) {
+        const response = await fetch("/api/organizer-personal-games", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ lottery, games }),
+        });
+        const data = await response.json().catch(() => null) as { error?: string; contest?: number } | null;
+        if (!response.ok) {
+          alert(data?.error || "Não foi possível salvar o fechamento no banco.");
+          return;
+        }
+      }
+
       const key = "bolao-amigos-btp:jogos-salvos";
       const current = JSON.parse(localStorage.getItem(key) || "[]");
       const currentEntries = Array.isArray(current) ? current : [];
