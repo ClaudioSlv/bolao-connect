@@ -1,5 +1,4 @@
 {
-  "_deploy_note": "Trigger production deploy for Efi reconciliation update 2026-10-01",
   "crons": [
     {
       "path": "/api/cron/reminders",
