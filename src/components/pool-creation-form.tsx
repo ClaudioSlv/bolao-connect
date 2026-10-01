@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
 import type { LotteryId } from "@/lib/domain";
 import {
   calculatePoolPricing,
@@ -43,6 +44,7 @@ export function PoolCreationForm({
   const [state, formAction, pending] = useActionState(action, initialState);
   const [lottery, setLottery] = useState<LotteryId>("mega-sena"),
     [contestNumber, setContestNumber] = useState(""),
+    [drawAt, setDrawAt] = useState(""),
     [participants, setParticipants] = useState(30),
     [rows, setRows] = useState<Row[]>(() => [makeRow("mega-sena")]);
   const calculation = useMemo(() => {
@@ -103,9 +105,16 @@ export function PoolCreationForm({
             ✅ Capa dinâmica criada automaticamente
           </strong>
           <span>
-            O JuntaSorte usará o concurso {contestNumber}, a data do sorteio e o
-            status atual do bolão. Não é necessário escolher uma imagem.
+            O JuntaSorte usará este modelo padrão e trocará automaticamente o concurso,
+            a data do sorteio e o status do bolão.
           </span>
+          <div style={{marginTop:12}}>
+            <DynamicLotofacilCover
+              contestNumber={Number(contestNumber)}
+              drawAt={drawAt ? new Date(`${drawAt}:00-03:00`).toISOString() : null}
+              status="open"
+            />
+          </div>
         </div>
       ) : (
         <div className="field">
@@ -316,7 +325,7 @@ export function PoolCreationForm({
       </div>
       <div className="field">
         <label>🎰 Data e hora do sorteio</label>
-        <input name="drawAt" type="datetime-local" />
+        <input name="drawAt" type="datetime-local" value={drawAt} onChange={(e) => setDrawAt(e.target.value)} />
       </div>
       <button
         className="button primary create-pool-button"
