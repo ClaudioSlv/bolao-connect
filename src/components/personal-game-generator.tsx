@@ -117,7 +117,8 @@ export function PersonalGameGenerator({
     [manualTrevos, setManualTrevos] = useState<number[]>([]),
     [saved, setSaved] = useState(false),
     [shared, setShared] = useState(false),
-    [showSaveDialog, setShowSaveDialog] = useState(false);
+    [showSaveDialog, setShowSaveDialog] = useState(false),
+    [generating, setGenerating] = useState(false);
   const allNumbers = useMemo(
     () => Array.from({ length: r.max - r.min + 1 }, (_, i) => r.min + i),
     [r.min, r.max],
@@ -284,7 +285,9 @@ export function PersonalGameGenerator({
       80,
     );
   const auto = () => {
-    if (canGenerate) {
+    if (canGenerate && !generating) {
+      setGenerating(true);
+      setTimeout(() => {
       const wanted = Math.max(1, Math.min(5000, qty)),
         out: Game[] = [],
         seen = new Set<string>();
@@ -340,6 +343,8 @@ export function PersonalGameGenerator({
       );
       resetFeedback();
       showGenerated();
+      setGenerating(false);
+      }, 30);
     }
   };
   const buildManualGames = (numbers: number[]) => {
@@ -848,9 +853,9 @@ export function PersonalGameGenerator({
           className="button primary"
           type="button"
           onClick={auto}
-          disabled={!canGenerate}
+          disabled={!canGenerate || generating}
         >
-          🎲 Gerar fechamento
+          {generating ? "⏳ ESTAMOS CRIANDO O JOGO" : "🎲 Gerar fechamento"}
         </button>
         {lottery !== "super-sete" && (
           <button
