@@ -308,7 +308,10 @@ export function PersonalGameGenerator({
           .sort((a, b) => a - b);
       };
       let attempts = 0;
-      while (out.length < target && attempts < Math.max(100, target * 50)) {
+      // Fechamentos grandes precisam de mais tentativas porque o balanceamento
+      // pode gerar combinações repetidas antes de atingir a quantidade pedida.
+      const maxAttempts = Math.max(1000, target * 500);
+      while (out.length < target && attempts < maxAttempts) {
         attempts++;
         const game = {
             numbers:
@@ -331,7 +334,9 @@ export function PersonalGameGenerator({
       setExclusionError(
         possible < wanted
           ? `Com as dezenas disponíveis existem somente ${possible} jogos diferentes de ${pick} dezenas. O app gerou todas as combinações possíveis.`
-          : "",
+          : out.length < target
+            ? `O fechamento não conseguiu completar ${target.toLocaleString("pt-BR")} jogos diferentes. Foram gerados ${out.length.toLocaleString("pt-BR")}. Tente gerar novamente.`
+            : "",
       );
       resetFeedback();
       showGenerated();
