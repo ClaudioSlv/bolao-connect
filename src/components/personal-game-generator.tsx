@@ -118,7 +118,8 @@ export function PersonalGameGenerator({
     [saved, setSaved] = useState(false),
     [shared, setShared] = useState(false),
     [showSaveDialog, setShowSaveDialog] = useState(false),
-    [generating, setGenerating] = useState(false);
+    [generating, setGenerating] = useState(false),
+    [generationProgress, setGenerationProgress] = useState(0);
   const allNumbers = useMemo(
     () => Array.from({ length: r.max - r.min + 1 }, (_, i) => r.min + i),
     [r.min, r.max],
@@ -285,45 +286,47 @@ export function PersonalGameGenerator({
       80,
     );
   const auto = () => {
-    if (canGenerate && !generating) {
-      setGenerating(true);
-      setTimeout(() => {
-      const wanted = Math.max(1, Math.min(5000, qty)),
-        out: Game[] = [],
-        seen = new Set<string>();
-      const possible = combinationCountUpTo(available.length, pick, wanted);
-      const target = Math.min(wanted, possible);
-      const usage = new Map(available.map((number) => [number, 0]));
-      const balancedLotofacilNumbers = (gameIndex: number) => {
-        const preferred = new Set(oneNumbers());
-        const randomTie = new Map(available.map((number) => [number, Math.random()]));
-        const reverse = gameIndex % 2 === 1;
-        return [...available]
-          .sort((a, b) => {
-            const score = (number: number) =>
-              (usage.get(number) ?? 0) * 1000 -
-              Number(preferred.has(number)) * 10 +
-              (randomTie.get(number) ?? 0) +
-              (reverse ? -number : number) * 0.01;
-            return score(a) - score(b);
-          })
-          .slice(0, pick)
-          .sort((a, b) => a - b);
-      };
-      let attempts = 0;
-      // Fechamentos grandes precisam de mais tentativas porque o balanceamento
-      // pode gerar combinações repetidas antes de atingir a quantidade pedida.
-      const maxAttempts = Math.max(1000, target * 500);
-      while (out.length < target && attempts < maxAttempts) {
+    if (!canGenerate || generating) return;
+    setGenerating(true);
+    setGenerationProgress(0);
+    setGames([]);
+    resetFeedback();
+
+    const wanted = Math.max(1, Math.min(5000, qty));
+    const possible = combinationCountUpTo(available.length, pick, wanted);
+    const target = Math.min(wanted, possible);
+    const out: Game[] = [];
+    const seen = new Set<string>();
+    const usage = new Map(available.map((number) => [number, 0]));
+    let attempts = 0;
+    const maxAttempts = Math.max(1000, target * 500);
+
+    const balancedLotofacilNumbers = (gameIndex: number) => {
+      const preferred = new Set(oneNumbers());
+      const randomTie = new Map(available.map((number) => [number, Math.random()]));
+      const reverse = gameIndex % 2 === 1;
+      return [...available]
+        .sort((a, b) => {
+          const score = (number: number) =>
+            (usage.get(number) ?? 0) * 1000 -
+            Number(preferred.has(number)) * 10 +
+            (randomTie.get(number) ?? 0) +
+            (reverse ? -number : number) * 0.01;
+          return score(a) - score(b);
+        })
+        .slice(0, pick)
+        .sort((a, b) => a - b);
+    };
+
+    const runBatch = () => {
+      const batchTarget = Math.min(target, out.length + 1000);
+      while (out.length < batchTarget && attempts < maxAttempts) {
         attempts++;
         const game = {
-            numbers:
-              lottery === "lotofacil"
-                ? balancedLotofacilNumbers(out.length)
-                : oneNumbers(),
-            trevos: oneTrevos(),
-          },
-          key = `${game.numbers.join("-")}|${game.trevos.join("-")}`;
+          numbers: lottery === "lotofacil" ? balancedLotofacilNumbers(out.length) : oneNumbers(),
+          trevos: oneTrevos(),
+        };
+        const key = `${game.numbers.join("-")}|${game.trevos.join("-")}`;
         if (!seen.has(key)) {
           seen.add(key);
           out.push(game);
@@ -333,6 +336,13 @@ export function PersonalGameGenerator({
             );
         }
       }
+
+      setGenerationProgress(out.length);
+      if (out.length < target && attempts < maxAttempts) {
+        window.setTimeout(runBatch, 40);
+        return;
+      }
+
       setGames(out);
       setExclusionError(
         possible < wanted
@@ -341,11 +351,11 @@ export function PersonalGameGenerator({
             ? `O fechamento não conseguiu completar ${target.toLocaleString("pt-BR")} jogos diferentes. Foram gerados ${out.length.toLocaleString("pt-BR")}. Tente gerar novamente.`
             : "",
       );
-      resetFeedback();
-      showGenerated();
       setGenerating(false);
-      }, 30);
-    }
+      showGenerated();
+    };
+
+    window.setTimeout(runBatch, 30);
   };
   const buildManualGames = (numbers: number[]) => {
     if (numbers.length !== pick || numbers.some((n) => excluded.has(n))) return;
@@ -855,7 +865,7 @@ export function PersonalGameGenerator({
           onClick={auto}
           disabled={!canGenerate || generating}
         >
-          {generating ? "⏳ ESTAMOS CRIANDO O JOGO" : "🎲 Gerar fechamento"}
+          {generating ? `⏳ CRIANDO JOGOS ${generationProgress.toLocaleString("pt-BR")} / ${Math.min(qty, 5000).toLocaleString("pt-BR")}` : "🎲 Gerar fechamento"}
         </button>
         {lottery !== "super-sete" && (
           <button
