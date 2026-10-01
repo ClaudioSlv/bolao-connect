@@ -125,3 +125,35 @@ export async function POST(request: Request) {
     );
   }
 }
+
+
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json();
+    const token = String(body.token ?? "");
+    const id = String(body.id ?? "");
+    if (!token || !id)
+      return NextResponse.json({ error: "Jogo inválido." }, { status: 400 });
+
+    const admin = createAdminClient();
+    const { data: participant } = await admin
+      .from("participants")
+      .select("id,pool_id,status")
+      .eq("access_token", token)
+      .maybeSingle();
+    if (!participant || participant.status === "cancelled")
+      return NextResponse.json({ error: "Participante inválido." }, { status: 404 });
+
+    const { error } = await admin
+      .from("personal_saved_games")
+      .delete()
+      .eq("id", id)
+      .eq("participant_id", participant.id)
+      .eq("pool_id", participant.pool_id);
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("delete-personal-game:", error);
+    return NextResponse.json({ error: "Não foi possível excluir o jogo." }, { status: 500 });
+  }
+}
