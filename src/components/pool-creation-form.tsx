@@ -1,7 +1,7 @@
 "use client";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
+import { DynamicLotteryCover } from "@/components/dynamic-lotofacil-cover";
 import type { LotteryId } from "@/lib/domain";
 import {
   calculatePoolPricing,
@@ -59,10 +59,10 @@ export function PoolCreationForm({
       { length: limits.max - limits.min + 1 },
       (_, i) => limits.min + i,
     );
-  const automaticLotofacilCover =
-    lottery === "lotofacil" &&
+  const automaticStandardCover =
     Number(contestNumber) > 0 &&
-    Number(contestNumber) % 20 === 0;
+    (lottery === "mega-sena" ||
+      (lottery === "lotofacil" && Number(contestNumber) % 20 === 0));
   const changeLottery = (next: LotteryId) => {
     setLottery(next);
     setRows([makeRow(next)]);
@@ -91,7 +91,7 @@ export function PoolCreationForm({
           placeholder="Ex.: Mega da Virada 2026"
         />
       </div>
-      {automaticLotofacilCover ? (
+      {automaticStandardCover ? (
         <div
           className="card"
           role="status"
@@ -109,7 +109,8 @@ export function PoolCreationForm({
             a data do sorteio e o status do bolão.
           </span>
           <div style={{marginTop:12}}>
-            <DynamicLotofacilCover
+            <DynamicLotteryCover
+              lottery={lottery}
               contestNumber={Number(contestNumber)}
               drawAt={drawAt ? new Date(`${drawAt}:00-03:00`).toISOString() : null}
               status="open"
