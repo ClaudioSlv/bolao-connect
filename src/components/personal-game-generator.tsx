@@ -894,7 +894,7 @@ export function PersonalGameGenerator({
           style={{
             height: "100%",
             width: `${generating && qty > 0 ? Math.min(100, (generationProgress / Math.min(qty, 5000)) * 100) : 0}%`,
-            background: "#39ff14",
+            background: "#00FFD5",
             transition: "width .2s ease",
           }}
         />
