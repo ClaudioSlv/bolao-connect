@@ -498,15 +498,14 @@ export function PersonalGameGenerator({
         return;
       }
 
-      // No painel do organizador, persiste o fechamento no banco antes da cópia local.
-      // Assim fechamentos grandes continuam disponíveis mesmo se o histórico/cache do navegador for limpo.
+      // Organizador continua com a persistência própria, sem misturar com o participante.
       if (!participantToken) {
         const response = await fetch("/api/organizer-personal-games", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ lottery, games }),
         });
-        const data = await response.json().catch(() => null) as { error?: string; contest?: number } | null;
+        const data = await response.json().catch(() => null) as { error?: string } | null;
         if (!response.ok) {
           alert(data?.error || "Não foi possível salvar o fechamento no banco.");
           return;
@@ -514,28 +513,7 @@ export function PersonalGameGenerator({
       }
 
       const key = "bolao-amigos-btp:jogos-salvos";
-      // Participante: o banco é a fonte oficial. Não duplicamos milhares de jogos
-      // no localStorage, o que podia estourar memória/armazenamento e reiniciar a PWA.
-      const current = participantToken
-        ? []
-        : JSON.parse(localStorage.getItem(key) || "[]");
-      const currentEntries = Array.isArray(current) ? current : [];
-      const gameKey = (game: Game) =>
-        `${[...game.numbers].sort((a, b) => a - b).join("-")}|${[...(game.trevos ?? [])].sort((a, b) => a - b).join("-")}`;
-      const localExistingKeys = new Set<string>();
-      for (const entry of currentEntries) {
-        if (entry?.lottery !== lottery || !Array.isArray(entry?.games)) continue;
-        for (const game of entry.games as Game[]) localExistingKeys.add(gameKey(game));
-      }
-      const localBatchKeys = new Set<string>();
-      const uniqueLocalGames = games.filter((game) => {
-        const gameId = gameKey(game);
-        if (localExistingKeys.has(gameId) || localBatchKeys.has(gameId)) return false;
-        localBatchKeys.add(gameId);
-        return true;
-      });
-      let duplicateCount = games.length - uniqueLocalGames.length;
-      let gamesToSave = uniqueLocalGames;
+      const current = JSON.parse(localStorage.getItem(key) || "[]");
       let targetContest = latestContest ? latestContest + 1 : null;
 
       if (!targetContest) {
@@ -554,53 +532,27 @@ export function PersonalGameGenerator({
 
       if (participantToken) {
         try {
-          // Salva o jogo pessoal do participante em lotes menores para evitar
-          // falhas de requisição em fechamentos grandes (1.000 a 5.000 jogos).
-          // O modal de sucesso só aparece depois que o banco confirma o salvamento.
-          const participantGames = referencedGames();
-          const serverSavedGames: Game[] = [];
-          let serverDuplicates = 0;
-          const saveBatchSize = 500;
-
-          for (let start = 0; start < participantGames.length; start += saveBatchSize) {
-            const batch = participantGames.slice(start, start + saveBatchSize);
-            const response = await fetch("/api/personal-games", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                token: participantToken,
-                lottery,
-                contest: targetContest,
-                games: batch,
-              }),
-            });
-            const data = (await response.json().catch(() => null)) as {
-              contest?: number;
-              error?: string;
-              savedCount?: number;
-              duplicateCount?: number;
-            } | null;
-
-            if (!response.ok)
-              throw new Error(data?.error || "Não foi possível salvar os jogos deste participante.");
-
-            if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
-              targetContest = Number(data?.contest);
-
-            const savedCount = Math.max(0, Number(data?.savedCount ?? batch.length));
-            serverDuplicates += Math.max(0, Number(data?.duplicateCount ?? 0));
-            if (savedCount > 0) serverSavedGames.push(...batch.slice(0, savedCount));
-          }
-
-          duplicateCount = serverDuplicates;
-          gamesToSave = serverSavedGames;
+          const response = await fetch("/api/personal-games", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: participantToken,
+              lottery,
+              contest: targetContest,
+              games: referencedGames(),
+            }),
+          });
+          const data = (await response.json().catch(() => null)) as {
+            contest?: number;
+            error?: string;
+          } | null;
+          if (!response.ok) throw new Error(data?.error);
+          if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
+            targetContest = Number(data?.contest);
         } catch (error) {
           alert(
-            error instanceof Error && error.message
-              ? error.message
-              : "Não foi possível salvar os jogos deste participante. Tente novamente.",
+            `${error instanceof Error && error.message ? error.message : "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
           );
-          return;
         }
       }
 
@@ -615,17 +567,15 @@ export function PersonalGameGenerator({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         lottery,
         label: r.label,
-        games: withStableGameReferences(gamesToSave),
+        games: referencedGames(),
         targetContest,
-        totalCostCents: officialGamesCostCents(lottery, gamesToSave),
+        totalCostCents: officialGamesCostCents(lottery, games),
         createdAt: new Date().toISOString(),
       };
-      if (!participantToken) {
-        localStorage.setItem(
-          key,
-          JSON.stringify(gamesToSave.length ? [entry, ...currentEntries] : currentEntries),
-        );
-      }
+      localStorage.setItem(
+        key,
+        JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
+      );
 
       setSaved(true);
       setShowSaveDialog(true);
@@ -1067,10 +1017,7 @@ export function PersonalGameGenerator({
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => {
-                  setShowSaveDialog(false);
-                  setSaved(true);
-                }}
+                onClick={() => window.location.assign(returnHref)}
               >
                 Não
               </button>
