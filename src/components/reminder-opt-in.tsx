@@ -29,7 +29,8 @@ function errorText(error:unknown){
   const code=error instanceof Error?error.message:"";
   if(code==="permission-blocked")return "As notificações estão bloqueadas neste navegador. Toque no cadeado/ícone ao lado do endereço do site, abra Permissões ou Configurações do site, libere Notificações e depois volte aqui para ativar novamente.";
   if(code==="permission")return "A permissão de notificações não foi concedida. Toque no botão novamente e escolha Permitir quando o navegador perguntar.";
-  if(code==="unsupported-ios")return "No iPhone, as notificações funcionam pelo JuntaSorte instalado na Tela de Início. Feche o Safari e abra o JuntaSorte pelo ícone da Tela de Início. Depois toque novamente em Ativar notificações.";\n  if(code==="unsupported")return "Este navegador não oferece suporte às notificações push deste aplicativo. Abra o link no Chrome atualizado ou instale o app na tela inicial e tente novamente.";
+  if(code==="unsupported-ios")return "No iPhone, as notificações funcionam pelo JuntaSorte instalado na Tela de Início. Feche o Safari e abra o JuntaSorte pelo ícone da Tela de Início. Depois toque novamente em Ativar notificações.";
+  if(code==="unsupported")return "Este navegador não oferece suporte às notificações push deste aplicativo. Abra o link no Chrome atualizado ou instale o app na tela inicial e tente novamente.";
   if(code==="key")return "A chave de notificações do aplicativo não está disponível neste ambiente. Atualize a página e tente novamente.";
   if(code==="already-linked")return "Este celular já está vinculado às notificações de outro participante. Para receber as suas, abra o seu próprio link no seu celular.";
   if(code==="service-worker")return "Não foi possível preparar o serviço de notificações neste aparelho. Feche e abra o navegador, atualize a página e tente novamente.";
