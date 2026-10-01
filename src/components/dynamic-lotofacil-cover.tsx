@@ -20,7 +20,8 @@ const themes: Partial<Record<LotteryId,string>> = {
 };
 const statusText=(s?:string|null)=>({open:"ABERTO",draft:"EM BREVE",closed:"ENCERRADO"})[s||""]||"EM PREPARAÇÃO";
 
-export function DynamicLotteryCover({lottery="lotofacil",contestNumber,drawAt,status,compact=false}:Props){
+export function DynamicLotteryCover({lottery: lotteryProp="lotofacil",contestNumber,drawAt,status,compact=false}:Props){
+ const lottery: LotteryId = lotteryProp ?? "lotofacil";
  const drawLabel=drawAt?new Date(drawAt).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}):"Data aguardando confirmação";
  const name=labels[lottery]||String(lottery).toUpperCase();
  const series=lottery==="lotofacil"?"JUNTASORTE · SÉRIE 20 EM 20":"JUNTASORTE · SÉRIE ESPECIAL";
