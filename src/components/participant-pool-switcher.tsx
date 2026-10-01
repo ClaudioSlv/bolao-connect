@@ -29,6 +29,7 @@ export function ParticipantPoolSwitcher({
   const listRef = useRef<HTMLElement>(null);
   const navigatingRef = useRef(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [visibleIndex, setVisibleIndex] = useState(0);
 
   useEffect(() => {
     navigatingRef.current = false;
@@ -39,6 +40,20 @@ export function ParticipantPoolSwitcher({
   const modalities = ["mega-sena","lotofacil","quina","dupla-sena","mais-milionaria","timemania","lotomania","dia-de-sorte","super-sete"] as const;
   const joinedModalities = new Set(pools.map((pool) => pool.lottery));
   const missingModalities = modalities.filter((lottery) => !joinedModalities.has(lottery));
+  const totalSlides = pools.length + missingModalities.length;
+  const syncDots = () => {
+    const list = listRef.current;
+    if (!list) return;
+    const cards = [...list.querySelectorAll<HTMLElement>(".participant-pool-option")];
+    const center = list.getBoundingClientRect().left + list.clientWidth / 2;
+    let best = 0, distance = Infinity;
+    cards.forEach((card, index) => {
+      const box = card.getBoundingClientRect();
+      const d = Math.abs(box.left + box.width / 2 - center);
+      if (d < distance) { distance = d; best = index; }
+    });
+    setVisibleIndex(best);
+  };
 
   const currentIndex = pools.findIndex((pool) => pool.id === currentPoolId);
   const openAdjacentPool = (direction: -1 | 1) => {
@@ -57,6 +72,7 @@ export function ParticipantPoolSwitcher({
         ref={listRef}
         className="participant-pool-list"
         aria-label="Bolões em que participo"
+        onScroll={syncDots}
         onTouchStart={(event) => {
           touchStartX.current = event.touches[0]?.clientX ?? null;
         }}
@@ -108,6 +124,9 @@ export function ParticipantPoolSwitcher({
           </button>
         ))}
       </nav>
+      <div aria-label="Posição no carrossel" style={{display:"flex",justifyContent:"center",gap:7,marginTop:10}}>
+        {Array.from({length:totalSlides},(_,index)=><span key={index} aria-hidden="true" style={{width:index===visibleIndex?18:7,height:7,borderRadius:999,background:index===visibleIndex?"#f7c948":"rgba(255,255,255,.35)",transition:"all .2s ease"}} />)}
+      </div>
       {unavailable && (
         <div
           role="status"
