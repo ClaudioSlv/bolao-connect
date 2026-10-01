@@ -14,25 +14,31 @@ const labels: Partial<Record<LotteryId,string>> = {
   "dupla-sena":"DUPLA SENA", lotomania:"LOTOMANIA", timemania:"TIMEMANIA",
   "dia-de-sorte":"DIA DE SORTE", "mais-milionaria":"+MILIONÁRIA", "super-sete":"SUPER SETE"
 };
-const themes: Partial<Record<LotteryId,string>> = {
-  "mega-sena":"mega", lotofacil:"lotofacil", quina:"quina", "dupla-sena":"dupla",
-  lotomania:"lotomania", timemania:"timemania", "dia-de-sorte":"dia", "mais-milionaria":"milionaria", "super-sete":"super"
-};
-const statusText=(s?:string|null)=>({open:"ABERTO",draft:"EM BREVE",closed:"ENCERRADO"})[s||""]||"EM PREPARAÇÃO";
 
-export function DynamicLotteryCover({lottery: lotteryProp="lotofacil",contestNumber,drawAt,status,compact=false}:Props){
- const lottery: LotteryId = lotteryProp ?? "lotofacil";
- const drawLabel=drawAt?new Date(drawAt).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}):"Data aguardando confirmação";
- const name=labels[lottery]||String(lottery).toUpperCase();
- const series=lottery==="lotofacil"?"JUNTASORTE · SÉRIE 20 EM 20":"JUNTASORTE · SÉRIE ESPECIAL";
- const balls: Partial<Record<LotteryId,number[]>> = {"mega-sena":[1,10,20,30,42,60],lotofacil:[1,5,10,15,20,25],quina:[7,23,41,56,79],"dupla-sena":[1,12,23,34,45,50],"mais-milionaria":[1,17,25,31,42,50],timemania:[1,8,12,23,39,63],lotomania:[1,7,12,25,39,50]};
- const coverBalls=balls[lottery]||[1,5,10,15,20,25];
- return <div className={`dynamic-lotofacil-cover lottery-theme-${themes[lottery]||"default"}${compact?" is-compact":""}`} role="img" aria-label={`${name}, concurso ${contestNumber||"aguardando confirmação"}`}>
-   <div className="dynamic-lotofacil-glow" aria-hidden="true"/>
-   <div className="dynamic-lotofacil-balls" aria-hidden="true">{coverBalls.map(n=><i key={n}>{String(n).padStart(2,"0")}</i>)}</div>
-   <div className="dynamic-lotofacil-copy"><small>{series}</small><strong>{name}</strong><b>CONCURSO {contestNumber||"—"}</b>{!compact&&<span>Sorteio: {drawLabel}</span>}</div>
-   <em>{statusText(status)}</em>
- </div>;
+const coverImages: Partial<Record<LotteryId,string>> = {
+  timemania:"/capas/file_000000004af4820ea0407b12965520f9.png",
+  lotomania:"/capas/file_000000006220820e974652e08c31a3b6.png",
+  "super-sete":"/capas/file_000000007198820eb38abb6a12196daa.png",
+  "dupla-sena":"/capas/file_0000000077b0820e9f080940b88bc703.png",
+  "dia-de-sorte":"/capas/file_00000000aecc820ea7eeb16b6cee29b0.png",
+  lotofacil:"/capas/file_00000000afd8820e912c0a21ca27bf53.png",
+  quina:"/capas/file_00000000cac8820ebf3c9bb593c6bb08.png",
+  "mais-milionaria":"/capas/file_00000000ee10820e8b19544bab3f3d4b.png",
+  "mega-sena":"/capas/file_00000000ffc8820eba1367e49f3bf35b.png"
+};
+
+export function DynamicLotteryCover({lottery: lotteryProp="lotofacil",contestNumber}:Props){
+  const lottery: LotteryId = lotteryProp ?? "lotofacil";
+  const name=labels[lottery]||String(lottery).toUpperCase();
+  const src=coverImages[lottery];
+
+  if(src){
+    return <div role="img" aria-label={`${name}, concurso ${contestNumber||"aguardando confirmação"}`} style={{width:"100%",overflow:"hidden",borderRadius:18,lineHeight:0}}>
+      <img src={src} alt="" style={{display:"block",width:"100%",height:"auto"}} />
+    </div>;
+  }
+
+  return <div role="img" aria-label={name}>{name}</div>;
 }
 
 // Compatibilidade com as telas que já usam a capa da Lotofácil.
