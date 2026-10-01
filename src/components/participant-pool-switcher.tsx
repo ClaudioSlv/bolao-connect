@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
-import { DynamicLotofacilCover } from "@/components/dynamic-lotofacil-cover";
+import { useEffect, useRef, useState } from "react";
+import { DynamicLotteryCover } from "@/components/dynamic-lotofacil-cover";
 
 type ParticipantPool = {
   id: string;
@@ -28,6 +28,7 @@ export function ParticipantPoolSwitcher({
   const touchStartX = useRef<number | null>(null);
   const listRef = useRef<HTMLElement>(null);
   const navigatingRef = useRef(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     navigatingRef.current = false;
@@ -35,7 +36,9 @@ export function ParticipantPoolSwitcher({
     active?.scrollIntoView({ behavior: "auto", block: "nearest", inline: "center" });
   }, [currentPoolId]);
 
-  if (pools.length < 2) return null;
+  const modalities = ["mega-sena","lotofacil","quina","dupla-sena","mais-milionaria","timemania","lotomania","dia-de-sorte","super-sete"] as const;
+  const joinedModalities = new Set(pools.map((pool) => pool.lottery));
+  const missingModalities = modalities.filter((lottery) => !joinedModalities.has(lottery));
 
   const currentIndex = pools.findIndex((pool) => pool.id === currentPoolId);
   const openAdjacentPool = (direction: -1 | 1) => {
@@ -76,7 +79,7 @@ export function ParticipantPoolSwitcher({
               prefetch={false}
             >
               {pool.lottery === "lotofacil" && Number(pool.contestNumber) % 20 === 0 ? (
-                <DynamicLotofacilCover contestNumber={pool.contestNumber} drawAt={pool.drawAt} estimatedPrizeCents={pool.estimatedPrizeCents} status={pool.status} compact />
+                <DynamicLotteryCover lottery={pool.lottery as any} contestNumber={pool.contestNumber} drawAt={pool.drawAt} estimatedPrizeCents={pool.estimatedPrizeCents} status={pool.status} compact />
               ) : pool.coverImageUrl ? (
                 <img src={pool.coverImageUrl} alt="" />
               ) : (
@@ -90,7 +93,35 @@ export function ParticipantPoolSwitcher({
             </Link>
           );
         })}
+        {missingModalities.map((lottery) => (
+          <button
+            key={lottery}
+            type="button"
+            className="participant-pool-option"
+            onClick={() => {
+              setUnavailable(true);
+              window.setTimeout(() => setUnavailable(false), 2600);
+            }}
+            aria-label={`${lottery}: ainda não há bolão disponível`}
+          >
+            <DynamicLotteryCover lottery={lottery as any} contestNumber={null} drawAt={null} status="draft" compact />
+          </button>
+        ))}
       </nav>
+      {unavailable && (
+        <div
+          role="status"
+          style={{
+            position:"fixed",left:"50%",top:"50%",transform:"translate(-50%,-50%)",
+            zIndex:1000,maxWidth:360,width:"calc(100% - 40px)",padding:"22px 18px",
+            border:"1px solid #f7c948",borderRadius:18,background:"rgba(8,10,12,.96)",
+            color:"#fff",fontWeight:800,fontSize:18,textAlign:"center",
+            boxShadow:"0 12px 40px rgba(0,0,0,.55)"
+          }}
+        >
+          Ainda não há bolão disponível para essa modalidade.
+        </div>
+      )}
     </section>
   );
 }
