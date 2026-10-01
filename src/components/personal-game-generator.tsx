@@ -93,12 +93,14 @@ export function PersonalGameGenerator({
   results,
   latestContest,
   participantToken,
+  participantPoolId,
   returnHref,
 }: {
   lottery: Lottery;
   results: Result[];
   latestContest: number | null;
   participantToken: string | null;
+  participantPoolId: string | null;
   returnHref: string;
 }) {
   const r = rules[lottery];
@@ -513,7 +515,15 @@ export function PersonalGameGenerator({
       }
 
       const key = "bolao-amigos-btp:jogos-salvos";
-      const current = JSON.parse(localStorage.getItem(key) || "[]");
+      const rawCurrent = JSON.parse(localStorage.getItem(key) || "[]");
+      const current = Array.isArray(rawCurrent)
+        ? rawCurrent.filter((entry) =>
+            participantToken
+              ? String(entry?.participantToken ?? "") === participantToken &&
+                String(entry?.poolId ?? "") === String(participantPoolId ?? "")
+              : !entry?.participantToken
+          )
+        : [];
       let targetContest = latestContest ? latestContest + 1 : null;
 
       if (!targetContest) {
@@ -567,6 +577,8 @@ export function PersonalGameGenerator({
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         lottery,
         label: r.label,
+        participantToken: participantToken ?? null,
+        poolId: participantPoolId ?? null,
         games: referencedGames(),
         targetContest,
         totalCostCents: officialGamesCostCents(lottery, games),
@@ -574,7 +586,12 @@ export function PersonalGameGenerator({
       };
       localStorage.setItem(
         key,
-        JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
+        JSON.stringify([
+          entry,
+          ...(Array.isArray(rawCurrent)
+            ? rawCurrent.filter((savedEntry) => savedEntry?.id !== entry.id)
+            : []),
+        ]),
       );
 
       setSaved(true);
