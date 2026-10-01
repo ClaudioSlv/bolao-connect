@@ -411,53 +411,23 @@ export default function SavedGamesPage() {
   }, [draws, items]);
 
   const remove = async (id: string) => {
-    const removed = items.find((item) => item.id === id);
-    const params = new URLSearchParams(window.location.search);
-    const poolId = params.get("pool") ?? "";
-    const requestedBack = params.get("voltar") ?? "";
-    const participantToken = requestedBack.startsWith("/p/") ? requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] ?? "" : "";
-
-    if (removed && participantToken) {
-      try {
-        const response = await fetch("/api/personal-games", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: participantToken, id: removed.id }),
-        });
-        if (!response.ok) {
-          window.alert("Não foi possível excluir o jogo do banco. Tente novamente.");
-          return;
-        }
-      } catch {
-        window.alert("Sem conexão para excluir o jogo do banco. Tente novamente.");
-        return;
-      }
-    }
-
-    if (removed && poolId) {
-      try {
-        const response = await fetch("/api/manual-lottery-results", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ poolId, lottery: removed.lottery }),
-        });
-        if (!response.ok) {
-          window.alert(
-            "Não foi possível excluir agora. Tente novamente para não deixar um resultado antigo publicado.",
-          );
-          return;
-        }
-      } catch {
-        window.alert(
-          "Sem conexão para concluir a exclusão. Tente novamente em instantes.",
-        );
-        return;
-      }
-    }
-
+    // Os jogos pessoais deste fluxo ficam salvos neste aparelho.
+    // Excluir deve liberar imediatamente a criação de um novo fechamento,
+    // sem depender de uma exclusão no banco.
     const next = items.filter((item) => item.id !== id);
     setItems(next);
-    localStorage.setItem(KEY, JSON.stringify(next));
+
+    try {
+      const stored = JSON.parse(localStorage.getItem(KEY) || "[]");
+      const allStored = Array.isArray(stored) ? (stored as Saved[]) : [];
+      localStorage.setItem(
+        KEY,
+        JSON.stringify(allStored.filter((item) => item.id !== id)),
+      );
+    } catch {
+      // A exclusão da tela não deve ser bloqueada por erro do armazenamento.
+    }
+
     if (!next.some((item) => item.lottery === selectedLottery))
       setSelectedLottery(next[0]?.lottery ?? "");
   };
