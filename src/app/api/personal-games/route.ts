@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       !isSupportedLottery(lottery) ||
       !Array.isArray(games) ||
       games.length < 1 ||
-      games.length > 1000 ||
+      games.length > 5000 ||
       games.some(
         (game) =>
           !Array.isArray(game?.numbers) ||
