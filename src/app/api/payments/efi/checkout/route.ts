@@ -108,6 +108,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ paid: Boolean(settlement?.paid), partial: Boolean(settlement?.partial), creditOnly: true, paymentConfirmed: true, creditUsedCents: target, amountCents: 0, remainingCents: settlement?.remaining_cents, installmentsPaid: installmentsToPay });
     }
 
+    // Keep the Efi Pix webhook pointed at production. Efi appends /pix to this URL.
+    const webhookBaseUrl = "https://bolao-connect.vercel.app/api/payments/efi/webhook";
+    const pixKey = String(process.env.EFI_PIX_KEY || "");
+    if (pixKey) {
+      const webhook = await efiRequest(`/v2/webhook/${encodeURIComponent(pixKey)}`, {
+        method: "PUT",
+        headers: { "x-skip-mtls-checking": "true" },
+        body: { webhookUrl: webhookBaseUrl },
+      });
+      if (webhook.status < 200 || webhook.status >= 300) {
+        console.error("Efi webhook configuration", webhook.status, webhook.data);
+      }
+    }
+
     const referenceId = `efi-${p.id}-${crypto.randomUUID().slice(0, 12)}`;
     const expirationSeconds = 1800;
     const expiresAt = new Date(Date.now() + expirationSeconds * 1000).toISOString();
