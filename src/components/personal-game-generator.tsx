@@ -120,7 +120,7 @@ export function PersonalGameGenerator({
     [showSaveDialog, setShowSaveDialog] = useState(false),
     [generating, setGenerating] = useState(false),
     [generationProgress, setGenerationProgress] = useState(0),
-    [visibleGameCount, setVisibleGameCount] = useState(100);
+    [visibleGameCount, setVisibleGameCount] = useState(1000);
   const allNumbers = useMemo(
     () => Array.from({ length: r.max - r.min + 1 }, (_, i) => r.min + i),
     [r.min, r.max],
@@ -345,7 +345,7 @@ export function PersonalGameGenerator({
       }
 
       setGames(out);
-      setVisibleGameCount(100);
+      setVisibleGameCount(1000);
       setExclusionError(
         possible < wanted
           ? `Com as dezenas disponíveis existem somente ${possible} jogos diferentes de ${pick} dezenas. O app gerou todas as combinações possíveis.`
@@ -929,7 +929,7 @@ export function PersonalGameGenerator({
               </div>
             ))}
           </div>
-          {visibleGames.length > visibleGameCount && (\n            <div className="actions" style={{ marginTop: "16px" }}>\n              <button className="button secondary" type="button" onClick={() => setVisibleGameCount((current) => Math.min(current + 100, visibleGames.length))}>\n                VER MAIS 100 JOGOS ({Math.min(visibleGameCount, visibleGames.length).toLocaleString("pt-BR")} / {visibleGames.length.toLocaleString("pt-BR")})\n              </button>\n            </div>\n          )}\n          {games.length > 0 && (
+          {visibleGames.length > visibleGameCount && (\n            <div className="actions" style={{ marginTop: "16px" }}>\n              <button className="button secondary" type="button" onClick={() => setVisibleGameCount((current) => Math.min(current + 1000, visibleGames.length))}>\n                VER MAIS 1.000 JOGOS ({Math.min(visibleGameCount, visibleGames.length).toLocaleString("pt-BR")} / {visibleGames.length.toLocaleString("pt-BR")})\n              </button>\n            </div>\n          )}\n          {games.length > 0 && (
             <>
               <div className="actions" style={{ marginTop: "16px" }}>
                 <button
