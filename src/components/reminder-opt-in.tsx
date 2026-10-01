@@ -49,7 +49,8 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
     let timer:number|undefined;
     const checkExisting=async()=>{
       try{
-        if(!("PushManager" in window)||!("Notification" in window))throw new Error("unsupported");
+        if(!("PushManager" in window)||!("Notification" in window))throw new Error(isIos()&&!isStandalone()?"unsupported-ios":"unsupported");
+        if(isIos()&&!isStandalone())throw new Error("unsupported-ios");
         const reg=await ensureServiceWorker();
         if(Notification.permission==="granted"){
           const existing=await withTimeout(reg.pushManager.getSubscription(),8000);
@@ -83,7 +84,8 @@ export function ReminderOptIn({token,paid=false}:{token:string;paid?:boolean}){
     setState("busy");
     setErrorMessage("");
     try{
-      if(!("PushManager" in window)||!("Notification" in window))throw new Error("unsupported");
+      if(!("PushManager" in window)||!("Notification" in window))throw new Error(isIos()&&!isStandalone()?"unsupported-ios":"unsupported");
+      if(isIos()&&!isStandalone())throw new Error("unsupported-ios");
       if(Notification.permission==="denied")throw new Error("permission-blocked");
       const permission=Notification.permission==="granted"?"granted":await withTimeout(Notification.requestPermission(),12000);
       if(permission==="denied")throw new Error("permission-blocked");
