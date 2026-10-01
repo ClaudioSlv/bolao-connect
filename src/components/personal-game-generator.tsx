@@ -256,14 +256,14 @@ export function PersonalGameGenerator({
       qtyInput !== "" &&
       Number.isInteger(enteredQty) &&
       enteredQty >= 1 &&
-      enteredQty <= 1000,
+      enteredQty <= 5000,
     qtyError =
       qtyInput === ""
         ? ""
         : enteredQty < 1
           ? "A quantidade mínima é 1 jogo."
-          : enteredQty > 1000
-            ? "A quantidade máxima é 1.000 jogos."
+          : enteredQty > 5000
+            ? "A quantidade máxima é 5.000 jogos."
             : !Number.isInteger(enteredQty)
               ? "Digite somente um número inteiro."
               : "";
@@ -285,7 +285,7 @@ export function PersonalGameGenerator({
     );
   const auto = () => {
     if (canGenerate) {
-      const wanted = Math.max(1, Math.min(1000, qty)),
+      const wanted = Math.max(1, Math.min(5000, qty)),
         out: Game[] = [],
         seen = new Set<string>();
       const possible = combinationCountUpTo(available.length, pick, wanted);
@@ -710,7 +710,7 @@ export function PersonalGameGenerator({
       <div className="field">
         <label>
           Quantidade de jogos automáticos{" "}
-          <small className="muted">(máx. 1000)</small>
+          <small className="muted">(máx. 5000)</small>
         </label>
         <input
           id="game-quantity-input"
@@ -718,7 +718,7 @@ export function PersonalGameGenerator({
           inputMode="numeric"
           enterKeyHint="done"
           min="1"
-          max="1000"
+          max="5000"
           value={qtyInput}
           placeholder="Digite a quantidade"
           onChange={(e) => {
@@ -728,7 +728,7 @@ export function PersonalGameGenerator({
               e.target.value !== "" &&
               Number.isInteger(n) &&
               n >= 1 &&
-              n <= 1000
+              n <= 5000
             )
               setQty(n);
           }}
