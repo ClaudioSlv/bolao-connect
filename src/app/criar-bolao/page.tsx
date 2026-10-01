@@ -89,7 +89,7 @@ async function createPoolFromForm(
     });
     const automaticStandardCover =
       contestNumber != null &&
-      (["mega-sena","quina","dupla-sena","mais-milionaria","timemania","lotomania"].includes(lottery) ||
+      (["mega-sena","quina","dupla-sena","mais-milionaria","timemania","lotomania","dia-de-sorte","super-sete"].includes(lottery) ||
         (lottery === "lotofacil" && contestNumber % 20 === 0));
     if (
       !automaticStandardCover &&
