@@ -174,14 +174,32 @@ export default function ManualConferencePage() {
       const currentPoolId = new URLSearchParams(window.location.search).get("pool") ?? "";
       setPoolId(currentPoolId);
 
-      const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
-      const saved = Array.isArray(parsed) ? (parsed as Saved[]) : [];
-      setItems(saved);
-
-      const first = saved.find((item) => Number(item.targetContest) > 0) ?? saved[0];
-      if (first) {
-        setLottery(first.lottery);
-      }
+      const loadSaved = async () => {
+        try {
+          const response = await fetch("/api/organizer-personal-games", { cache: "no-store" });
+          const payload = await response.json().catch(() => null) as { games?: Array<{ id:string; lottery:string; contest_number:number; games:Game[]; created_at:string }> } | null;
+          if (response.ok && Array.isArray(payload?.games) && payload.games.length) {
+            const saved: Saved[] = payload.games.map((item) => ({
+              id: item.id,
+              lottery: item.lottery,
+              label: item.lottery === "mega-sena" ? "Mega-Sena" : item.lottery === "lotofacil" ? "Lotofácil" : item.lottery,
+              games: item.games,
+              createdAt: item.created_at,
+              targetContest: item.contest_number,
+            }));
+            setItems(saved);
+            const first = saved.find((item) => Number(item.targetContest) > 0) ?? saved[0];
+            if (first) setLottery(first.lottery);
+            return;
+          }
+        } catch {}
+        const parsed = JSON.parse(localStorage.getItem(KEY) || "[]");
+        const saved = Array.isArray(parsed) ? (parsed as Saved[]) : [];
+        setItems(saved);
+        const first = saved.find((item) => Number(item.targetContest) > 0) ?? saved[0];
+        if (first) setLottery(first.lottery);
+      };
+      void loadSaved();
     } catch {
       setItems([]);
     }
