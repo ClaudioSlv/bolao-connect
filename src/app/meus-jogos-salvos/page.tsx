@@ -139,36 +139,26 @@ export default function SavedGamesPage() {
     const requestedBack = new URLSearchParams(window.location.search).get("voltar");
     if (requestedBack?.startsWith("/p/")) {
       setBackHref(requestedBack);
-      // Participante: mostra somente jogos deste participante e deste bolão.
-      // Jogos antigos sem identificação não são misturados entre bolões.
-      try {
-        const token = requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] ?? "";
-        const value = JSON.parse(localStorage.getItem(KEY) || "[]");
-        const allSaved = Array.isArray(value) ? (value as Saved[]) : [];
-        fetch(`/api/personal-games?token=${encodeURIComponent(token)}`, { cache: "no-store" })
-          .then(async (response) => {
-            const data = await response.json().catch(() => null) as { games?: Array<{ id:string; lottery:string; contest:number; games:Game[]; createdAt:string }> } | null;
-            const serverIds = new Set((response.ok ? data?.games ?? [] : []).map((item) => item.id));
-            const saved = allSaved
-              .filter((item) =>
-                item.participantToken === token &&
-                Boolean(item.poolId) &&
-                !serverIds.has(item.id)
-              )
-              .map((item) => ({ ...item, games: withStableGameReferences(item.games) }));
-            setItems(saved);
-            setSelectedLottery(saved[0]?.lottery ?? "");
-          })
-          .catch(() => {
-            const saved = allSaved
-              .filter((item) => item.participantToken === token && Boolean(item.poolId))
-              .map((item) => ({ ...item, games: withStableGameReferences(item.games) }));
-            setItems(saved);
-            setSelectedLottery(saved[0]?.lottery ?? "");
-          });
-      } catch {
-        setItems([]);
-      }
+      const token = requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] ?? "";
+      fetch(`/api/personal-games?token=${encodeURIComponent(token)}`, { cache: "no-store" })
+        .then(async (response) => {
+          const data = await response.json().catch(() => null) as {
+            games?: Array<{ id:string; lottery:string; contest:number; games:Game[]; createdAt:string }>
+          } | null;
+          if (!response.ok) throw new Error("load");
+          const saved: Saved[] = (data?.games ?? []).map((item) => ({
+            id: item.id,
+            lottery: item.lottery,
+            label: item.lottery === "mega-sena" ? "Mega-Sena" : item.lottery === "lotofacil" ? "Lotofácil" : item.lottery,
+            games: withStableGameReferences(item.games),
+            createdAt: item.createdAt,
+            targetContest: item.contest,
+            totalCostCents: officialGamesCostCents(item.lottery, item.games),
+          }));
+          setItems(saved);
+          setSelectedLottery(saved[0]?.lottery ?? "");
+        })
+        .catch(() => setItems([]));
       return;
     }
     fetch("/api/organizer-personal-games", { cache: "no-store" })
@@ -432,22 +422,30 @@ export default function SavedGamesPage() {
   }, [draws, items]);
 
   const remove = async (id: string) => {
-    // No fluxo local do participante, excluir remove somente o jogo exibido neste
-    // aparelho. Não tenta apagar um ID local na tabela do banco.
-    const next = items.filter((item) => item.id !== id);
-    setItems(next);
+    const requestedBack = new URLSearchParams(window.location.search).get("voltar") ?? "";
+    const token = requestedBack.startsWith("/p/")
+      ? requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] ?? ""
+      : "";
 
-    try {
-      const stored = JSON.parse(localStorage.getItem(KEY) || "[]");
-      const allStored = Array.isArray(stored) ? (stored as Saved[]) : [];
-      localStorage.setItem(
-        KEY,
-        JSON.stringify(allStored.filter((item) => item.id !== id)),
-      );
-    } catch {
-      // A tela já foi atualizada; uma falha de armazenamento não deve bloquear a exclusão visual.
+    if (token) {
+      try {
+        const response = await fetch("/api/personal-games", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, id }),
+        });
+        if (!response.ok) {
+          window.alert("Não foi possível excluir o jogo. Tente novamente.");
+          return;
+        }
+      } catch {
+        window.alert("Sem conexão para excluir o jogo. Tente novamente.");
+        return;
+      }
     }
 
+    const next = items.filter((item) => item.id !== id);
+    setItems(next);
     if (!next.some((item) => item.lottery === selectedLottery))
       setSelectedLottery(next[0]?.lottery ?? "");
   };
