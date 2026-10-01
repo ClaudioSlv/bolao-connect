@@ -18,7 +18,7 @@
     },
     {
       "path": "/api/cron/efi-reconcile",
-      "schedule": "*/10 * * * *"
+      "schedule": "10 11 * * *"
     }
   ]
 }
