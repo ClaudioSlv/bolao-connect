@@ -61,7 +61,7 @@ export function PoolCreationForm({
     );
   const automaticStandardCover =
     Number(contestNumber) > 0 &&
-    ["mega-sena","quina","dupla-sena","mais-milionaria","timemania","lotomania"].includes(lottery) ||
+    ["mega-sena","quina","dupla-sena","mais-milionaria","timemania","lotomania","dia-de-sorte","super-sete"].includes(lottery) ||
     (lottery === "lotofacil" && Number(contestNumber) > 0 && Number(contestNumber) % 20 === 0);
   const changeLottery = (next: LotteryId) => {
     setLottery(next);
