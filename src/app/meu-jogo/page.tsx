@@ -23,23 +23,13 @@ async function readResults(lottery: Lottery) {
   return data ?? [];
 }
 
-export default async function Page({searchParams}:{searchParams:Promise<{lottery?:string;voltar?:string;pool?:string}>}) {
+export default async function Page({searchParams}:{searchParams:Promise<{lottery?:string;voltar?:string}>}) {
   const query = await searchParams;
   const q = query.lottery;
   const backHref = query.voltar?.startsWith("/p/") ? query.voltar : "/";
   const participantToken = backHref.startsWith("/p/")
     ? backHref.slice(3).split("/")[0]
     : null;
-  let participantPoolId: string | null = null;
-  if (participantToken) {
-    const admin = createAdminClient();
-    const { data: participant } = await admin
-      .from("participants")
-      .select("pool_id")
-      .eq("access_token", participantToken)
-      .maybeSingle();
-    participantPoolId = participant?.pool_id ?? null;
-  }
   const lottery = (lotteries.includes(q as Lottery) ? q : "lotofacil") as Lottery;
   let results: Array<{numbers:number[];special_value?:unknown;contest_number:number}> = [];
 
@@ -55,5 +45,5 @@ export default async function Page({searchParams}:{searchParams:Promise<{lottery
     // Mantém o gerador manual disponível se o serviço externo estiver indisponível.
   }
 
-  return <main className="shell"><Link className="back" href={backHref}>← Voltar</Link><section className="section"><p className="eyebrow">JOGO PESSOAL</p><h1>🍀 Fazer meu próprio jogo</h1><p className="muted">Escolha a modalidade, monte seus próprios números ou use o gerador estatístico.</p><LotterySelector value={lottery} options={lotteries.map(value=>({value,label:labels[value]}))}/></section><section className="section"><h2>{labels[lottery]}</h2><PersonalGameGenerator key={lottery} lottery={lottery} results={results} latestContest={results.length ? Math.max(...results.map((row) => Number(row.contest_number) || 0)) : null} participantToken={participantToken} participantPoolId={participantPoolId} returnHref={backHref}/></section></main>;
+  return <main className="shell"><Link className="back" href={backHref}>← Voltar</Link><section className="section"><p className="eyebrow">JOGO PESSOAL</p><h1>🍀 Fazer meu próprio jogo</h1><p className="muted">Escolha a modalidade, monte seus próprios números ou use o gerador estatístico.</p><LotterySelector value={lottery} options={lotteries.map(value=>({value,label:labels[value]}))}/></section><section className="section"><h2>{labels[lottery]}</h2><PersonalGameGenerator key={lottery} lottery={lottery} results={results} latestContest={results.length ? Math.max(...results.map((row) => Number(row.contest_number) || 0)) : null} participantToken={participantToken} returnHref={backHref}/></section></main>;
 }
