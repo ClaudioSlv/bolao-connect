@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendPaymentDeadlinePush, sendWaitlistPromotionPush } from "@/lib/push/participant-notifications";
+import { sendPaymentDeadlinePush, sendPaymentDeadlineReminderPush, sendWaitlistPromotionPush } from "@/lib/push/participant-notifications";
 import {processPendingEfiRefunds} from "@/lib/efi-refunds";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,34 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const s = createAdminClient();
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+
+  // Às 10:30 de Brasília, avisa quem ainda não pagou e vence hoje.
+  const saoPaulo = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const startToday = new Date(`${saoPaulo}T00:00:00-03:00`).toISOString();
+  const endToday = new Date(`${saoPaulo}T23:59:59-03:00`).toISOString();
+  const { data: dueToday } = await s.from("pools")
+    .select("id,title,payment_deadline,status")
+    .gte("payment_deadline", startToday).lte("payment_deadline", endToday)
+    .not("status", "in", '("drawn","archived")');
+  let reminderNotified = 0;
+  for (const pool of dueToday ?? []) {
+    const { data: participants } = await s.from("participants")
+      .select("id,is_test,payment_status,status")
+      .eq("pool_id", pool.id).eq("status", "confirmed").eq("is_test", false)
+      .neq("payment_status", "confirmed");
+    for (const participant of participants ?? []) {
+      try {
+        const result = await sendPaymentDeadlineReminderPush(participant.id, pool.payment_deadline);
+        if (result.sent > 0) reminderNotified += result.sent;
+      } catch (error) {
+        console.error("payment deadline reminder push failed", participant.id, error);
+      }
+    }
+  }
   const { data: pools, error } = await s
     .from("pools")
     .select("id,title,payment_deadline,waitlist_payment_deadline,status")
@@ -81,5 +108,5 @@ export async function GET(req: Request) {
   }
 
   const refundsChecked = await processPendingEfiRefunds(5);
-  return NextResponse.json({ ok: true, expired, promoted, notified, deadlineNotified, awaitingRefund, refundsChecked });
+  return NextResponse.json({ ok: true, expired, promoted, notified, reminderNotified, deadlineNotified, awaitingRefund, refundsChecked });
 }
