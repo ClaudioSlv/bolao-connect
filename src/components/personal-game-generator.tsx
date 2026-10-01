@@ -550,34 +550,53 @@ export function PersonalGameGenerator({
 
       if (participantToken) {
         try {
-          const response = await fetch("/api/personal-games", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: participantToken,
-              lottery,
-              contest: targetContest,
-              games: referencedGames(),
-            }),
-          });
-          const data = (await response.json().catch(() => null)) as {
-            contest?: number;
-            error?: string;
-            savedCount?: number;
-            duplicateCount?: number;
-          } | null;
-          if (!response.ok) throw new Error(data?.error);
-          if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
-            targetContest = Number(data?.contest);
-          if (Number.isInteger(data?.duplicateCount)) {
-            duplicateCount = Number(data?.duplicateCount);
-            const serverSavedCount = Math.max(0, Number(data?.savedCount ?? 0));
-            gamesToSave = uniqueLocalGames.slice(0, serverSavedCount);
+          // Salva o jogo pessoal do participante em lotes menores para evitar
+          // falhas de requisição em fechamentos grandes (1.000 a 5.000 jogos).
+          // O modal de sucesso só aparece depois que o banco confirma o salvamento.
+          const participantGames = referencedGames();
+          const serverSavedGames: Game[] = [];
+          let serverDuplicates = 0;
+          const saveBatchSize = 500;
+
+          for (let start = 0; start < participantGames.length; start += saveBatchSize) {
+            const batch = participantGames.slice(start, start + saveBatchSize);
+            const response = await fetch("/api/personal-games", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: participantToken,
+                lottery,
+                contest: targetContest,
+                games: batch,
+              }),
+            });
+            const data = (await response.json().catch(() => null)) as {
+              contest?: number;
+              error?: string;
+              savedCount?: number;
+              duplicateCount?: number;
+            } | null;
+
+            if (!response.ok)
+              throw new Error(data?.error || "Não foi possível salvar os jogos deste participante.");
+
+            if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
+              targetContest = Number(data?.contest);
+
+            const savedCount = Math.max(0, Number(data?.savedCount ?? batch.length));
+            serverDuplicates += Math.max(0, Number(data?.duplicateCount ?? 0));
+            if (savedCount > 0) serverSavedGames.push(...batch.slice(0, savedCount));
           }
+
+          duplicateCount = serverDuplicates;
+          gamesToSave = serverSavedGames;
         } catch (error) {
           alert(
-            `${error instanceof Error && error.message ? error.message : "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
+            error instanceof Error && error.message
+              ? error.message
+              : "Não foi possível salvar os jogos deste participante. Tente novamente.",
           );
+          return;
         }
       }
 
