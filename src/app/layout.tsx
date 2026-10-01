@@ -8,29 +8,29 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://bolao-connect.vercel.app"),
-  title: { default: "Bolão Amigos BTP", template: "%s · Bolão Amigos BTP" },
+  title: { default: "JuntaSorte", template: "%s · JuntaSorte" },
   description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Bolão Amigos BTP",
+  applicationName: "JuntaSorte",
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    shortcut: "/icon.svg",
-    apple: "/icon.svg",
+    icon: [{ url: "/juntasorte-logo-mark.jpg", type: "image/jpeg" }],
+    shortcut: "/juntasorte-logo-mark.jpg",
+    apple: [{ url: "/juntasorte-logo-mark.jpg", type: "image/jpeg" }],
   },
   openGraph: {
     type: "website",
     locale: "pt_BR",
     url: "/bolao",
-    siteName: "Bolão Amigos BTP",
-    title: "Bolão Amigos BTP",
+    siteName: "JuntaSorte",
+    title: "JuntaSorte",
     description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
-    images: [{url:"/social-preview.jpg",width:512,height:512,alt:"Logo do Bolão Amigos BTP"}],
+    images: [{url:"/juntasorte-logo-mark.jpg",alt:"Logo do JuntaSorte"}],
   },
   twitter: {
     card: "summary",
-    title: "Bolão Amigos BTP",
+    title: "JuntaSorte",
     description: "Participe dos nossos bolões e acompanhe tudo pelo app.",
-    images: ["/social-preview.jpg"],
+    images: ["/juntasorte-logo-mark.jpg"],
   },
 };
 
@@ -39,5 +39,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="pt-BR"><body><AppSplash/><div className="app-fixed-header"><header className="app-brandbar"><Link href="/" aria-label="Bolão Amigos BTP - início"><img src="/icon.svg" alt=""/><span>Bolão Amigos BTP</span></Link></header><LotteryResultsTicker/></div>{children}<PdfGameShare/><PwaRegister /></body></html>;
+  return <html lang="pt-BR"><body><AppSplash/><div className="app-fixed-header"><header className="app-brandbar"><Link href="/" aria-label="JuntaSorte - início"><img src="/juntasorte-logo-mark.jpg" alt=""/><span>JuntaSorte</span></Link></header><LotteryResultsTicker/></div>{children}<PdfGameShare/><PwaRegister /></body></html>;
 }
