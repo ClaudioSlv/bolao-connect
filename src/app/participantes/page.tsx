@@ -10,6 +10,7 @@ import { addParticipant, cancelParticipant } from "@/app/actions/participants";
 import { increasePoolCapacity } from "@/app/actions/pools";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { reconcileEfiParticipant } from "@/app/api/payments/efi/status/route";
 export const dynamic = "force-dynamic";
 async function addF(f: FormData) {
   "use server";
@@ -52,6 +53,20 @@ async function cancelF(f: FormData) {
     participantId: String(f.get("participantId") ?? ""),
   });
   redirect(`/participantes?pool=${poolId}`);
+}
+async function verifyPixF(f: FormData) {
+  "use server";
+  const poolId = String(f.get("poolId") ?? "");
+  const participantId = String(f.get("participantId") ?? "");
+  const s = await createClient();
+  const { data: a } = await s.auth.getUser();
+  if (!a.user) redirect("/login");
+  const { data: pool } = await s.from("pools").select("id").eq("id", poolId).eq("owner_id", a.user.id).maybeSingle();
+  if (!pool) redirect("/participantes");
+  const admin = createAdminClient();
+  const { data: participant } = await admin.from("participants").select("access_token").eq("id", participantId).eq("pool_id", poolId).maybeSingle();
+  if (participant?.access_token) await reconcileEfiParticipant(String(participant.access_token));
+  redirect(\`/participantes?pool=\${poolId}\`);
 }
 async function capacityF(f: FormData) {
   "use server";
@@ -137,7 +152,12 @@ export default async function Page({
         .in("participant_id", ids)
         .in("status", ["partial", "confirmed"])
     : { data: [] };
+  const { data: pendingEfiRows } = ids.length
+    ? await s.from("payment_checkout_sessions").select("participant_id").in("participant_id", ids).eq("provider", "efi").in("status", ["pending", "processing", "review_required"])
+    : { data: [] };
+  const pendingEfi = new Set((pendingEfiRows ?? []).map((x) => x.participant_id));
   const receivedByParticipant = new Map<string, number>();
+
   for (const row of paymentRows ?? []) {
     receivedByParticipant.set(
       row.participant_id,
@@ -365,6 +385,13 @@ export default async function Page({
                         💳 Abrir participante
                       </Link>
                       <CopyParticipantLink token={p.access_token} />
+                      {!paid && pendingEfi.has(p.id) && pool && (
+                        <form action={verifyPixF}>
+                          <input type="hidden" name="poolId" value={pool.id} />
+                          <input type="hidden" name="participantId" value={p.id} />
+                          <button className="button secondary">🔎 Verificar Pix</button>
+                        </form>
+                      )}
                       {receiptUrl && !paid && (
                         <a
                           className="button secondary"
