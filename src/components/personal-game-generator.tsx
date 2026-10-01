@@ -603,9 +603,6 @@ export function PersonalGameGenerator({
       );
 
       setSaved(true);
-      alert(
-        `${gamesToSave.length.toLocaleString("pt-BR")} jogos novos salvos. ${duplicateCount.toLocaleString("pt-BR")} jogos repetidos foram ignorados.`,
-      );
       setShowSaveDialog(true);
     } catch {
       alert("Não foi possível salvar este jogo neste aparelho.");
