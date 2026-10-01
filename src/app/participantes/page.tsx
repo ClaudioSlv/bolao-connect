@@ -66,7 +66,7 @@ async function verifyPixF(f: FormData) {
   const admin = createAdminClient();
   const { data: participant } = await admin.from("participants").select("access_token").eq("id", participantId).eq("pool_id", poolId).maybeSingle();
   if (participant?.access_token) await reconcileEfiParticipant(String(participant.access_token));
-  redirect(\`/participantes?pool=\${poolId}\`);
+  redirect(`/participantes?pool=${poolId}`);
 }
 async function capacityF(f: FormData) {
   "use server";
