@@ -514,7 +514,11 @@ export function PersonalGameGenerator({
       }
 
       const key = "bolao-amigos-btp:jogos-salvos";
-      const current = JSON.parse(localStorage.getItem(key) || "[]");
+      // Participante: o banco é a fonte oficial. Não duplicamos milhares de jogos
+      // no localStorage, o que podia estourar memória/armazenamento e reiniciar a PWA.
+      const current = participantToken
+        ? []
+        : JSON.parse(localStorage.getItem(key) || "[]");
       const currentEntries = Array.isArray(current) ? current : [];
       const gameKey = (game: Game) =>
         `${[...game.numbers].sort((a, b) => a - b).join("-")}|${[...(game.trevos ?? [])].sort((a, b) => a - b).join("-")}`;
@@ -616,10 +620,12 @@ export function PersonalGameGenerator({
         totalCostCents: officialGamesCostCents(lottery, gamesToSave),
         createdAt: new Date().toISOString(),
       };
-      localStorage.setItem(
-        key,
-        JSON.stringify(gamesToSave.length ? [entry, ...currentEntries] : currentEntries),
-      );
+      if (!participantToken) {
+        localStorage.setItem(
+          key,
+          JSON.stringify(gamesToSave.length ? [entry, ...currentEntries] : currentEntries),
+        );
+      }
 
       setSaved(true);
       setShowSaveDialog(true);
@@ -1061,7 +1067,10 @@ export function PersonalGameGenerator({
               <button
                 className="button secondary"
                 type="button"
-                onClick={() => window.location.assign(returnHref)}
+                onClick={() => {
+                  setShowSaveDialog(false);
+                  setSaved(true);
+                }}
               >
                 Não
               </button>
