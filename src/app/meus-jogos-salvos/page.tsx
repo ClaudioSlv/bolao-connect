@@ -403,7 +403,27 @@ export default function SavedGamesPage() {
 
   const remove = async (id: string) => {
     const removed = items.find((item) => item.id === id);
-    const poolId = new URLSearchParams(window.location.search).get("pool") ?? "";
+    const params = new URLSearchParams(window.location.search);
+    const poolId = params.get("pool") ?? "";
+    const requestedBack = params.get("voltar") ?? "";
+    const participantToken = requestedBack.startsWith("/p/") ? requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] ?? "" : "";
+
+    if (removed && participantToken) {
+      try {
+        const response = await fetch("/api/personal-games", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: participantToken, id: removed.id }),
+        });
+        if (!response.ok) {
+          window.alert("Não foi possível excluir o jogo do banco. Tente novamente.");
+          return;
+        }
+      } catch {
+        window.alert("Sem conexão para excluir o jogo do banco. Tente novamente.");
+        return;
+      }
+    }
 
     if (removed && poolId) {
       try {
