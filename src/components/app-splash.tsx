@@ -6,20 +6,13 @@ import "./app-splash.css";
 export function AppSplash(){
   const[visible,setVisible]=useState(true);
   const[leaving,setLeaving]=useState(false);
-
-  useEffect(()=>{
-    const leave=window.setTimeout(()=>setLeaving(true),4000);
-    const hide=window.setTimeout(()=>setVisible(false),4500);
-    return()=>{window.clearTimeout(leave);window.clearTimeout(hide)};
-  },[]);
-
+  useEffect(()=>{const leave=window.setTimeout(()=>setLeaving(true),4000);const hide=window.setTimeout(()=>setVisible(false),4500);return()=>{window.clearTimeout(leave);window.clearTimeout(hide)}},[]);
   if(!visible)return null;
   return <div className={`app-splash${leaving?" app-splash-leaving":""}`} aria-hidden="true">
+    <div className="app-splash-clovers"><i/><i/><i/><i/></div>
     <div className="app-splash-glow"/>
-    <div className="app-splash-particles"><i/><i/><i/><i/><i/><i/><i/><i/></div>
-    <div className="app-splash-logo-wrap">
-      <img className="app-splash-logo" src="/juntasorte-logo-transparent.png" alt=""/>
-      <span className="app-splash-shine"/>
-    </div>
+    <div className="app-splash-logo-wrap"><img className="app-splash-logo" src="/juntasorte-logo-transparent.png" alt=""/><span className="app-splash-shine"/></div>
+    <p className="app-splash-tagline">BOLÕES DE VERDADE,<br/>GENTE DE CONFIANÇA</p>
+    <div className="app-splash-ribbons"><i/><b/></div>
   </div>;
 }
