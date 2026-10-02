@@ -4,7 +4,7 @@ export default function Loading() {
   return <main className="juntasorte-loading" aria-live="polite" aria-busy="true">
     <div className="juntasorte-loading-clovers"><i/><i/><i/><i/></div>
     <section className="juntasorte-loading-content">
-      <Image src="/juntasorte-logo-transparent.png" alt="JuntaSorte" width={400} height={255} priority className="juntasorte-loading-logo"/>
+      <Image src="/juntasorte-logo-loading.png" alt="JuntaSorte" width={1024} height={1024} priority className="juntasorte-loading-logo"/>
       <p className="juntasorte-loading-tagline">BOLÕES DE VERDADE,<br/>GENTE DE CONFIANÇA</p>
       <div className="juntasorte-loading-track" role="status" aria-label="Carregando JuntaSorte"><div className="juntasorte-loading-progress"/></div>
       <span className="juntasorte-loading-text">Carregando...</span>
@@ -13,7 +13,7 @@ export default function Loading() {
     <style>{`
       .juntasorte-loading{position:fixed;inset:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 36%,#0b4a31 0,#063020 30%,#03170f 62%,#010906 100%);padding:24px}
       .juntasorte-loading-content{width:100%;max-width:430px;display:flex;flex-direction:column;align-items:center;text-align:center;z-index:2;transform:translateY(-2vh)}
-      .juntasorte-loading-logo{width:min(88vw,400px);height:auto;object-fit:contain;filter:drop-shadow(0 16px 28px rgba(0,0,0,.42)) brightness(1.04) saturate(1.08)}
+      .juntasorte-loading-logo{width:min(82vw,360px);height:min(42dvh,360px);object-fit:contain;object-position:center;filter:drop-shadow(0 16px 28px rgba(0,0,0,.42)) brightness(1.04) saturate(1.08)}
       .juntasorte-loading-tagline{margin:12px 0 34px;color:rgba(255,255,255,.88);font-size:clamp(13px,3.7vw,18px);line-height:1.55;letter-spacing:.15em}
       .juntasorte-loading-track{width:min(68vw,290px);height:9px;border:1px solid rgba(32,255,119,.75);border-radius:999px;background:rgba(0,0,0,.25);overflow:hidden;box-shadow:0 0 12px rgba(22,225,100,.15)}
       .juntasorte-loading-progress{width:48%;height:100%;border-radius:999px;background:linear-gradient(90deg,#0bd95e,#45ff83);box-shadow:0 0 10px rgba(42,255,119,.7);animation:juntasorteProgress 1.35s ease-in-out infinite}
