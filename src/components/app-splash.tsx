@@ -18,7 +18,7 @@ export function AppSplash(){
     <div className="app-splash-glow"/>
     <div className="app-splash-particles"><i/><i/><i/><i/><i/><i/><i/><i/></div>
     <div className="app-splash-logo-wrap">
-      <img className="app-splash-logo" src="/icon.svg" alt=""/>
+      <img className="app-splash-logo" src="/juntasorte-logo-transparent.png" alt=""/>
       <span className="app-splash-shine"/>
     </div>
   </div>;
