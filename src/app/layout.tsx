@@ -13,9 +13,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   applicationName: "JuntaSorte",
   icons: {
-    icon: [{ url: "/juntasorte-logo-mark.jpg", type: "image/jpeg" }],
-    shortcut: "/juntasorte-logo-mark.jpg",
-    apple: [{ url: "/juntasorte-logo-mark.jpg", type: "image/jpeg" }],
+    icon: [
+      { url: "/juntasorte-icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/juntasorte-icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    shortcut: "/juntasorte-icon-192.png",
+    apple: [{ url: "/juntasorte-icon-180.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
     type: "website",
