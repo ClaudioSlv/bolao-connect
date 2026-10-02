@@ -312,7 +312,7 @@ export default async function Page({
     paymentClosed = !isTest && Boolean(closes && now > closes),
     isWaitlisted = p.status === "waitlisted",
     isExpired = p.status === "expired",
-    isLotofacilSeries = pool.lottery === "lotofacil" && Number(pool.contest_number) > 0 && Number(pool.contest_number) % 20 === 0,\n    juntaSorteHomePreview = String(p.name || "").trim().toLowerCase().startsWith("claudio") && pool.title.toLowerCase().includes("mega da virada");
+    isLotofacilSeries = pool.lottery === "lotofacil" && Number(pool.contest_number) > 0 && Number(pool.contest_number) % 20 === 0;
   return (
     <main className="shell">
       <ReservationConfirmedModal
