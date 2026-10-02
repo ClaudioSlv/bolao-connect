@@ -28,13 +28,13 @@ export default function Loading() {
         }}
       >
         <Image
-          src="/juntasorte-icon-512.png"
+          src="/juntasorte-logo-transparent.png"
           alt="JuntaSorte"
           width={190}
           height={190}
           priority
           style={{
-            width: "min(46vw, 190px)",
+            width: "min(58vw, 240px)",
             height: "auto",
             objectFit: "contain",
             filter: "drop-shadow(0 14px 28px rgba(0,0,0,.38))",
