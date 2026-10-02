@@ -34,7 +34,7 @@ export default function Loading() {
           height={190}
           priority
           style={{
-            width: "min(58vw, 240px)",
+            width: "min(86vw, 360px)",
             height: "auto",
             objectFit: "contain",
             filter: "drop-shadow(0 14px 28px rgba(0,0,0,.38))",
@@ -43,7 +43,7 @@ export default function Loading() {
 
         <h1
           style={{
-            margin: "22px 0 4px",
+            margin: "10px 0 4px",
             fontSize: "clamp(2rem, 10vw, 3rem)",
             lineHeight: 1,
             letterSpacing: "-0.04em",
