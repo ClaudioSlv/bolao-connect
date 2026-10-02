@@ -1,116 +1,26 @@
 import Image from "next/image";
 
 export default function Loading() {
-  return (
-    <main
-      aria-live="polite"
-      aria-busy="true"
-      style={{
-        minHeight: "100dvh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background:
-          "radial-gradient(circle at 50% 35%, #123d2b 0%, #071b14 42%, #030b08 100%)",
-        padding: "24px",
-      }}
-    >
-      <section
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          minHeight: "70dvh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-        }}
-      >
-        <Image
-          src="/juntasorte-logo-transparent.png"
-          alt="JuntaSorte"
-          width={190}
-          height={190}
-          priority
-          style={{
-            width: "min(86vw, 360px)",
-            height: "auto",
-            objectFit: "contain",
-            filter: "drop-shadow(0 14px 28px rgba(0,0,0,.38))",
-          }}
-        />
-
-        <h1
-          style={{
-            margin: "10px 0 4px",
-            fontSize: "clamp(2rem, 10vw, 3rem)",
-            lineHeight: 1,
-            letterSpacing: "-0.04em",
-            color: "#f7f7f2",
-          }}
-        >
-          Junta<span style={{ color: "#f5c84b" }}>Sorte</span>
-        </h1>
-
-        <p
-          style={{
-            margin: "10px 0 30px",
-            color: "rgba(255,255,255,.72)",
-            fontSize: ".9rem",
-            letterSpacing: ".12em",
-            textTransform: "uppercase",
-          }}
-        >
-          Bolão entre amigos
-        </p>
-
-        <div
-          role="status"
-          aria-label="Carregando JuntaSorte"
-          style={{
-            width: "min(64vw, 250px)",
-            height: "5px",
-            overflow: "hidden",
-            borderRadius: "999px",
-            background: "rgba(255,255,255,.13)",
-          }}
-        >
-          <div
-            className="juntasorte-splash-progress"
-            style={{
-              width: "48%",
-              height: "100%",
-              borderRadius: "999px",
-              background: "#18d86b",
-            }}
-          />
-        </div>
-
-        <span
-          style={{
-            marginTop: "12px",
-            color: "rgba(255,255,255,.7)",
-            fontSize: ".85rem",
-          }}
-        >
-          Carregando...
-        </span>
-
-        <style>{`
-          @keyframes juntasorteSplashProgress {
-            0% { transform: translateX(-115%); }
-            50% { transform: translateX(110%); }
-            100% { transform: translateX(215%); }
-          }
-          .juntasorte-splash-progress {
-            animation: juntasorteSplashProgress 1.35s ease-in-out infinite;
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .juntasorte-splash-progress { animation: none; width: 100% !important; }
-          }
-        `}</style>
-      </section>
-    </main>
-  );
+  return <main className="juntasorte-loading" aria-live="polite" aria-busy="true">
+    <div className="juntasorte-loading-clovers"><i/><i/><i/><i/></div>
+    <section className="juntasorte-loading-content">
+      <Image src="/juntasorte-logo-transparent.png" alt="JuntaSorte" width={400} height={255} priority className="juntasorte-loading-logo"/>
+      <p className="juntasorte-loading-tagline">BOLÕES DE VERDADE,<br/>GENTE DE CONFIANÇA</p>
+      <div className="juntasorte-loading-track" role="status" aria-label="Carregando JuntaSorte"><div className="juntasorte-loading-progress"/></div>
+      <span className="juntasorte-loading-text">Carregando...</span>
+    </section>
+    <div className="juntasorte-loading-ribbons"><i/><b/></div>
+    <style>{`
+      .juntasorte-loading{position:fixed;inset:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:radial-gradient(circle at 50% 36%,#0b4a31 0,#063020 30%,#03170f 62%,#010906 100%);padding:24px}
+      .juntasorte-loading-content{width:100%;max-width:430px;display:flex;flex-direction:column;align-items:center;text-align:center;z-index:2;transform:translateY(-2vh)}
+      .juntasorte-loading-logo{width:min(88vw,400px);height:auto;object-fit:contain;filter:drop-shadow(0 16px 28px rgba(0,0,0,.42)) brightness(1.04) saturate(1.08)}
+      .juntasorte-loading-tagline{margin:12px 0 34px;color:rgba(255,255,255,.88);font-size:clamp(13px,3.7vw,18px);line-height:1.55;letter-spacing:.15em}
+      .juntasorte-loading-track{width:min(68vw,290px);height:9px;border:1px solid rgba(32,255,119,.75);border-radius:999px;background:rgba(0,0,0,.25);overflow:hidden;box-shadow:0 0 12px rgba(22,225,100,.15)}
+      .juntasorte-loading-progress{width:48%;height:100%;border-radius:999px;background:linear-gradient(90deg,#0bd95e,#45ff83);box-shadow:0 0 10px rgba(42,255,119,.7);animation:juntasorteProgress 1.35s ease-in-out infinite}
+      .juntasorte-loading-text{margin-top:14px;color:rgba(255,255,255,.86);font-size:.95rem}
+      .juntasorte-loading-clovers{position:absolute;inset:0;opacity:.12}.juntasorte-loading-clovers i{position:absolute;width:150px;height:150px;transform:rotate(45deg);background:radial-gradient(circle at 32% 32%,#21a85f 0,#07552e 62%,transparent 64%);border-radius:55% 50% 55% 50%}.juntasorte-loading-clovers i:before,.juntasorte-loading-clovers i:after{content:"";position:absolute;width:100%;height:100%;border-radius:inherit;background:inherit}.juntasorte-loading-clovers i:before{transform:rotate(90deg)}.juntasorte-loading-clovers i:after{transform:rotate(180deg)}.juntasorte-loading-clovers i:nth-child(1){right:-20px;top:10%;transform:rotate(25deg) scale(1.1)}.juntasorte-loading-clovers i:nth-child(2){left:-60px;top:28%;transform:rotate(-20deg) scale(.7)}.juntasorte-loading-clovers i:nth-child(3){right:8%;bottom:15%;transform:rotate(20deg) scale(.65)}.juntasorte-loading-clovers i:nth-child(4){left:8%;bottom:4%;transform:rotate(-8deg) scale(.58)}
+      .juntasorte-loading-ribbons{position:absolute;left:-10%;right:-10%;bottom:-3%;height:28%;transform:rotate(2deg)}.juntasorte-loading-ribbons i,.juntasorte-loading-ribbons b{position:absolute;left:-5%;width:115%;height:42%;border-radius:50%;transform:rotate(10deg);border-top:3px solid rgba(255,208,51,.9)}.juntasorte-loading-ribbons i{bottom:20%;background:linear-gradient(160deg,rgba(255,190,23,.9),rgba(108,63,0,.45) 45%,rgba(4,72,37,.25) 72%,transparent 73%);clip-path:polygon(0 22%,45% 65%,100% 82%,100% 100%,0 100%)}.juntasorte-loading-ribbons b{bottom:2%;background:linear-gradient(165deg,rgba(4,76,39,.15),rgba(12,146,69,.82) 58%,rgba(2,46,24,.8));clip-path:polygon(0 48%,42% 75%,100% 20%,100% 100%,0 100%)}
+      @keyframes juntasorteProgress{0%{transform:translateX(-115%)}50%{transform:translateX(110%)}100%{transform:translateX(215%)}}@media(prefers-reduced-motion:reduce){.juntasorte-loading-progress{animation:none;width:100%}}
+    `}</style>
+  </main>;
 }
