@@ -343,7 +343,7 @@ export default async function Page({
           {isTest ? "PARTICIPAR DO BOLÃO · MODO TESTE" : "BOLÃO AMIGOS BTP"}
         </p>
         <h1 className="pool-heading"><img className="pool-title-logo" src="/juntasorte-logo-mark.jpg" alt="" aria-hidden="true" />{pool.title}</h1>
-        {joinedPools.length < 2 && pool.lottery === "lotofacil" && Number(pool.contest_number) % 20 === 0 ? <div style={{marginBottom:16}}><DynamicLotofacilCover contestNumber={pool.contest_number} drawAt={pool.draw_at} estimatedPrizeCents={pool.estimated_prize_cents} status={pool.status}/></div> : joinedPools.length<2&&poolCover(pool.title,pool.cover_image_url) ? <img src={poolCover(pool.title,pool.cover_image_url)!} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/> : null}
+        {pool.lottery === "lotofacil" && Number(pool.contest_number) % 20 === 0 ? <div style={{marginBottom:16}}><DynamicLotofacilCover contestNumber={pool.contest_number} drawAt={pool.draw_at} estimatedPrizeCents={pool.estimated_prize_cents} status={pool.status}/></div> : poolCover(pool.title,pool.cover_image_url) ? <img src={poolCover(pool.title,pool.cover_image_url)!} alt={`Capa de ${pool.title}`} style={{width:"100%",aspectRatio:"3 / 1",objectFit:"cover",borderRadius:20,border:"1px solid rgba(247,201,72,.7)",marginBottom:16}}/> : null}
         <p>
           <strong>{p.name}</strong> ·{" "}
           {isTest
