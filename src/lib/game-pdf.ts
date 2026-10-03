@@ -30,14 +30,29 @@ export async function makeGamesPdf(title: string, lines: string[], logoBytes?: U
   };
   const cards = lines.map((line, index) => {
     const match = clean(line).match(/^(Jogo\s*\d+):?\s*(.*)$/i);
-    return { heading: match?.[1] || `Jogo ${index + 1}`, rows: wrap(match?.[2] || line) };
+    const reference = Number(match?.[1].match(/\d+/)?.[0]) || index + 1;
+    const lot = Math.floor((reference - 1) / 100) + 1;
+    return { reference, lot, heading: `Jogo ${reference}`, rows: wrap(match?.[2] || line) };
   });
   const cardHeight = Math.max(52, ...cards.map(card => 26 + card.rows.length * 11));
-  const top = height - 88;
+  const top = height - 112;
   const rowsPerPage = Math.max(1, Math.floor((top - 88 + gap) / (cardHeight + gap)));
   const perPage = rowsPerPage * columns;
-  const pages = Math.ceil(cards.length / perPage);
-  for (let offset = 0; offset < cards.length; offset += perPage) {
+  const lots = new Map<number, typeof cards>();
+  for (const card of cards) {
+    const group = lots.get(card.lot) ?? [];
+    group.push(card);
+    lots.set(card.lot, group);
+  }
+  const sheets: { lot: number; lotPage: number; lotPages: number; cards: typeof cards }[] = [];
+  for (const [lot, group] of [...lots].sort(([a], [b]) => a - b)) {
+    group.sort((a, b) => a.reference - b.reference);
+    const lotPages = Math.ceil(group.length / perPage);
+    for (let offset = 0; offset < group.length; offset += perPage)
+      sheets.push({ lot, lotPage: Math.floor(offset / perPage) + 1, lotPages, cards: group.slice(offset, offset + perPage) });
+  }
+  const pages = sheets.length;
+  for (const [pageIndex, sheet] of sheets.entries()) {
     const page = document.addPage([width, height]);
     // Repeat a faint app logo behind the games across the entire sheet.
     for (let row = 0; row < 4; row++) {
@@ -48,7 +63,10 @@ export async function makeGamesPdf(title: string, lines: string[], logoBytes?: U
     page.drawText("JuntaSorte - Bolao entre Amigos", { x: margin, y: height - 32, font: bold, size: 14 });
     page.drawText(clean(title), { x: margin, y: height - 51, font: regular, size: Math.min(11, (width - margin * 2) / Math.max(1, regular.widthOfTextAtSize(clean(title), 1))) });
     page.drawText(`${lines.length.toLocaleString("pt-BR")} jogos | A4`, { x: margin, y: height - 67, font: regular, size: 9 });
-    cards.slice(offset, offset + perPage).forEach((card, index) => {
+    page.drawText(`LOTE ${sheet.lot}`, { x: margin, y: height - 95, font: bold, size: 20 });
+    const range = `Jogos ${sheet.cards[0].reference} a ${sheet.cards[sheet.cards.length - 1].reference} | Folha ${sheet.lotPage} de ${sheet.lotPages}`;
+    page.drawText(range, { x: width - margin - regular.widthOfTextAtSize(range, 9), y: height - 92, font: regular, size: 9 });
+    sheet.cards.forEach((card, index) => {
       const x = margin + (index % columns) * (cardWidth + gap);
       const y = top - Math.floor(index / columns) * (cardHeight + gap) - cardHeight;
       page.drawRectangle({ x, y, width: cardWidth, height: cardHeight, borderWidth: 0.5, borderColor: rgb(.7, .7, .7) });
@@ -58,9 +76,9 @@ export async function makeGamesPdf(title: string, lines: string[], logoBytes?: U
     const modalitySize = Math.min(10, 240 / Math.max(1, bold.widthOfTextAtSize(modality, 1)));
     page.drawText(modality, { x: (width - bold.widthOfTextAtSize(modality, modalitySize)) / 2, y: 68, font: bold, size: modalitySize });
     page.drawImage(logo, { x: (width - 42) / 2, y: 18, width: 42, height: 42 });
-    page.drawText(`Pagina ${Math.floor(offset / perPage) + 1} de ${pages}`, { x: margin, y: 20, font: regular, size: 8 });
+    page.drawText(`Pagina ${pageIndex + 1} de ${pages} - LOTE ${sheet.lot}`, { x: margin, y: 20, font: regular, size: 8 });
     // Keep the interface responsive for large sets.
-    if (offset % (perPage * 5) === 0) await new Promise(resolve => setTimeout(resolve, 0));
+    if (pageIndex % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
   }
   document.setTitle(clean(title));
   document.setAuthor("JuntaSorte - Bolao entre Amigos");
