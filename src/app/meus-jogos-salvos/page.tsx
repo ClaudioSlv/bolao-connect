@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameListScrollbar } from "@/components/game-list-scrollbar";
 import { useEffect, useMemo, useState } from "react";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
 import { formatGameReference, withStableGameReferences } from "@/lib/game-reference";
@@ -757,7 +758,8 @@ export default function SavedGamesPage() {
                 <div className="status">Aguardando resultado do concurso {contest}.</div>
               )}
 
-              <div className="list">
+              <GameListScrollbar count={item.games.length} listId={`saved-game-list-${item.id}`} />
+              <div className="list" id={`saved-game-list-${item.id}`} style={{ paddingRight: "30px" }}>
                 {item.games.map((game, index) => {
                   const referenceNumber = game.referenceNumber ?? index + 1;
                   const checked =
@@ -767,7 +769,7 @@ export default function SavedGamesPage() {
                   const matched = new Set(checked?.matched.map(Number) ?? []);
 
                   return (
-                    <div className="list-item" key={referenceNumber}>
+                    <div className="list-item" key={referenceNumber} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 100px" }}>
                       <strong>Jogo {referenceNumber}</strong>
                       <small className="muted">{formatGameReference(referenceNumber)}</small>
                       <span>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export function GameListScrollbar({ count }: { count: number }) {
+export function GameListScrollbar({ count, listId = "generated-game-list" }: { count: number; listId?: string }) {
   const [visible, setVisible] = useState(false);
   const [current, setCurrent] = useState(1);
   const frame = useRef(0);
@@ -10,10 +10,10 @@ export function GameListScrollbar({ count }: { count: number }) {
   useEffect(() => {
     const update = () => {
       frame.current = 0;
-      const list = document.getElementById("generated-game-list");
+      const list = document.getElementById(listId);
       if (!list) return;
       const rect = list.getBoundingClientRect();
-      setVisible(rect.top < window.innerHeight - 120 && rect.bottom > 170);
+      setVisible(rect.top < window.innerHeight * 0.55 && rect.bottom > window.innerHeight * 0.55);
       // Read only a few rows even when the list has thousands of games.
       let low = 0;
       let high = list.children.length - 1;
@@ -36,7 +36,7 @@ export function GameListScrollbar({ count }: { count: number }) {
       cancelAnimationFrame(frame.current);
       frame.current = 0;
     };
-  }, [count]);
+  }, [count, listId]);
 
   if (count < 2 || !visible) return null;
   return (
@@ -53,7 +53,7 @@ export function GameListScrollbar({ count }: { count: number }) {
         onChange={(event) => {
           const next = Number(event.target.value);
           setCurrent(next);
-          const row = document.getElementById("generated-game-list")?.children[next - 1];
+          const row = document.getElementById(listId)?.children[next - 1];
           if (row) window.scrollBy({ top: row.getBoundingClientRect().top - 160, behavior: "instant" });
         }}
       />
