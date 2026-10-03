@@ -515,6 +515,7 @@ export function PersonalGameGenerator({
       const key = "bolao-amigos-btp:jogos-salvos";
       const current = JSON.parse(localStorage.getItem(key) || "[]");
       let targetContest = latestContest ? latestContest + 1 : null;
+      let persistentId: string | null = null;
 
       if (!targetContest) {
         try {
@@ -544,11 +545,13 @@ export function PersonalGameGenerator({
           });
           const data = (await response.json().catch(() => null)) as {
             contest?: number;
+            id?: string;
             error?: string;
           } | null;
           if (!response.ok) throw new Error(data?.error);
           if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
             targetContest = Number(data?.contest);
+          if (data?.id) persistentId = data.id;
         } catch (error) {
           alert(
             `${error instanceof Error && error.message ? error.message : "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
@@ -564,7 +567,7 @@ export function PersonalGameGenerator({
       }
 
       const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: persistentId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         lottery,
         label: r.label,
         games: referencedGames(),
