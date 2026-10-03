@@ -79,6 +79,16 @@
   letter-spacing: .09em;
 }
 
+.cover {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 211, 70, .42);
+  box-shadow: 0 5px 14px rgba(0,0,0,.28);
+}
+
 .lucky {
   display: grid;
   place-items: center;
@@ -129,6 +139,7 @@
   .heading { gap: 9px; }
   .heading h2 { font-size: 1.32rem; }
   .poolRow { padding: 11px 10px; }
+  .cover { flex-basis: 62px; width: 62px; height: 42px; }
   .lucky { flex-basis: 38px; width: 38px; height: 38px; }
   .joinButton { min-width: 112px; padding-left: 14px !important; padding-right: 14px !important; }
 }
