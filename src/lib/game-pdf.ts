@@ -8,11 +8,13 @@ export async function makeGamesPdf(title: string, lines: string[], logoBytes?: U
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
   const logoData = logoBytes ?? await (async () => {
-    const response = await fetch("/juntasorte-icon-512.png");
+    const response = await fetch("/juntasorte-pdf-logo.png");
     if (!response.ok) throw new Error("Não foi possível carregar a logo do app.");
     return new Uint8Array(await response.arrayBuffer());
   })();
   const logo = await document.embedPng(logoData);
+  const watermarkSize = logo.scaleToFit(150, 150);
+  const footerSize = logo.scaleToFit(72, 48);
   const modality = clean(title).match(/Mega[- ]Sena|Lotofacil|Quina|Dupla Sena|Lotomania|Timemania|Dia de Sorte|Super Sete|\+Milionaria/i)?.[0] || clean(title).split(" - ")[0];
   const width = 595.28, height = 841.89, margin = 28, gap = 8, columns = 3;
   const cardWidth = (width - margin * 2 - gap * (columns - 1)) / columns;
@@ -59,7 +61,7 @@ export async function makeGamesPdf(title: string, lines: string[], logoBytes?: U
     // Repeat a faint app logo behind the games across the entire sheet.
     for (let row = 0; row < 4; row++) {
       for (let column = 0; column < 3; column++) {
-        page.drawImage(logo, { x: 36 + column * 180, y: 92 + row * 180, width: 150, height: 150, opacity: 0.055 });
+        page.drawImage(logo, { x: 36 + column * 180 + (150 - watermarkSize.width) / 2, y: 92 + row * 180 + (150 - watermarkSize.height) / 2, ...watermarkSize, opacity: 0.055 });
       }
     }
     page.drawText("JuntaSorte - Bolao entre Amigos", { x: margin, y: height - 32, font: bold, size: 14 });
@@ -77,7 +79,7 @@ export async function makeGamesPdf(title: string, lines: string[], logoBytes?: U
     });
     const modalitySize = Math.min(10, 240 / Math.max(1, bold.widthOfTextAtSize(modality, 1)));
     page.drawText(modality, { x: (width - bold.widthOfTextAtSize(modality, modalitySize)) / 2, y: 68, font: bold, size: modalitySize });
-    page.drawImage(logo, { x: (width - 42) / 2, y: 18, width: 42, height: 42 });
+    page.drawImage(logo, { x: (width - footerSize.width) / 2, y: 18, ...footerSize });
     page.drawText(`Pagina ${pageIndex + 1} de ${pages} - LOTE ${sheet.lot}`, { x: margin, y: 20, font: regular, size: 8 });
     // Keep the interface responsive for large sets.
     if (pageIndex % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
