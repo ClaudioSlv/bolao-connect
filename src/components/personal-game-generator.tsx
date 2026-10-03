@@ -138,7 +138,25 @@ export function PersonalGameGenerator({
     [allNumbers, excludedPrimes],
   );
   const exclusionLimit = Math.max(1, Math.floor((r.max - r.min + 1) / 4));
-  const visibleGames = [...savedGamesOnPage, ...games];
+  const visibleGames = useMemo(() => [...savedGamesOnPage, ...games], [savedGamesOnPage, games]);
+  const gameRows = useMemo(() => visibleGames.map((g, i) => (
+              <div className="list-item" key={i} data-game-reference={i + 1} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 90px" }}>
+                <strong>Jogo {i + 1}</strong>
+                <span>
+                  {g.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}
+                  {lottery === "mais-milionaria" && (
+                    <>
+                      {" "}
+                      <b>🍀 Trevos:</b>{" "}
+                      {g.trevos
+                        .map((n) => String(n).padStart(2, "0"))
+                        .join(" · ")}
+                    </>
+                  )}
+                </span>
+                <small className="muted">{formatGameReference(i + 1)}</small>
+              </div>
+            )), [visibleGames, lottery]);
   const excluded = new Set([...excludedOdd, ...excludedEven, ...excludedPrimes]);
   const available = allNumbers.filter((n) => !excluded.has(n));
   const fibSet = useMemo(() => fibonacciUpTo(r.max), [r.max]);
@@ -480,6 +498,8 @@ export function PersonalGameGenerator({
     if (savingLock.current || saved) return;
     savingLock.current = true;
     setSaving(true);
+    const controller = new AbortController();
+    const saveTimeout = window.setTimeout(() => controller.abort(), 30000);
     // Let the button feedback paint before preparing thousands of games.
     await new Promise(resolve => window.setTimeout(resolve, 40));
     try {
@@ -502,6 +522,7 @@ export function PersonalGameGenerator({
       if (!participantToken) {
         const response = await fetch("/api/organizer-personal-games", {
           method: "POST",
+          signal: controller.signal,
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ lottery, games }),
         });
@@ -536,6 +557,7 @@ export function PersonalGameGenerator({
         try {
           const response = await fetch("/api/personal-games", {
             method: "POST",
+          signal: controller.signal,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               token: participantToken,
@@ -554,9 +576,7 @@ export function PersonalGameGenerator({
             targetContest = Number(data?.contest);
           if (data?.id) persistentId = data.id;
         } catch (error) {
-          alert(
-            `${error instanceof Error && error.message ? error.message : "O jogo foi salvo no celular, mas a conferência em segundo plano não foi ativada."} O jogo continua disponível neste aparelho.`,
-          );
+          throw error;
         }
       }
 
@@ -591,9 +611,12 @@ export function PersonalGameGenerator({
       }
       setSaved(true);
       setShowSaveDialog(true);
-    } catch {
-      alert("Não foi possível salvar este jogo neste aparelho.");
+    } catch (error) {
+      alert(controller.signal.aborted
+        ? "O salvamento demorou demais. Confira Meus jogos salvos antes de tentar novamente. Seus jogos continuam nesta tela."
+        : error instanceof Error && error.message ? error.message : "Não foi possível salvar. Seus jogos continuam nesta tela para tentar novamente.");
     } finally {
+      window.clearTimeout(saveTimeout);
       savingLock.current = false;
       setSaving(false);
     }
@@ -968,24 +991,7 @@ export function PersonalGameGenerator({
           <h2>Seus jogos</h2>
           <GameListScrollbar count={visibleGames.length} />
           <div className="list" id="generated-game-list" style={{ paddingRight: "30px" }}>
-            {visibleGames.map((g, i) => (
-              <div className="list-item" key={i} data-game-reference={i + 1} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 90px" }}>
-                <strong>Jogo {i + 1}</strong>
-                <span>
-                  {g.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}
-                  {lottery === "mais-milionaria" && (
-                    <>
-                      {" "}
-                      <b>🍀 Trevos:</b>{" "}
-                      {g.trevos
-                        .map((n) => String(n).padStart(2, "0"))
-                        .join(" · ")}
-                    </>
-                  )}
-                </span>
-                <small className="muted">{formatGameReference(i + 1)}</small>
-              </div>
-            ))}
+            {gameRows}
           </div>
           {games.length > 0 && (
             <>
