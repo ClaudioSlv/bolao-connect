@@ -14,6 +14,7 @@ type Saved = {
   createdAt: string;
   targetContest?: number | null;
   totalCostCents?: number;
+  participantToken?: string | null;
 };
 type Prize = {
   tier: number;
@@ -121,6 +122,8 @@ function checkGame(item: Saved, game: Game, draw: Draw) {
 
 export default function SavedGamesPage() {
   const [items, setItems] = useState<Saved[]>([]);
+  const [loadingGames, setLoadingGames] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [selectedLottery, setSelectedLottery] = useState("");
   const [draws, setDraws] = useState<Record<string, Draw>>({});
@@ -136,52 +139,52 @@ export default function SavedGamesPage() {
   const [selectedHits, setSelectedHits] = useState<number | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const requestedBack = new URLSearchParams(window.location.search).get("voltar");
-    if (requestedBack?.startsWith("/p/")) {
-      setBackHref(requestedBack);
-      const token = requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] || null;
-      setParticipantToken(token);
-      // Fluxo original do participante: os jogos pessoais são lidos deste aparelho.
+    const token = requestedBack?.startsWith("/p/")
+      ? requestedBack.slice(3).split(/[/?#]/)[0] || null : null;
+    if (token) { setBackHref(requestedBack!); setParticipantToken(token); }
+    const normalizeItems = (value: unknown): Saved[] => Array.isArray(value)
+      ? value.filter(item => item && Array.isArray(item.games)).map(item => ({ ...item, games: withStableGameReferences(item.games) })) : [];
+    let local: Saved[] = [];
+    try {
+      const all = normalizeItems(JSON.parse(localStorage.getItem(KEY) || "[]"));
+      const scoped = token ? normalizeItems(JSON.parse(localStorage.getItem(`${KEY}:${token}`) || "[]")) : [];
+      local = token ? [...new Map([...all.filter(item => item.participantToken === token), ...scoped].map(item => [item.id, item])).values()]
+        : all.filter(item => !item.participantToken);
+    } catch {}
+    const load = async () => {
       try {
-        const value = JSON.parse(localStorage.getItem(KEY) || "[]");
-        const saved = Array.isArray(value)
-          ? (value as Saved[]).map((item) => ({ ...item, games: withStableGameReferences(item.games) }))
-          : [];
-        setItems(saved);
-        setSelectedLottery(saved[0]?.lottery ?? "");
-      } catch {
-        setItems([]);
-      }
-      return;
-    }
-    fetch("/api/organizer-personal-games", { cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json().catch(() => null) as { games?: Array<{ id:string; lottery:string; contest_number:number; games:Game[]; created_at:string }> } | null;
-        if (!response.ok) throw new Error("load");
-        const saved: Saved[] = (data?.games ?? []).map((item) => ({
-          id: item.id,
-          lottery: item.lottery,
+        const endpoint = token ? `/api/personal-games?token=${encodeURIComponent(token)}` : "/api/organizer-personal-games";
+        const response = await fetch(endpoint, { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || "Não foi possível carregar os jogos salvos.");
+        const remote: Saved[] = (data.games ?? []).map((item: { id: string; lottery: string; contest?: number; contest_number?: number; games: Game[]; createdAt?: string; created_at?: string }) => ({
+          id: item.id, lottery: item.lottery,
           label: item.lottery === "mega-sena" ? "Mega-Sena" : item.lottery === "lotofacil" ? "Lotofácil" : item.lottery,
           games: withStableGameReferences(item.games),
-          createdAt: item.created_at,
-          targetContest: item.contest_number,
+          createdAt: item.createdAt ?? item.created_at ?? new Date().toISOString(),
+          targetContest: item.contest ?? item.contest_number,
           totalCostCents: officialGamesCostCents(item.lottery, item.games),
+          participantToken: token,
         }));
+        // Remote rows belong to the authenticated owner/token. Keep only local-only
+        // pending rows; do not resurrect deleted remote rows from an old cache.
+        const pending = token ? local.filter(item => !/^[0-9a-f]{8}-/i.test(item.id)) : [];
+        const saved = [...new Map([...pending, ...remote].map(item => [item.id, item])).values()];
+        if (cancelled) return;
         setItems(saved);
         setSelectedLottery(saved[0]?.lottery ?? "");
-      })
-      .catch(() => {
-        try {
-          const value = JSON.parse(localStorage.getItem(KEY) || "[]");
-          const saved = Array.isArray(value)
-            ? (value as Saved[]).map((item) => ({ ...item, games: withStableGameReferences(item.games) }))
-            : [];
-          setItems(saved);
-          setSelectedLottery(saved[0]?.lottery ?? "");
-        } catch {
-          setItems([]);
-        }
-      });
+        if (token) try { localStorage.setItem(`${KEY}:${token}`, JSON.stringify(saved)); } catch {}
+      } catch (error) {
+        if (cancelled) return;
+        setItems(local);
+        setSelectedLottery(local[0]?.lottery ?? "");
+        setLoadError(error instanceof Error ? error.message : "Não foi possível carregar os jogos salvos.");
+      } finally { if (!cancelled) setLoadingGames(false); }
+    };
+    void load();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -458,6 +461,7 @@ export default function SavedGamesPage() {
       const stored = JSON.parse(localStorage.getItem(KEY) || "[]");
       const allStored = Array.isArray(stored) ? (stored as Saved[]) : [];
       localStorage.setItem(KEY, JSON.stringify(allStored.filter((item) => item.id !== id)));
+      if (participantToken) localStorage.setItem(`${KEY}:${participantToken}`, JSON.stringify(next));
     } catch {}
     if (!next.some((item) => item.lottery === selectedLottery))
       setSelectedLottery(next[0]?.lottery ?? "");
@@ -697,7 +701,8 @@ export default function SavedGamesPage() {
         </section>
       )}
 
-      {items.length === 0 ? (
+      {loadError && <p className="status" role="alert">{loadError} Os jogos disponíveis neste aparelho foram mantidos.</p>}
+      {loadingGames ? <section className="section"><p role="status">Carregando jogos salvos...</p></section> : items.length === 0 ? (
         <section className="section">
           <p>Nenhum jogo salvo neste aparelho.</p>
           <Link className="button primary" href="/meu-jogo">

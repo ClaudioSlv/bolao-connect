@@ -565,6 +565,7 @@ export function PersonalGameGenerator({
       }
 
       const entry = {
+        participantToken,
         id: persistentId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         lottery,
         label: r.label,
@@ -578,6 +579,13 @@ export function PersonalGameGenerator({
         JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
       );
 
+      if (participantToken) {
+        try {
+          const participantKey = `${key}:${participantToken}`;
+          const previous = JSON.parse(localStorage.getItem(participantKey) || "[]");
+          localStorage.setItem(participantKey, JSON.stringify([entry, ...(Array.isArray(previous) ? previous : [])]));
+        } catch { /* The main local record is already saved. */ }
+      }
       setSaved(true);
       setShowSaveDialog(true);
     } catch {
