@@ -15,7 +15,7 @@ const labels: Partial<Record<LotteryId,string>> = {
   "dia-de-sorte":"DIA DE SORTE", "mais-milionaria":"+MILIONÁRIA", "super-sete":"SUPER SETE"
 };
 
-const coverImages: Partial<Record<LotteryId,string>> = {
+export const LOTTERY_COVER_IMAGES: Partial<Record<LotteryId,string>> = {
   timemania:"/capas/file_000000004af4820ea0407b12965520f9.png",
   lotomania:"/capas/file_000000006220820e974652e08c31a3b6.png",
   "super-sete":"/capas/file_000000007198820eb38abb6a12196daa.png",
@@ -30,7 +30,7 @@ const coverImages: Partial<Record<LotteryId,string>> = {
 export function DynamicLotteryCover({lottery: lotteryProp="lotofacil",contestNumber}:Props){
   const lottery: LotteryId = lotteryProp ?? "lotofacil";
   const name=labels[lottery]||String(lottery).toUpperCase();
-  const src=coverImages[lottery];
+  const src=LOTTERY_COVER_IMAGES[lottery];
 
   if(src){
     return <div role="img" aria-label={`${name}, concurso ${contestNumber||"aguardando confirmação"}`} style={{width:"100%",overflow:"hidden",borderRadius:18,lineHeight:0}}>
