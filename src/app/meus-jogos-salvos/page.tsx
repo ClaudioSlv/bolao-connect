@@ -414,20 +414,27 @@ export default function SavedGamesPage() {
   }, [draws, items]);
 
   const remove = async (id: string) => {
-    try {
-      const endpoint = participantToken ? "/api/personal-games" : "/api/organizer-personal-games";
-      const response = await fetch(endpoint, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(participantToken ? { id, token: participantToken } : { id }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(data?.error || "Não foi possível excluir o jogo.");
+    // Registros antigos do participante usavam um id local (timestamp-random).
+    // Eles não existem com esse mesmo id no banco e devem poder ser apagados
+    // normalmente do aparelho. Registros novos usam UUID e são removidos também
+    // da persistência remota.
+    const isPersistentId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+    if (!participantToken || isPersistentId) {
+      try {
+        const endpoint = participantToken ? "/api/personal-games" : "/api/organizer-personal-games";
+        const response = await fetch(endpoint, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(participantToken ? { id, token: participantToken } : { id }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(data?.error || "Não foi possível excluir o jogo.");
+        }
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "Não foi possível excluir o jogo.");
+        return;
       }
-    } catch (error) {
-      alert(error instanceof Error ? error.message : "Não foi possível excluir o jogo.");
-      return;
     }
 
     const next = items.filter((item) => item.id !== id);
