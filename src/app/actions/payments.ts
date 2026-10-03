@@ -29,19 +29,22 @@ export async function confirmPayment(input: {
   if (!a.user) throw new Error("Faça login para continuar.");
   const { data: pool } = await s
     .from("pools")
-    .select("owner_id,share_price_cents")
+    .select("owner_id,share_price_cents,payment_deadline")
     .eq("id", input.poolId)
     .single();
   if (!pool || pool.owner_id !== a.user.id)
     throw new Error("Somente o organizador pode confirmar pagamentos.");
   const { data: p } = await s
     .from("participants")
-    .select("id,name,phone,shares,payment_status,status,is_test")
+    .select("id,name,phone,shares,payment_status,status,is_test,payment_deadline_override")
     .eq("id", input.participantId)
     .eq("pool_id", input.poolId)
     .single();
   if (!p || p.status !== "confirmed")
     throw new Error("Esta vaga não está mais reservada. Não confirme pagamento para uma cota liberada.");
+  const deadline = p.payment_deadline_override || pool.payment_deadline;
+  if (deadline && Date.now() > Date.parse(deadline))
+    throw new Error("Prazo encerrado: a confirmação manual de pagamento está bloqueada.");
   if (p.is_test)
     throw new Error("Pagamento de teste não pode ser confirmado financeiramente.");
   if (p.payment_status === "confirmed")

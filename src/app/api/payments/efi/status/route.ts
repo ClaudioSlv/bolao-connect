@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifiedPixPaidAt } from "@/lib/pool-roster";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { efiRequest } from "@/lib/efi";
 import { sendPaymentConfirmedPush } from "@/lib/send-payment-push";
@@ -16,7 +17,7 @@ export async function reconcileEfiParticipant(token: string) {
   const s = createAdminClient(),
     { data: p } = await s
       .from("participants")
-      .select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents")
+      .select("id,pool_id,name,phone,shares,status,payment_status,is_test,test_amount_cents,payment_deadline_override")
       .eq("access_token", token)
       .maybeSingle();
   if (!p)
@@ -82,7 +83,16 @@ export async function reconcileEfiParticipant(token: string) {
     const value = Number(String(item?.valor || "0").replace(",", "."));
     return sum + (Number.isFinite(value) ? Math.round(value * 100) : 0);
   }, 0);
-  if (p.status === "expired" && receivedCents > 0) {
+  const { data: deadlinePool } = await s.from("pools").select("payment_deadline").eq("id", p.pool_id).single();
+  const paymentDeadline = p.payment_deadline_override || deadlinePool?.payment_deadline;
+  const bankPaidAt = verifiedPixPaidAt(matchingPix);
+  const paidWithinDeadline = Boolean(bankPaidAt && paymentDeadline && Date.parse(bankPaidAt) <= Date.parse(paymentDeadline));
+  if (!p.is_test && paymentDeadline && Date.now() > Date.parse(paymentDeadline) && receivedCents > 0 && !paidWithinDeadline) {
+    await s.from("payment_checkout_sessions").update({ status: "review_required", paid_amount_cents: receivedCents,
+      failure_reason: "pix_outside_payment_deadline_or_unverified_time", updated_at: new Date().toISOString() }).eq("id", session.id);
+    return NextResponse.json({ paid: false, review: true, error: "O Pix não tem horário bancário confirmado dentro do prazo. A participação permanece bloqueada; confira a devolução." }, { status: 409 });
+  }
+  if (p.status === "expired" && receivedCents > 0 && !paidWithinDeadline) {
     await s.from("payment_checkout_sessions").update({
       status: "review_required", paid_amount_cents: receivedCents,
       failure_reason: "pix_received_after_reservation_expired", updated_at: new Date().toISOString(),
@@ -216,6 +226,7 @@ export async function reconcileEfiParticipant(token: string) {
       payment_method: "pix",
       confirmed_at: new Date().toISOString(),
       provider: "efi",
+      provider_paid_at: bankPaidAt,
       provider_reference: session.provider_order_id,
       provider_transaction_nsu: transactionId,
       is_test: session.is_test,
@@ -298,7 +309,7 @@ export async function reconcileEfiParticipant(token: string) {
     .from("payment_checkout_sessions")
     .update({
       status: "paid",
-      paid_at: new Date().toISOString(),
+      paid_at: bankPaidAt || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq("id", session.id);
@@ -320,10 +331,14 @@ export async function reconcileEfiParticipant(token: string) {
     ? Number(p.test_amount_cents || 100)
     : Number(p.shares) * Number(pool.share_price_cents);
   const fullyPaid = paidTotal >= totalDue;
-  await s
+  const { error: participantError } = await s
     .from("participants")
-    .update({ payment_status: fullyPaid ? "confirmed" : "partial" })
+    .update({ payment_status: fullyPaid ? "confirmed" : "partial", ...(fullyPaid && paidWithinDeadline && p.status === "expired" ? { status: "confirmed" } : {}) })
     .eq("id", p.id);
+  if (participantError) {
+    await s.from("payment_checkout_sessions").update({ status: "review_required", failure_reason: "participant_deadline_lock", updated_at: new Date().toISOString() }).eq("id", session.id);
+    return NextResponse.json({ paid: false, review: true, error: "Pagamento recebido; participação bloqueada para conferência." }, { status: 409 });
+  }
   await s
     .from("audit_events")
     .insert({

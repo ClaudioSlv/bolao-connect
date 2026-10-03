@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ClosedPoolRoster } from "@/components/closed-pool-roster";
+import { participantDeadline } from "@/lib/pool-roster";
 import { redirect } from "next/navigation";
 import { AppNav } from "@/components/app-nav";
 import { PoolSwitcher } from "@/components/pool-switcher";
@@ -138,7 +140,7 @@ export default async function Page({
     ? await s
         .from("participants")
         .select(
-          "id,name,phone,shares,payment_status,status,access_token,waitlist_position,notes,is_test",
+          "id,name,phone,shares,payment_status,status,access_token,waitlist_position,notes,is_test,payment_deadline_override",
         )
         .eq("pool_id", pool.id)
         .order("created_at", { ascending: true })
@@ -267,7 +269,8 @@ export default async function Page({
           <Link className="button secondary" href="/menu/estornar-pagamento">CONFERIR ESTORNOS</Link>
           <Link className="button secondary" href="/carteira/creditos">CONFERIR CRÉDITOS</Link>
         </section>}
-        {pool && (
+        {pool && <ClosedPoolRoster pool={pool} poolId={pool.id} />}
+        {pool && pool.payment_deadline && Date.now() <= Date.parse(pool.payment_deadline) && (
           <>
             <form className="form" action={addF}>
               <input type="hidden" name="poolId" value={pool.id} />
@@ -327,6 +330,8 @@ export default async function Page({
         {visible
           .filter((p) => p.status !== "waitlisted")
           .map((p) => {
+            const deadline = pool ? participantDeadline(pool, p) : null;
+            const locked = !p.is_test && Boolean(deadline && Date.now() > Date.parse(deadline));
             const paid = p.payment_status === "confirmed",
               amount = Number(p.shares) * Number(pool?.share_price_cents ?? 0),
               received = Math.min(
@@ -409,7 +414,8 @@ export default async function Page({
                   </div>
                 </div>
                 <div className="participant-controls">
-                  {pool && (
+                  {locked && <p className="status">🔒 Prazo encerrado: cartão bloqueado para alterações.</p>}
+                  {pool && !locked && (
                     <form className="form participant-note-form" action={noteF}>
                       <input type="hidden" name="poolId" value={pool.id} />
                       <input type="hidden" name="participantId" value={p.id} />
@@ -432,7 +438,7 @@ export default async function Page({
                       </strong>
                       <span className="paid-ticket-side">COTA</span>
                     </div>
-                  ) : pool ? (
+                  ) : pool && !locked ? (
                     <>
                       {received > 0 && (
                         <div className="status" style={{ marginBottom: 8 }}>
@@ -447,7 +453,7 @@ export default async function Page({
                       />
                     </>
                   ) : null}
-                  {!paid && pool && (
+                  {!paid && pool && !locked && (
                     <form className="participant-cancel-form" action={cancelF}>
                       <input type="hidden" name="poolId" value={pool.id} />
                       <input type="hidden" name="participantId" value={p.id} />

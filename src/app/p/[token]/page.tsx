@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClosedPoolRoster } from "@/components/closed-pool-roster";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -559,6 +560,7 @@ export default async function Page({
           </>
         </section>
       )}
+      <ClosedPoolRoster pool={pool} token={token} />
       {acceptance && (
         <section className="section participant-area">
           <p className="eyebrow">ÁREA DO PARTICIPANTE</p>
