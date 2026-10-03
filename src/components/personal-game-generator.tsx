@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { GameListScrollbar } from "@/components/game-list-scrollbar";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
 import { formatGameReference, withStableGameReferences } from "@/lib/game-reference";
 type Lottery =
@@ -954,7 +955,8 @@ export function PersonalGameGenerator({
           style={{ scrollMarginTop: "150px" }}
         >
           <h2>Seus jogos</h2>
-          <div className="list">
+          <GameListScrollbar count={visibleGames.length} />
+          <div className="list" id="generated-game-list" style={{ paddingRight: "30px" }}>
             {visibleGames.map((g, i) => (
               <div className="list-item" key={i} data-game-reference={i + 1} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 90px" }}>
                 <strong>Jogo {i + 1}</strong>
