@@ -35,7 +35,8 @@
   padding: 4px 10px;
   border-radius: 999px;
   background: linear-gradient(180deg, #ffe778, #e5ad18);
-  color: #152015;
+  color: #18d8c5;
+  text-shadow: 0 1px 1px rgba(0,0,0,.22);
   font-size: .72rem;
   font-weight: 900;
   letter-spacing: .08em;
