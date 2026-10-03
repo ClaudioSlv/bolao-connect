@@ -2,11 +2,18 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const clean = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, " ").replace(/\s+/g, " ").trim();
 
-export async function makeGamesPdf(title: string, lines: string[]) {
+export async function makeGamesPdf(title: string, lines: string[], logoBytes?: Uint8Array) {
   if (!lines.length) throw new Error("Nenhum jogo para compartilhar.");
   const document = await PDFDocument.create();
   const regular = await document.embedFont(StandardFonts.Helvetica);
   const bold = await document.embedFont(StandardFonts.HelveticaBold);
+  const logoData = logoBytes ?? await (async () => {
+    const response = await fetch("/juntasorte-icon-512.png");
+    if (!response.ok) throw new Error("Não foi possível carregar a logo do app.");
+    return new Uint8Array(await response.arrayBuffer());
+  })();
+  const logo = await document.embedPng(logoData);
+  const modality = clean(title).match(/Mega[- ]Sena|Lotofacil|Quina|Dupla Sena|Lotomania|Timemania|Dia de Sorte|Super Sete|\+Milionaria/i)?.[0] || clean(title).split(" - ")[0];
   const width = 595.28, height = 841.89, margin = 28, gap = 8, columns = 3;
   const cardWidth = (width - margin * 2 - gap * (columns - 1)) / columns;
   const size = 8.5;
@@ -27,11 +34,17 @@ export async function makeGamesPdf(title: string, lines: string[]) {
   });
   const cardHeight = Math.max(52, ...cards.map(card => 26 + card.rows.length * 11));
   const top = height - 88;
-  const rowsPerPage = Math.max(1, Math.floor((top - 40 + gap) / (cardHeight + gap)));
+  const rowsPerPage = Math.max(1, Math.floor((top - 88 + gap) / (cardHeight + gap)));
   const perPage = rowsPerPage * columns;
   const pages = Math.ceil(cards.length / perPage);
   for (let offset = 0; offset < cards.length; offset += perPage) {
     const page = document.addPage([width, height]);
+    // Repeat a faint app logo behind the games across the entire sheet.
+    for (let row = 0; row < 4; row++) {
+      for (let column = 0; column < 3; column++) {
+        page.drawImage(logo, { x: 36 + column * 180, y: 92 + row * 180, width: 150, height: 150, opacity: 0.055 });
+      }
+    }
     page.drawText("JuntaSorte - Bolao entre Amigos", { x: margin, y: height - 32, font: bold, size: 14 });
     page.drawText(clean(title), { x: margin, y: height - 51, font: regular, size: Math.min(11, (width - margin * 2) / Math.max(1, regular.widthOfTextAtSize(clean(title), 1))) });
     page.drawText(`${lines.length.toLocaleString("pt-BR")} jogos | A4`, { x: margin, y: height - 67, font: regular, size: 9 });
@@ -42,6 +55,9 @@ export async function makeGamesPdf(title: string, lines: string[]) {
       page.drawText(card.heading, { x: x + 7, y: y + cardHeight - 13, font: bold, size: 9 });
       card.rows.forEach((row, rowIndex) => page.drawText(row, { x: x + 7, y: y + cardHeight - 27 - rowIndex * 11, font: regular, size }));
     });
+    const modalitySize = Math.min(10, 240 / Math.max(1, bold.widthOfTextAtSize(modality, 1)));
+    page.drawText(modality, { x: (width - bold.widthOfTextAtSize(modality, modalitySize)) / 2, y: 68, font: bold, size: modalitySize });
+    page.drawImage(logo, { x: (width - 42) / 2, y: 18, width: 42, height: 42 });
     page.drawText(`Pagina ${Math.floor(offset / perPage) + 1} de ${pages}`, { x: margin, y: 20, font: regular, size: 8 });
     // Keep the interface responsive for large sets.
     if (offset % (perPage * 5) === 0) await new Promise(resolve => setTimeout(resolve, 0));
