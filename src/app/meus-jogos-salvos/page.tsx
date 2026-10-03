@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { GameListWindow } from "@/components/game-list-window";
 import { GameListScrollbar } from "@/components/game-list-scrollbar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
@@ -722,7 +723,7 @@ export default function SavedGamesPage() {
       {loadingGames ? <section className="section"><p role="status">Carregando jogos salvos...</p></section> : items.length === 0 ? (
         <section className="section">
           <p>Nenhum jogo salvo neste aparelho.</p>
-          <Link className="button primary" href="/meu-jogo">
+          <Link className="button primary" href={participantToken ? `/meu-jogo?voltar=${encodeURIComponent(backHref)}` : "/meu-jogo"}>
             🎲 CRIAR UM JOGO
           </Link>
         </section>
@@ -777,8 +778,8 @@ export default function SavedGamesPage() {
               )}
 
               <GameListScrollbar count={item.games.length} listId={`saved-game-list-${item.id}`} />
-              <div className="list" id={`saved-game-list-${item.id}`} style={{ paddingRight: "30px" }}>
-                {item.games.map((game, index) => {
+              <GameListWindow listId={`saved-game-list-${item.id}`} count={item.games.length} renderRow={(index) => {
+                  const game = item.games[index];
                   const referenceNumber = game.referenceNumber ?? index + 1;
                   const checked =
                     contest && draw?.available
@@ -787,7 +788,7 @@ export default function SavedGamesPage() {
                   const matched = new Set(checked?.matched.map(Number) ?? []);
 
                   return (
-                    <div className="list-item" key={referenceNumber} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 100px" }}>
+                    <div className="list-item" key={referenceNumber} style={{ height: "100%", overflow: "auto" }}>
                       <strong>Jogo {referenceNumber}</strong>
                       <small className="muted">{formatGameReference(referenceNumber)}</small>
                       <span>
@@ -846,8 +847,7 @@ export default function SavedGamesPage() {
                       ) : null}
                     </div>
                   );
-                })}
-              </div>
+                }} />
 
               {draw?.available && (
                 <p className="muted" style={{ fontSize: 12 }}>

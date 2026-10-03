@@ -14,6 +14,11 @@ export function GameListScrollbar({ count, listId = "generated-game-list" }: { c
       if (!list) return;
       const rect = list.getBoundingClientRect();
       setVisible(rect.top < window.innerHeight * 0.55 && rect.bottom > window.innerHeight * 0.55);
+      const stride = Number(list.dataset.virtualStride);
+      if (stride) {
+        setCurrent(Math.min(count, Math.max(1, Math.floor((160 - rect.top) / stride) + 1)));
+        return;
+      }
       // Read only a few rows even when the list has thousands of games.
       let low = 0;
       let high = list.children.length - 1;
@@ -53,7 +58,13 @@ export function GameListScrollbar({ count, listId = "generated-game-list" }: { c
         onChange={(event) => {
           const next = Number(event.target.value);
           setCurrent(next);
-          const row = document.getElementById(listId)?.children[next - 1];
+          const list = document.getElementById(listId);
+          const stride = Number(list?.dataset.virtualStride);
+          if (list && stride) {
+            window.scrollBy({ top: list.getBoundingClientRect().top + (next - 1) * stride - 160, behavior: "instant" });
+            return;
+          }
+          const row = list?.children[next - 1];
           if (row) window.scrollBy({ top: row.getBoundingClientRect().top - 160, behavior: "instant" });
         }}
       />

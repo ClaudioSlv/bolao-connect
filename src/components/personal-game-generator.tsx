@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
 import { uniqueLotofacil } from "@/lib/unique-lotofacil";
+import { GameListWindow } from "@/components/game-list-window";
 import { GameListScrollbar } from "@/components/game-list-scrollbar";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
 import { formatGameReference, withStableGameReferences } from "@/lib/game-reference";
@@ -143,7 +144,7 @@ export function PersonalGameGenerator({
   const exclusionLimit = Math.max(1, Math.floor((r.max - r.min + 1) / 4));
   const visibleGames = useMemo(() => [...savedGamesOnPage, ...games], [savedGamesOnPage, games]);
   const gameRows = useMemo(() => visibleGames.map((g, i) => (
-              <div className="list-item" key={i} data-game-reference={i + 1} >
+              <div className="list-item" key={i} data-game-reference={i + 1} style={{ height: "100%", overflow: "auto" }}>
                 <strong>Jogo {i + 1}</strong>
                 <span>
                   {g.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}
@@ -940,9 +941,7 @@ export function PersonalGameGenerator({
         >
           <h2>Seus jogos</h2>
           <GameListScrollbar count={visibleGames.length} />
-          <div className="list" id="generated-game-list" style={{ paddingRight: "30px" }}>
-            {gameRows}
-          </div>
+          <GameListWindow listId="generated-game-list" rows={gameRows} />
           {games.length > 0 && (
             <>
               {savePhase && <p className="status" role="status" aria-live="polite">{savePhase}{saving ? ` · ${saveProgress}%` : ""}</p>}
