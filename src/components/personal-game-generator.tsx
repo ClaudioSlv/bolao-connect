@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { uniqueLotofacil } from "@/lib/unique-lotofacil";
 import { GameListScrollbar } from "@/components/game-list-scrollbar";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
@@ -104,6 +104,8 @@ export function PersonalGameGenerator({
   returnHref: string;
 }) {
   const r = rules[lottery];
+  const savingLock = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [pick, setPick] = useState(r.minPick),
     [pickInput, setPickInput] = useState(""),
     [qty, setQty] = useState(1),
@@ -475,6 +477,11 @@ export function PersonalGameGenerator({
   const shareText = () =>
     `🍀 ${r.label} — Bolão Amigos BTP\n\n${referencedGames().map(gameText).join("\n")}\n\nJogo gerado pelo Bolão Amigos BTP.`;
   const saveGames = async () => {
+    if (savingLock.current || saved) return;
+    savingLock.current = true;
+    setSaving(true);
+    // Let the button feedback paint before preparing thousands of games.
+    await new Promise(resolve => window.setTimeout(resolve, 40));
     try {
       if (
         !games.length ||
@@ -575,6 +582,9 @@ export function PersonalGameGenerator({
       setShowSaveDialog(true);
     } catch {
       alert("Não foi possível salvar este jogo neste aparelho.");
+    } finally {
+      savingLock.current = false;
+      setSaving(false);
     }
   };
   const createAnotherGame = () => {
@@ -968,13 +978,16 @@ export function PersonalGameGenerator({
           </div>
           {games.length > 0 && (
             <>
+              {saving && <p className="status" role="status">Salvando {games.length.toLocaleString("pt-BR")} jogos. Aguarde a confirmação.</p>}
               <div className="actions" style={{ marginTop: "16px" }}>
                 <button
                   className="button primary"
                   type="button"
                   onClick={saveGames}
+                  disabled={saving || saved}
+                  aria-busy={saving}
                 >
-                  {saved ? "✅ JOGO SALVO" : "💾 SALVAR JOGO"}
+                  {saving ? "⏳ AGUARDE, SALVANDO JOGOS..." : saved ? "✅ JOGOS SALVOS" : "💾 SALVAR JOGO"}
                 </button>
                 <button
                   className="button secondary"
