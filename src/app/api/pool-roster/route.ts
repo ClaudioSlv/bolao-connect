@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   if (!roster || rowsError) return NextResponse.json({ error: "Não foi possível carregar a lista." }, { status: 503 });
   const entries = (rows ?? []) as ClosedRosterEntry[];
   const hash = createHash("sha256").update(JSON.stringify({ roster, entries })).digest("hex");
-  const logo = new Uint8Array(await readFile(path.join(process.cwd(), "public/juntasorte-icon-512.png")));
+  const logo = new Uint8Array(await readFile(path.join(process.cwd(), "public/juntasorte-pdf-logo.png")));
   const bytes = await makePoolRosterPdf(roster as ClosedRoster, entries, hash, logo);
   return new Response(Buffer.from(bytes), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="juntasorte-participantes-${roster.contest_number ?? poolId}.pdf"`, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
 }

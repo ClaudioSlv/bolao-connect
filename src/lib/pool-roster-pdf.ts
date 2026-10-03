@@ -10,6 +10,7 @@ export async function makePoolRosterPdf(roster: ClosedRoster, entries: ClosedRos
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo = await pdf.embedPng(logoBytes);
+  const logoSize = logo.scaleToFit(48, 48);
   const width = 595.28, height = 841.89, margin = 36;
   const wrap = (value: string, size: number, maxWidth: number) => {
     const lines: string[] = []; let row = "";
@@ -26,7 +27,7 @@ export async function makePoolRosterPdf(roster: ClosedRoster, entries: ClosedRos
   };
   let page = pdf.addPage([width, height]), y = 0;
   const header = () => {
-    page.drawImage(logo, { x: margin, y: height - 83, width: 48, height: 48 });
+    page.drawImage(logo, { x: margin + (48 - logoSize.width) / 2, y: height - 83 + (48 - logoSize.height) / 2, ...logoSize });
     page.drawText("JuntaSorte - Bolão entre Amigos", { x: 96, y: height - 49, font: bold, size: 15 });
     page.drawText("Participantes confirmados", { x: 96, y: height - 70, font: regular, size: 13 });
     y = height - 111;
