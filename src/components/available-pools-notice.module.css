@@ -42,6 +42,7 @@
   font-weight: 900;
   letter-spacing: .08em;
   box-shadow: 0 0 16px rgba(255, 204, 57, .34);
+  transform: rotate(-45deg);
   animation: badgePulse 1.7s ease-in-out infinite;
 }
 
@@ -134,7 +135,7 @@
 }
 @keyframes cardShine { 0%, 55% { transform: translateX(-120%); } 78%, 100% { transform: translateX(120%); } }
 @keyframes buttonShine { 0%, 48% { left: -40%; } 72%, 100% { left: 130%; } }
-@keyframes badgePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes badgePulse { 0%,100% { transform: rotate(-45deg) scale(1); } 50% { transform: rotate(-45deg) scale(1.06); } }
 
 @media (max-width: 520px) {
   .notice { padding: 18px 16px !important; }
