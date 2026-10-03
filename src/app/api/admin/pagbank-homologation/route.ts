@@ -8,11 +8,11 @@ function pretty(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
-function parseJson(text: string): Record<string, unknown> | null {
+function parseJson(text: string): Record<string, any> | null {
   try {
     const value = JSON.parse(text);
     return value && typeof value === "object"
-      ? (value as Record<string, unknown>)
+      ? (value as Record<string, any>)
       : null;
   } catch {
     return null;
@@ -45,6 +45,7 @@ export async function POST(request: Request) {
 
   const origin = new URL(request.url).origin;
   const referenceId = `homologacao-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+  const chargeReference = `${referenceId}-pix`;
   const expiration = new Date(Date.now() + 30 * 60 * 1000).toISOString();
   const notificationUrl = `${origin}/api/webhooks/pagbank`;
   const payload = {
@@ -70,7 +71,17 @@ export async function POST(request: Request) {
         unit_amount: 100,
       },
     ],
-    qr_codes: [{ amount: { value: 100 }, expiration_date: expiration }],
+    charges: [
+      {
+        reference_id: chargeReference,
+        description: "Teste Homologacao Bolao Amigos BTP",
+        amount: { value: 100, currency: "BRL" },
+        payment_method: {
+          type: "PIX",
+          pix: { expiration_date: expiration },
+        },
+      },
+    ],
     notification_urls: [notificationUrl],
   };
 
@@ -82,6 +93,11 @@ export async function POST(request: Request) {
   const createText = await createResponse.text();
   const createResult = parseJson(createText);
   const orderId = String(createResult?.id || "");
+  const firstCharge = Array.isArray(createResult?.charges)
+    ? createResult!.charges[0]
+    : null;
+  const qrText = String(firstCharge?.qr_code?.text || "");
+  const chargeStatus = String(firstCharge?.status || "");
 
   let consultStatus = "NÃO EXECUTADO";
   let consultText =
@@ -96,68 +112,77 @@ export async function POST(request: Request) {
   }
 
   const generatedAt = new Date().toISOString();
-  // O BOM ajuda visualizadores de texto de celulares a reconhecer UTF-8.
+  const createPassed =
+    createResponse.ok && Boolean(orderId) && Boolean(qrText) && chargeStatus === "WAITING";
+  const consultPassed = consultStatus.startsWith("200");
+  const overall = createPassed && consultPassed ? "APROVADO" : "REVISAR";
+
   const report =
     "\uFEFF" +
     [
-    "HOMOLOGAÇÃO PAGBANK — BOLÃO AMIGOS BTP",
-    "Chamado PagBank: 444486651",
-    `Gerado em: ${generatedAt}`,
-    "Ambiente: Sandbox",
-    "Valor do teste: R$ 1,00",
-    "",
-    "IMPORTANTE: o token de autenticação foi ocultado deste arquivo.",
-    "",
-    "============================================================",
-    "TESTE 1 — CRIAR PEDIDO COM QR CODE PIX",
-    "============================================================",
-    "Método: POST",
-    "URL: https://sandbox.api.pagseguro.com/orders",
-    "Headers:",
-    pretty({
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: "Bearer [TOKEN OCULTO]",
-      "x-idempotency-key": referenceId,
-    }),
-    "",
-    "Payload enviado:",
-    pretty(payload),
-    "",
-    `Status HTTP: ${createResponse.status} ${createResponse.statusText}`.trim(),
-    "Resposta recebida:",
-    safeResponse(createText),
-    "",
-    "============================================================",
-    "TESTE 2 — CONSULTAR PEDIDO",
-    "============================================================",
-    "Método: GET",
-    `URL: https://sandbox.api.pagseguro.com/orders/${orderId || "{ID_DO_PEDIDO}"}`,
-    "Headers:",
-    pretty({
-      Accept: "application/json",
-      Authorization: "Bearer [TOKEN OCULTO]",
-    }),
-    "",
-    `Status HTTP: ${consultStatus}`,
-    "Resposta recebida:",
-    safeResponse(consultText),
-    "",
-    "============================================================",
-    "WEBHOOK CONFIGURADO",
-    "============================================================",
-    `URL de notificação: ${notificationUrl}`,
-    "O webhook recebe as atualizações enviadas pelo PagBank.",
-    "",
-    "FIM DO ARQUIVO",
+      "HOMOLOGAÇÃO PAGBANK — BOLÃO AMIGOS BTP",
+      "Integração: API Orders — PIX V2",
+      `Gerado em: ${generatedAt}`,
+      "Ambiente: Sandbox",
+      "Valor do teste: R$ 1,00",
+      `Resultado geral: ${overall}`,
+      "",
+      "IMPORTANTE: o token de autenticação foi ocultado deste arquivo.",
+      "",
+      "============================================================",
+      "TESTE 1 — CRIAR PEDIDO COM PIX V2",
+      "============================================================",
+      "Método: POST",
+      "URL: https://sandbox.api.pagseguro.com/orders",
+      "Headers:",
+      pretty({
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Authorization: "Bearer [TOKEN OCULTO]",
+        "x-idempotency-key": referenceId,
+      }),
+      "",
+      "Payload enviado:",
+      pretty(payload),
+      "",
+      `Status HTTP: ${createResponse.status} ${createResponse.statusText}`.trim(),
+      `Status da cobrança: ${chargeStatus || "não retornado"}`,
+      `QR Code retornado: ${qrText ? "SIM" : "NÃO"}`,
+      `Resultado do teste: ${createPassed ? "APROVADO" : "REVISAR"}`,
+      "Resposta recebida:",
+      safeResponse(createText),
+      "",
+      "============================================================",
+      "TESTE 2 — CONSULTAR PEDIDO",
+      "============================================================",
+      "Método: GET",
+      `URL: https://sandbox.api.pagseguro.com/orders/${orderId || "{ID_DO_PEDIDO}"}`,
+      "Headers:",
+      pretty({
+        Accept: "application/json",
+        Authorization: "Bearer [TOKEN OCULTO]",
+      }),
+      "",
+      `Status HTTP: ${consultStatus}`,
+      `Resultado do teste: ${consultPassed ? "APROVADO" : "REVISAR"}`,
+      "Resposta recebida:",
+      safeResponse(consultText),
+      "",
+      "============================================================",
+      "WEBHOOK CONFIGURADO",
+      "============================================================",
+      `URL de notificação: ${notificationUrl}`,
+      "O webhook recebe as atualizações enviadas pelo PagBank.",
+      "",
+      "FIM DO ARQUIVO",
     ].join("\n");
 
   const date = generatedAt.slice(0, 10);
   return new NextResponse(report, {
-    status: 200,
+    status: createPassed && consultPassed ? 200 : 502,
     headers: {
       "content-type": "text/plain; charset=utf-8",
-      "content-disposition": `attachment; filename=homologacao-pagbank-${date}.txt`,
+      "content-disposition": `attachment; filename=homologacao-pagbank-pix-v2-${date}.txt`,
       "cache-control": "no-store",
     },
   });
