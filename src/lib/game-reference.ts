@@ -5,8 +5,8 @@ export type ReferencedGame = {
 };
 
 export function gameReferenceLocation(referenceNumber: number) {
-  if (!Number.isInteger(referenceNumber) || referenceNumber < 1 || referenceNumber > 1000)
-    throw new Error("A referência do jogo deve ficar entre 1 e 1000.");
+  if (!Number.isInteger(referenceNumber) || referenceNumber < 1 || referenceNumber > 5000)
+    throw new Error("A referência do jogo deve ficar entre 1 e 5000.");
 
   return {
     referenceNumber,
@@ -23,7 +23,7 @@ export function withStableGameReferences<T extends ReferencedGame>(games: T[]) {
   return games.map((game, index) => {
     const stored = Number(game.referenceNumber);
     const referenceNumber =
-      Number.isInteger(stored) && stored >= 1 && stored <= 1000 && !used.has(stored)
+      Number.isInteger(stored) && stored >= 1 && stored <= 5000 && !used.has(stored)
         ? stored
         : index + 1;
     used.add(referenceNumber);

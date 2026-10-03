@@ -120,7 +120,7 @@ export function PersonalGameGenerator({
     [showSaveDialog, setShowSaveDialog] = useState(false),
     [generating, setGenerating] = useState(false),
     [generationProgress, setGenerationProgress] = useState(0),
-    [visibleGameCount, setVisibleGameCount] = useState(1000);
+    [generationRequested, setGenerationRequested] = useState(0);
   const allNumbers = useMemo(
     () => Array.from({ length: r.max - r.min + 1 }, (_, i) => r.min + i),
     [r.min, r.max],
@@ -290,6 +290,7 @@ export function PersonalGameGenerator({
     if (!canGenerate || generating) return;
     setGenerating(true);
     setGenerationProgress(0);
+    setGenerationRequested(qty);
     setGames([]);
     resetFeedback();
 
@@ -320,8 +321,8 @@ export function PersonalGameGenerator({
     };
 
     const runBatch = () => {
-      const batchTarget = Math.min(target, out.length + 1000);
-      while (out.length < batchTarget && attempts < maxAttempts) {
+      const deadline = performance.now() + 12;
+      while (out.length < target && attempts < maxAttempts && performance.now() < deadline) {
         attempts++;
         const game = {
           numbers: lottery === "lotofacil" ? balancedLotofacilNumbers(out.length) : oneNumbers(),
@@ -340,12 +341,11 @@ export function PersonalGameGenerator({
 
       setGenerationProgress(out.length);
       if (out.length < target && attempts < maxAttempts) {
-        window.setTimeout(runBatch, 40);
+        window.setTimeout(runBatch, 0);
         return;
       }
 
       setGames(out);
-      setVisibleGameCount(1000);
       setExclusionError(
         possible < wanted
           ? `Com as dezenas disponíveis existem somente ${possible} jogos diferentes de ${pick} dezenas. O app gerou todas as combinações possíveis.`
@@ -749,7 +749,7 @@ export function PersonalGameGenerator({
       <div className="field">
         <label>
           Quantidade de jogos automáticos{" "}
-          <small className="muted">(máx. 5000)</small>
+          <small className="muted">(máx. 5.000)</small>
         </label>
         <input
           id="game-quantity-input"
@@ -898,27 +898,31 @@ export function PersonalGameGenerator({
         )}
       </div>
       <div
+        role="progressbar"
         aria-label="Progresso da geração dos jogos"
+        aria-valuemin={0}
+        aria-valuemax={generationRequested || qty}
+        aria-valuenow={generationProgress}
         style={{
-          height: "4px",
+          height: "3px",
           borderRadius: "999px",
           overflow: "hidden",
           background: "rgba(255,255,255,.14)",
-          marginTop: "-8px",
+          marginTop: "8px",
         }}
       >
         <div
           style={{
             height: "100%",
-            width: `${generating && qty > 0 ? Math.min(100, (generationProgress / Math.min(qty, 5000)) * 100) : 0}%`,
+            width: `${generationRequested > 0 ? Math.min(100, (generationProgress / generationRequested) * 100) : 0}%`,
             background: "#00FFD5",
             transition: "width .2s ease",
           }}
         />
       </div>
-      {generating && (
+      {generationRequested > 0 && (
         <small className="muted">
-          {generationProgress.toLocaleString("pt-BR")} de {Math.min(qty, 5000).toLocaleString("pt-BR")} jogos
+          {generationProgress.toLocaleString("pt-BR")} de {generationRequested.toLocaleString("pt-BR")} jogos · {Math.floor(generationProgress / generationRequested * 100)}%
         </small>
       )}
       {lottery !== "super-sete" && (
@@ -951,8 +955,8 @@ export function PersonalGameGenerator({
         >
           <h2>Seus jogos</h2>
           <div className="list">
-            {visibleGames.slice(0, visibleGameCount).map((g, i) => (
-              <div className="list-item" key={i} data-game-reference={i + 1}>
+            {visibleGames.map((g, i) => (
+              <div className="list-item" key={i} data-game-reference={i + 1} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 90px" }}>
                 <strong>Jogo {i + 1}</strong>
                 <span>
                   {g.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}
