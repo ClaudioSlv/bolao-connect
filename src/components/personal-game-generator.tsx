@@ -496,6 +496,8 @@ export function PersonalGameGenerator({
         return;
       }
 
+      let persistentId: string | null = null;
+      let organizerContest: number | null = null;
       // Organizador continua com a persistência própria, sem misturar com o participante.
       if (!participantToken) {
         const response = await fetch("/api/organizer-personal-games", {
@@ -503,17 +505,18 @@ export function PersonalGameGenerator({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ lottery, games }),
         });
-        const data = await response.json().catch(() => null) as { error?: string } | null;
+        const data = await response.json().catch(() => null) as { error?: string; id?: string; contest?: number } | null;
         if (!response.ok) {
           alert(data?.error || "Não foi possível salvar o fechamento no banco.");
           return;
         }
+        persistentId = data?.id ?? null;
+        organizerContest = data?.contest ?? null;
       }
 
       const key = "bolao-amigos-btp:jogos-salvos";
       const current = JSON.parse(localStorage.getItem(key) || "[]");
-      let targetContest = latestContest ? latestContest + 1 : null;
-      let persistentId: string | null = null;
+      let targetContest = organizerContest ?? (latestContest ? latestContest + 1 : null);
 
       if (!targetContest) {
         try {
