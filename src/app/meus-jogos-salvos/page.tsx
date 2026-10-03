@@ -121,6 +121,7 @@ function checkGame(item: Saved, game: Game, draw: Draw) {
 
 export default function SavedGamesPage() {
   const [items, setItems] = useState<Saved[]>([]);
+  const [sharingId, setSharingId] = useState<string | null>(null);
   const [selectedLottery, setSelectedLottery] = useState("");
   const [draws, setDraws] = useState<Record<string, Draw>>({});
   const [checking, setChecking] = useState(false);
@@ -412,6 +413,20 @@ export default function SavedGamesPage() {
       maxAbsoluteCents,
     };
   }, [draws, items]);
+
+  const shareSaved = async (item: Saved) => {
+    if (sharingId) return;
+    setSharingId(item.id);
+    try {
+      const { shareGamesPdf } = await import("@/lib/game-pdf");
+      await shareGamesPdf(`${item.label}${item.targetContest ? ` - Concurso ${item.targetContest}` : ""}`, item.games.map((game, index) => {
+        const reference = game.referenceNumber ?? index + 1;
+        return `Jogo ${reference}: ${game.numbers.map(n => String(n).padStart(2, "0")).join(" ")}${game.trevos?.length ? ` | Trevos: ${game.trevos.join(" ")}` : ""} | ${formatGameReference(reference)}`;
+      }));
+    } catch (error) {
+      if ((error as Error)?.name !== "AbortError") alert("Não foi possível compartilhar o PDF. Tente novamente.");
+    } finally { setSharingId(null); }
+  };
 
   const remove = async (id: string) => {
     // Registros antigos do participante usavam um id local (timestamp-random).
@@ -728,6 +743,10 @@ export default function SavedGamesPage() {
                   🗑️ Excluir
                 </button>
               </div>
+
+              <button className="button primary" type="button" disabled={sharingId !== null} onClick={() => shareSaved(item)} style={{ margin: "12px 0" }}>
+                {sharingId === item.id ? "⏳ PREPARANDO PDF..." : "📲 COMPARTILHAR PDF"}
+              </button>
 
               {contest && draw && !draw.available && (
                 <div className="status">Aguardando resultado do concurso {contest}.</div>
