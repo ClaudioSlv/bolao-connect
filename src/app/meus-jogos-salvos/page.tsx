@@ -135,7 +135,7 @@ export default function SavedGamesPage() {
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const [backHref, setBackHref] = useState("/meu-jogo");
   const [participantToken, setParticipantToken] = useState<string | null>(null);
-  const [contestInput, setContestInput] = useState("");
+  const contestInputRef = useRef<HTMLInputElement>(null);
   const [searchedContest, setSearchedContest] = useState<number | null>(null);
   const [searchError, setSearchError] = useState("");
   const [searchedItemIds, setSearchedItemIds] = useState<string[]>([]);
@@ -266,7 +266,7 @@ export default function SavedGamesPage() {
           .filter((item) => item.games.length > 0);
 
   const searchContest = async () => {
-    const contest = Number(contestInput);
+    const contest = Number(contestInputRef.current?.value);
     if (!Number.isInteger(contest) || contest <= 0) {
       setSearchError("Informe um número de concurso válido.");
       setSearchedContest(null);
@@ -510,13 +510,8 @@ export default function SavedGamesPage() {
                 type="number"
                 inputMode="numeric"
                 min="1"
-                value={contestInput}
-                onChange={(event) => {
-                  setContestInput(event.target.value.replace(/\D/g, ""));
-                  setSearchError("");
-                  setHistoricalTest(false);
-                  setSelectedHits(null);
-                }}
+                ref={contestInputRef}
+                aria-label="Número do concurso"
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
