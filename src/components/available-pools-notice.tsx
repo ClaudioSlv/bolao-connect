@@ -44,14 +44,14 @@ export function AvailablePoolsNotice({
   };
   return (
     <>
-      <section className={`section card ${styles.pulse}`}>
-        <h2>Novo bolão disponível</h2>
+      <section className={`section card ${styles.pulse} ${styles.notice}`}>
+        <div className={styles.heading}><span className={styles.badge}>NOVO</span><h2>Novo bolão disponível</h2></div>
         {pools.map((pool) => (
-          <div className="wallet-row" key={pool.id}>
-            <strong>{LOTTERY_LABELS[pool.lottery]}</strong>
+          <div className={`wallet-row ${styles.poolRow}`} key={pool.id}>
+            <div className={styles.poolInfo}><span className={styles.lucky}>🍀</span><div><span className={styles.available}>CONVITE DISPONÍVEL</span><strong>{LOTTERY_LABELS[pool.lottery]}</strong></div></div>
             <button
               type="button"
-              className="button primary"
+              className={`button primary ${styles.joinButton}`}
               onClick={() => join(pool)}
             >
               PARTICIPAR
