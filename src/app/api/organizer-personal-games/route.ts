@@ -32,3 +32,21 @@ export async function GET() {
   if (error) return NextResponse.json({ error: "Não foi possível carregar os jogos." }, { status: 500 });
   return NextResponse.json({ games: data ?? [] });
 }
+
+
+export async function DELETE(request: Request) {
+  try {
+    const body = await request.json();
+    const id = String(body.id ?? "");
+    if (!id) return NextResponse.json({ error: "Jogo inválido." }, { status: 400 });
+    const supabase = await createClient();
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return NextResponse.json({ error: "Entre novamente como organizador." }, { status: 401 });
+    const { error } = await supabase.from("organizer_saved_game_closures").delete().eq("id", id).eq("owner_id", auth.user.id);
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("delete-organizer-personal-games:", error);
+    return NextResponse.json({ error: "Não foi possível excluir o fechamento." }, { status: 500 });
+  }
+}
