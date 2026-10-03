@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { uniqueLotofacil } from "@/lib/unique-lotofacil";
 import { GameListScrollbar } from "@/components/game-list-scrollbar";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
 import { formatGameReference, withStableGameReferences } from "@/lib/game-reference";
@@ -300,52 +301,41 @@ export function PersonalGameGenerator({
     const target = Math.min(wanted, possible);
     const out: Game[] = [];
     const seen = new Set<string>();
-    const usage = new Map(available.map((number) => [number, 0]));
+    const preferred = oneNumbers();
+    const lotofacilSequence = lottery === "lotofacil"
+      ? uniqueLotofacil([...preferred, ...shuffle(available.filter(n => !preferred.includes(n)))], pick, wanted)
+      : null;
     let attempts = 0;
     const maxAttempts = Math.max(1000, target * 500);
-
-    const balancedLotofacilNumbers = (gameIndex: number) => {
-      const preferred = new Set(oneNumbers());
-      const randomTie = new Map(available.map((number) => [number, Math.random()]));
-      const reverse = gameIndex % 2 === 1;
-      return [...available]
-        .sort((a, b) => {
-          const score = (number: number) =>
-            (usage.get(number) ?? 0) * 1000 -
-            Number(preferred.has(number)) * 10 +
-            (randomTie.get(number) ?? 0) +
-            (reverse ? -number : number) * 0.01;
-          return score(a) - score(b);
-        })
-        .slice(0, pick)
-        .sort((a, b) => a - b);
-    };
+    let lastProgressAt = 0;
 
     const runBatch = () => {
-      const deadline = performance.now() + 12;
+      const deadline = performance.now() + 8;
       while (out.length < target && attempts < maxAttempts && performance.now() < deadline) {
         attempts++;
         const game = {
-          numbers: lottery === "lotofacil" ? balancedLotofacilNumbers(out.length) : oneNumbers(),
+          numbers: lotofacilSequence ? lotofacilSequence.next()! : oneNumbers(),
           trevos: oneTrevos(),
         };
         const key = `${game.numbers.join("-")}|${game.trevos.join("-")}`;
         if (!seen.has(key)) {
           seen.add(key);
           out.push(game);
-          if (lottery === "lotofacil")
-            game.numbers.forEach((number) =>
-              usage.set(number, (usage.get(number) ?? 0) + 1),
-            );
+
         }
       }
 
-      setGenerationProgress(out.length);
+      const now = performance.now();
+      if (now - lastProgressAt >= 100 || out.length >= target) {
+        setGenerationProgress(out.length);
+        lastProgressAt = now;
+      }
       if (out.length < target && attempts < maxAttempts) {
-        window.setTimeout(runBatch, 0);
+        window.setTimeout(runBatch, 16);
         return;
       }
 
+      setGenerationProgress(out.length);
       setGames(out);
       setExclusionError(
         possible < wanted
