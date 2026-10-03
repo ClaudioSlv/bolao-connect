@@ -78,7 +78,7 @@ export async function GET(req: Request) {
   let deadlineNotified=0;
   if(!queueError){
     const {data:deadlineNotices,error:noticeError}=await s.from("payment_deadline_push_outbox")
-      .select("participant_id,deadline").is("dispatched_at",null).order("created_at",{ascending:true}).limit(100);
+      .select("participant_id,deadline").is("dispatched_at",null).lte("deadline",new Date(now.getTime()-60*60*1000).toISOString()).order("created_at",{ascending:true}).limit(100);
     if(noticeError)console.error("payment deadline push lookup failed",noticeError);
     for(const notice of deadlineNotices??[]){
       try{
