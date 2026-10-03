@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { GameListScrollbar } from "@/components/game-list-scrollbar";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { officialGamesCostCents } from "@/lib/lottery-pricing";
 import { formatGameReference, withStableGameReferences } from "@/lib/game-reference";
 
@@ -125,6 +125,9 @@ export default function SavedGamesPage() {
   const [items, setItems] = useState<Saved[]>([]);
   const [loadingGames, setLoadingGames] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const deleteLock = useRef(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState("");
   const [sharingId, setSharingId] = useState<string | null>(null);
   const [selectedLottery, setSelectedLottery] = useState("");
   const [draws, setDraws] = useState<Record<string, Draw>>({});
@@ -433,16 +436,25 @@ export default function SavedGamesPage() {
   };
 
   const remove = async (id: string) => {
+    if (deleteLock.current) return;
+    deleteLock.current = true;
+    setDeletingId(id);
+    setDeleteMessage("Excluindo jogos, aguarde…");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20000);
+    try {
+    await new Promise<void>(resolve => window.setTimeout(resolve, 40));
     // Registros antigos do participante usavam um id local (timestamp-random).
     // Eles não existem com esse mesmo id no banco e devem poder ser apagados
     // normalmente do aparelho. Registros novos usam UUID e são removidos também
     // da persistência remota.
     const isPersistentId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
-    if (!participantToken || isPersistentId) {
+    if (isPersistentId) {
       try {
         const endpoint = participantToken ? "/api/personal-games" : "/api/organizer-personal-games";
         const response = await fetch(endpoint, {
           method: "DELETE",
+          signal: controller.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(participantToken ? { id, token: participantToken } : { id }),
         });
@@ -451,7 +463,9 @@ export default function SavedGamesPage() {
           throw new Error(data?.error || "Não foi possível excluir o jogo.");
         }
       } catch (error) {
-        alert(error instanceof Error ? error.message : "Não foi possível excluir o jogo.");
+        setDeleteMessage(controller.signal.aborted
+          ? "A confirmação da exclusão demorou demais. Atualize a lista antes de tentar novamente."
+          : error instanceof Error ? error.message : "Não foi possível excluir o jogo.");
         return;
       }
     }
@@ -466,6 +480,12 @@ export default function SavedGamesPage() {
     } catch {}
     if (!next.some((item) => item.lottery === selectedLottery))
       setSelectedLottery(next[0]?.lottery ?? "");
+    setDeleteMessage("Jogos excluídos com sucesso.");
+    } finally {
+      window.clearTimeout(timeout);
+      deleteLock.current = false;
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -477,6 +497,7 @@ export default function SavedGamesPage() {
       <section className="section">
         <p className="eyebrow">JOGOS PESSOAIS</p>
         <h1>✅ Conferir resultado</h1>
+        {deleteMessage && <p role="status" aria-live="polite">{deleteMessage}</p>}
         <p className="muted">
           Digite somente o número do concurso. O sistema localiza os jogos que
           você fez neste aparelho e confere pelo resultado oficial da CAIXA.
@@ -744,9 +765,11 @@ export default function SavedGamesPage() {
                 <button
                   className="button secondary"
                   type="button"
+                  disabled={deletingId !== null}
+                  aria-busy={deletingId === item.id}
                   onClick={() => remove(item.id)}
                 >
-                  🗑️ Excluir
+                  {deletingId === item.id ? "⏳ Excluindo…" : "🗑️ Excluir"}
                 </button>
               </div>
 
