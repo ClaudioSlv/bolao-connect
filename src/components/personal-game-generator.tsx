@@ -106,6 +106,7 @@ export function PersonalGameGenerator({
 }) {
   const r = rules[lottery];
   const savingLock = useRef(false);
+  const saveContestInput = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [saveProgress, setSaveProgress] = useState(0);
   const [savePhase, setSavePhase] = useState("");
@@ -517,7 +518,11 @@ export function PersonalGameGenerator({
         setSaveProgress(Math.round(prepared.length / games.length * 15));
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      const fields = JSON.stringify({ lottery, ...(participantToken ? { token: participantToken, contest: latestContest ? latestContest + 1 : null } : {}) });
+      const contestValue = saveContestInput.current?.value.trim() || "";
+      const selectedContest = contestValue ? Number(contestValue) : null;
+      if (contestValue && (!Number.isSafeInteger(selectedContest) || Number(selectedContest) < 1))
+        throw new Error("Informe um número de concurso válido.");
+      const fields = JSON.stringify({ lottery, contest: selectedContest, ...(participantToken ? { token: participantToken } : {}) });
       const body = `${fields.slice(0, -1)},"games":[${chunks.join(",")}]}`;
       setSavePhase("Enviando jogos");
       const data = await new Promise<{ id?: string; contest?: number; savedCount?: number; duplicateCount?: number; allDuplicates?: boolean }>((resolve, reject) => {
@@ -944,6 +949,11 @@ export function PersonalGameGenerator({
           <GameListWindow listId="generated-game-list" rows={gameRows} />
           {games.length > 0 && (
             <>
+              <div className="field" style={{ marginTop: 16 }}>
+                <label htmlFor="save-contest-number">Concurso para salvar (opcional)</label>
+                <input id="save-contest-number" ref={saveContestInput} type="number" inputMode="numeric" min="1" step="1" placeholder={latestContest ? String(latestContest + 1) : "Automático ou informe o concurso"} disabled={saving || saved}/>
+                <span className="muted">Se deixar vazio, o app usa o concurso identificado para esta modalidade ou o concurso do bolão.</span>
+              </div>
               {savePhase && <p className="status" role="status" aria-live="polite">{savePhase}{saving ? ` · ${saveProgress}%` : ""}</p>}
               <div className="actions" style={{ marginTop: "16px" }}>
                 <button

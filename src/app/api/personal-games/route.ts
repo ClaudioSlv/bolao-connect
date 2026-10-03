@@ -38,6 +38,7 @@ export async function GET(request: Request) {
 }
 
 import { NextResponse } from "next/server";
+import { savedGameContest } from "@/lib/saved-game-contest";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupportedLottery, type PersonalGame } from "@/lib/personal-game-prizes";
 import { syncLatestLotteryResult } from "@/lib/lottery-results/sync";
@@ -84,24 +85,14 @@ export async function POST(request: Request) {
       .limit(1)
       .maybeSingle();
 
-    let latestContest = Number(latest?.contest_number ?? 0);
-    try {
-      latestContest = Math.max(latestContest, await syncLatestLotteryResult(lottery));
-    } catch (error) {
-      console.error("sync-latest-before-save:", error);
+    const { data: pool } = await admin.from("pools").select("lottery,contest_number").eq("id", participant.pool_id).maybeSingle();
+    let contest = savedGameContest({ requested: requestedContest, latest: latest?.contest_number, lottery, poolLottery: pool?.lottery, poolContest: pool?.contest_number });
+    if (!contest) {
+      try { contest = savedGameContest({ requested: null, latest: await syncLatestLotteryResult(lottery), lottery }); }
+      catch (error) { console.error("sync-latest-before-save:", error); }
     }
-
-    const contest =
-      latestContest > 0
-        ? latestContest + 1
-        : Number.isInteger(requestedContest) && requestedContest > 0
-          ? requestedContest
-          : null;
     if (!contest)
-      return NextResponse.json(
-        { error: "Não foi possível identificar o próximo concurso. Tente novamente." },
-        { status: 503 },
-      );
+      return NextResponse.json({ error: "Informe o número do concurso no campo acima de Salvar jogo. Seus jogos continuam nesta tela." }, { status: 503 });
 
     const gameKey = (game: PersonalGame) =>
       `${[...game.numbers].map(Number).sort((a, b) => a - b).join("-")}|${[...(game.trevos ?? [])].map(Number).sort((a, b) => a - b).join("-")}`;

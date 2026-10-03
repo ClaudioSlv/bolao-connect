@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   if (closeError) return NextResponse.json({ error: "Não foi possível preparar a lista. Tente novamente." }, { status: 503 });
   const [{ data: roster }, { data: rows, error: rowsError }] = await Promise.all([
     admin.from("pool_closed_rosters").select("pool_id,title,lottery,contest_number,payment_deadline,closed_at").eq("pool_id", poolId).single(),
-    admin.from("pool_closed_roster_entries").select("participant_id,name,shares,recorded_at,late_bank_confirmation").eq("pool_id", poolId).order("name").order("participant_id"),
+    admin.from("pool_closed_roster_entries").select("participant_id,name,shares,recorded_at,late_bank_confirmation,is_organizer_free_share").eq("pool_id", poolId).order("name").order("participant_id"),
   ]);
   if (!roster || rowsError) return NextResponse.json({ error: "Não foi possível carregar a lista." }, { status: 503 });
   const entries = (rows ?? []) as ClosedRosterEntry[];
