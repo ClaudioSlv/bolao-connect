@@ -1,6 +1,18 @@
+"use client";
+
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { claimOpeningScreen } from "@/components/opening-screen-session";
 
 export default function Loading() {
+  const [opening, setOpening] = useState(false);
+  const checked = useRef(false);
+  useEffect(() => {
+    if (checked.current) return;
+    checked.current = true;
+    setOpening(claimOpeningScreen());
+  }, []);
+  if (!opening) return <main className="shell" aria-busy="true"><p className="muted" role="status">Carregando...</p></main>;
   return <main className="juntasorte-loading" aria-live="polite" aria-busy="true">
     <div className="juntasorte-loading-clovers"><i/><i/><i/><i/></div>
     <section className="juntasorte-loading-content">

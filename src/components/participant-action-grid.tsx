@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { OpeningScreenComplete } from "@/components/opening-screen-session";
 
 type IconProps = { className?: string };
 
@@ -159,6 +160,7 @@ export function ParticipantActionGrid({
 
   return (
     <nav className="participant-actions" aria-label="Área do participante">
+      <OpeningScreenComplete />
       {actions.map(({ href, label, icon: Icon, aria }) => (
         <Link className="participant-action-card" href={href} aria-label={aria} key={label} prefetch={false}>
           <Icon className="participant-action-icon" />
