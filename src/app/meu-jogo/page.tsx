@@ -26,7 +26,8 @@ async function readResults(lottery: Lottery) {
 export default async function Page({searchParams}:{searchParams:Promise<{lottery?:string;voltar?:string}>}) {
   const query = await searchParams;
   const q = query.lottery;
-  const backHref = query.voltar?.startsWith("/p/") ? query.voltar : "/";
+  const requestedBack = query.voltar ? decodeURIComponent(query.voltar) : "";
+  const backHref = requestedBack.startsWith("/p/") ? requestedBack : "/";
   const participantToken = backHref.startsWith("/p/")
     ? backHref.slice(3).split("/")[0]
     : null;
