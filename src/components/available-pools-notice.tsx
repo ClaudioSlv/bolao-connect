@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { LOTTERY_LABELS } from "@/lib/lottery-pricing";
 import type { LotteryId } from "@/lib/domain";
 import styles from "./available-pools-notice.module.css";
+import { LOTTERY_COVER_IMAGES } from "./dynamic-lotofacil-cover";
 
 type AvailablePool = { id: string; lottery: LotteryId; public_slug: string };
 
@@ -48,7 +49,7 @@ export function AvailablePoolsNotice({
         <div className={styles.heading}><span className={styles.badge}>NOVO</span><h2>Novo bolão disponível</h2></div>
         {pools.map((pool) => (
           <div className={`wallet-row ${styles.poolRow}`} key={pool.id}>
-            <div className={styles.poolInfo}><span className={styles.lucky}>🍀</span><div><span className={styles.available}>CONVITE DISPONÍVEL</span><strong>{LOTTERY_LABELS[pool.lottery]}</strong></div></div>
+            <div className={styles.poolInfo}>{LOTTERY_COVER_IMAGES[pool.lottery] ? <img className={styles.cover} src={LOTTERY_COVER_IMAGES[pool.lottery]} alt="" /> : <span className={styles.lucky}>🍀</span>}<div><span className={styles.available}>CONVITE DISPONÍVEL</span><strong>{LOTTERY_LABELS[pool.lottery]}</strong></div></div>
             <button
               type="button"
               className={`button primary ${styles.joinButton}`}
