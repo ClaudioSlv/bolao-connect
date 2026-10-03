@@ -1,22 +1,139 @@
+.notice {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 207, 69, .88) !important;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(255, 206, 68, .11), transparent 30%),
+    linear-gradient(145deg, rgba(9, 43, 28, .98), rgba(3, 24, 15, .98));
+}
+
+.notice::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.10) 43%, transparent 57%);
+  transform: translateX(-120%);
+  animation: cardShine 4.2s ease-in-out infinite;
+}
+
+.heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.heading h2 { margin: 0; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe778, #e5ad18);
+  color: #152015;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  box-shadow: 0 0 16px rgba(255, 204, 57, .34);
+  animation: badgePulse 1.7s ease-in-out infinite;
+}
+
+.poolRow {
+  position: relative;
+  z-index: 1;
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 20px;
+  background: rgba(0,0,0,.18);
+}
+
+.poolInfo {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.poolInfo > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.poolInfo strong {
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.available {
+  color: rgba(255, 216, 94, .92);
+  font-size: .65rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+}
+
+.lucky {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 203, 51, .09);
+  border: 1px solid rgba(255, 211, 70, .30);
+  font-size: 1.45rem;
+}
+
+.joinButton {
+  position: relative;
+  overflow: hidden;
+  min-width: 126px;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 0 rgba(137, 92, 0, .75), 0 10px 22px rgba(255, 194, 30, .18);
+}
+
+.joinButton::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -40%;
+  width: 24%;
+  height: 200%;
+  transform: rotate(20deg);
+  background: rgba(255,255,255,.45);
+  animation: buttonShine 2.8s ease-in-out infinite;
+}
+
 .pulse {
   border-color: #f7c948;
-  animation: newPoolPulse 1.6s ease-in-out infinite;
+  animation: newPoolPulse 2.2s ease-in-out infinite;
 }
 
 @keyframes newPoolPulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(247, 201, 72, .18), 0 5px 16px rgba(0, 0, 0, .28);
-    transform: scale(1);
-  }
-  50% {
-    box-shadow: 0 0 0 7px rgba(247, 201, 72, 0), 0 0 24px rgba(247, 201, 72, .48);
-    transform: scale(1.012);
-  }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(247,201,72,.13), 0 7px 20px rgba(0,0,0,.30); transform: scale(1); }
+  50% { box-shadow: 0 0 0 5px rgba(247,201,72,0), 0 0 25px rgba(247,201,72,.36); transform: scale(1.006); }
+}
+@keyframes cardShine { 0%, 55% { transform: translateX(-120%); } 78%, 100% { transform: translateX(120%); } }
+@keyframes buttonShine { 0%, 48% { left: -40%; } 72%, 100% { left: 130%; } }
+@keyframes badgePulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+@media (max-width: 520px) {
+  .notice { padding: 18px 16px !important; }
+  .heading { gap: 9px; }
+  .heading h2 { font-size: 1.32rem; }
+  .poolRow { padding: 11px 10px; }
+  .lucky { flex-basis: 38px; width: 38px; height: 38px; }
+  .joinButton { min-width: 112px; padding-left: 14px !important; padding-right: 14px !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pulse {
-    animation: none;
-    box-shadow: 0 0 18px rgba(247, 201, 72, .35);
-  }
+  .pulse, .badge, .notice::before, .joinButton::after { animation: none; }
+  .pulse { box-shadow: 0 0 18px rgba(247,201,72,.30); }
 }
