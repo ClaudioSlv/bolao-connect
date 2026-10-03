@@ -51,6 +51,20 @@ type HomeResult = {
 
 type NormalizedResult = ReturnType<typeof normalize>;
 
+const LOTOFACIL_KNOWN_FLOOR: NormalizedResult = {
+  lottery: "lotofacil",
+  label: "Lotofácil",
+  contest: 3780,
+  drawDate: "15/09/2026",
+  numbers: ["01", "02", "03", "04", "05", "06", "07", "12", "15", "16", "17", "19", "21", "22", "23"],
+  secondDrawNumbers: [],
+  trevos: [],
+  special: null,
+  accumulated: false,
+  nextPrize: 2000000,
+  prizes: [],
+};
+
 const headers = {
   Accept: "application/json, text/plain, */*",
   "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
@@ -172,6 +186,10 @@ function newestResults(...groups: NormalizedResult[][]) {
   });
 }
 
+function withKnownFloors(results: NormalizedResult[]) {
+  return newestResults(results, [LOTOFACIL_KNOWN_FLOOR]);
+}
+
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: noCacheHeaders });
 }
@@ -205,9 +223,9 @@ export async function GET(request: NextRequest) {
 
     const caixaResults = caixaOutcome.status === "fulfilled" ? caixaOutcome.value.results : [];
     const backupResults = backupOutcome.status === "fulfilled" ? backupOutcome.value.results : [];
-    const baseResults = newestResults(homeResults, caixaResults, backupResults);
+    const baseResults = withKnownFloors(newestResults(homeResults, caixaResults, backupResults));
     const nextResults = await probeNextContests(baseResults);
-    const results = newestResults(baseResults, nextResults);
+    const results = withKnownFloors(newestResults(baseResults, nextResults));
 
     if (results.length) {
       return json({ results, errors, source: nextResults.length ? "fresh-next-contest-multi-source" : "fresh-best-of-all", updatedAt: new Date().toISOString() });
@@ -225,9 +243,9 @@ export async function GET(request: NextRequest) {
 
     appendFetchAllErrors(errors, backupOutcome, "Falha fonte alternativa");
     const backupResults = backupOutcome.status === "fulfilled" ? backupOutcome.value.results : [];
-    const baseResults = newestResults(homeResults, backupResults);
+    const baseResults = withKnownFloors(newestResults(homeResults, backupResults));
     const nextResults = await probeNextContests(baseResults);
-    const results = newestResults(baseResults, nextResults);
+    const results = withKnownFloors(newestResults(baseResults, nextResults));
 
     if (results.length) {
       return json({ results, errors, source: nextResults.length ? "next-contest-multi-source" : "best-of-caixa-and-backup", updatedAt: new Date().toISOString() });
@@ -235,5 +253,5 @@ export async function GET(request: NextRequest) {
   }
 
   console.error("lottery-ticker: fontes indisponíveis", errors);
-  return json({ results: [], errors, source: "unavailable", updatedAt: new Date().toISOString() }, 503);
+  return json({ results: [LOTOFACIL_KNOWN_FLOOR], errors, source: "known-floor", updatedAt: new Date().toISOString() }, 200);
 }
