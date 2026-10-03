@@ -7,6 +7,7 @@ export function PdfGameShare() {
   useEffect(() => {
     const handler = async (event: MouseEvent) => {
       const button = (event.target as HTMLElement)?.closest("button");
+      if (button?.dataset.shareGames === "memory") return;
       if (!button || !button.textContent?.includes("COMPARTILHAR JOGO")) return;
 
       const area = document.getElementById("generated-games");

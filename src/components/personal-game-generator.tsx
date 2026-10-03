@@ -106,6 +106,9 @@ export function PersonalGameGenerator({
   const r = rules[lottery];
   const savingLock = useRef(false);
   const [saving, setSaving] = useState(false);
+  const [saveProgress, setSaveProgress] = useState(0);
+  const [savePhase, setSavePhase] = useState("");
+  const [sharing, setSharing] = useState(false);
   const [pick, setPick] = useState(r.minPick),
     [pickInput, setPickInput] = useState(""),
     [qty, setQty] = useState(1),
@@ -140,7 +143,7 @@ export function PersonalGameGenerator({
   const exclusionLimit = Math.max(1, Math.floor((r.max - r.min + 1) / 4));
   const visibleGames = useMemo(() => [...savedGamesOnPage, ...games], [savedGamesOnPage, games]);
   const gameRows = useMemo(() => visibleGames.map((g, i) => (
-              <div className="list-item" key={i} data-game-reference={i + 1} style={{ contentVisibility: "auto", containIntrinsicSize: "auto 90px" }}>
+              <div className="list-item" key={i} data-game-reference={i + 1} >
                 <strong>Jogo {i + 1}</strong>
                 <span>
                   {g.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}
@@ -297,6 +300,8 @@ export function PersonalGameGenerator({
     qtyIsValid &&
     (lottery === "super-sete" || available.length >= pick);
   const resetFeedback = () => {
+    setSaveProgress(0);
+    setSavePhase("");
     setSaved(false);
     setShared(false);
   };
@@ -492,136 +497,82 @@ export function PersonalGameGenerator({
     const referenceNumber = game.referenceNumber ?? i + 1;
     return `Jogo ${referenceNumber}: ${game.numbers.map((n) => String(n).padStart(2, "0")).join(" · ")}${lottery === "mais-milionaria" ? ` | Trevos: ${game.trevos.map((n) => String(n).padStart(2, "0")).join(" · ")}` : ""}`;
   };
-  const shareText = () =>
-    `🍀 ${r.label} — Bolão Amigos BTP\n\n${referencedGames().map(gameText).join("\n")}\n\nJogo gerado pelo Bolão Amigos BTP.`;
   const saveGames = async () => {
-    if (savingLock.current || saved) return;
+    if (savingLock.current || saved || sharing) return;
     savingLock.current = true;
     setSaving(true);
-    const controller = new AbortController();
-    const saveTimeout = window.setTimeout(() => controller.abort(), 30000);
-    // Let the button feedback paint before preparing thousands of games.
-    await new Promise(resolve => window.setTimeout(resolve, 40));
+    setSaveProgress(0);
+    setSavePhase("Preparando jogos");
     try {
-      if (
-        !games.length ||
-        games.some((game) => game.numbers.some((number) => excluded.has(number)))
-      ) {
-        setGames([]);
-        setManual((current) => current.filter((number) => !excluded.has(number)));
-        resetFeedback();
-        alert(
-          "Um número marcado para não participar apareceu no jogo. O jogo foi limpo para sua segurança. Gere novamente antes de salvar.",
-        );
+      await new Promise(resolve => setTimeout(resolve, 40));
+      if (!games.length || games.some(game => game.numbers.some(number => excluded.has(number))))
+        throw new Error("Verifique os jogos e os números excluídos antes de salvar.");
+      const prepared: Array<Game & { referenceNumber: number }> = [];
+      const chunks: string[] = [];
+      for (let offset = 0; offset < games.length; offset += 100) {
+        const chunk = games.slice(offset, offset + 100).map((game, index) => ({ ...game, referenceNumber: offset + index + 1 }));
+        prepared.push(...chunk);
+        chunks.push(JSON.stringify(chunk).slice(1, -1));
+        setSaveProgress(Math.round(prepared.length / games.length * 15));
+        await new Promise(resolve => setTimeout(resolve, 0));
+      }
+      const fields = JSON.stringify({ lottery, ...(participantToken ? { token: participantToken, contest: latestContest ? latestContest + 1 : null } : {}) });
+      const body = `${fields.slice(0, -1)},"games":[${chunks.join(",")}]}`;
+      setSavePhase("Enviando jogos");
+      const data = await new Promise<{ id?: string; contest?: number; savedCount?: number; duplicateCount?: number; allDuplicates?: boolean }>((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open("POST", participantToken ? "/api/personal-games" : "/api/organizer-personal-games");
+        request.setRequestHeader("Content-Type", "application/json");
+        request.timeout = 60000;
+        request.upload.onprogress = event => {
+          if (event.lengthComputable) setSaveProgress(15 + Math.round(event.loaded / event.total * 80));
+        };
+        request.upload.onload = () => { setSaveProgress(95); setSavePhase("Confirmando salvamento"); };
+        request.onerror = () => reject(new Error("Falha na conexão. Seus jogos continuam nesta tela."));
+        request.ontimeout = () => reject(new Error("A confirmação demorou demais. Confira Meus jogos salvos antes de tentar novamente."));
+        request.onload = () => {
+          try {
+            const result = JSON.parse(request.responseText);
+            if (request.status < 200 || request.status >= 300) throw new Error(result.error || "Não foi possível salvar os jogos.");
+            resolve(result);
+          } catch (error) { reject(error); }
+        };
+        request.send(body);
+      });
+      if (data.allDuplicates) {
+        setSaveProgress(100);
+        setSavePhase("Todos estes jogos já estão salvos");
+        setSaved(true);
+        alert("Todos estes jogos já estão salvos neste cartão. Nenhum repetido foi adicionado.");
         return;
       }
-
-      let persistentId: string | null = null;
-      let organizerContest: number | null = null;
-      // Organizador continua com a persistência própria, sem misturar com o participante.
-      if (!participantToken) {
-        const response = await fetch("/api/organizer-personal-games", {
-          method: "POST",
-          signal: controller.signal,
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ lottery, games }),
-        });
-        const data = await response.json().catch(() => null) as { error?: string; id?: string; contest?: number } | null;
-        if (!response.ok) {
-          alert(data?.error || "Não foi possível salvar o fechamento no banco.");
-          return;
-        }
-        persistentId = data?.id ?? null;
-        organizerContest = data?.contest ?? null;
-      }
-
-      const key = "bolao-amigos-btp:jogos-salvos";
-      const current = JSON.parse(localStorage.getItem(key) || "[]");
-      let targetContest = organizerContest ?? (latestContest ? latestContest + 1 : null);
-
-      if (!targetContest) {
+      if (!data.id || !data.contest) throw new Error("O servidor não confirmou o registro. Confira Meus jogos salvos.");
+      // The server is authoritative. Local cache failure must not undo a confirmed save.
+      if (!data.duplicateCount) {
+        const entry = { participantToken, id: data.id, lottery, label: r.label, games: prepared,
+          targetContest: data.contest, totalCostCents: officialGamesCostCents(lottery, prepared), createdAt: new Date().toISOString() };
         try {
-          const response = await fetch("/api/lottery-ticker", { cache: "no-store" });
-          const data = (await response.json().catch(() => null)) as {
-            results?: Array<{ lottery?: string; contest?: number }>;
-          } | null;
-          const latest = data?.results?.find((result) => result.lottery === lottery);
-          if (response.ok && Number(latest?.contest) > 0)
-            targetContest = Number(latest?.contest) + 1;
-        } catch {
-          // A validação abaixo impede salvar um jogo sem concurso.
-        }
+          const key = participantToken ? `bolao-amigos-btp:jogos-salvos:${participantToken}` : "bolao-amigos-btp:jogos-salvos";
+          const previous = JSON.parse(localStorage.getItem(key) || "[]");
+          localStorage.setItem(key, JSON.stringify([entry, ...(Array.isArray(previous) ? previous.filter(item => item.id !== data.id) : [])]));
+        } catch { /* Load the confirmed record from the server when opening saved games. */ }
       }
-
-      if (participantToken) {
-        try {
-          const response = await fetch("/api/personal-games", {
-            method: "POST",
-          signal: controller.signal,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: participantToken,
-              lottery,
-              contest: targetContest,
-              games: referencedGames(),
-            }),
-          });
-          const data = (await response.json().catch(() => null)) as {
-            contest?: number;
-            id?: string;
-            error?: string;
-          } | null;
-          if (!response.ok) throw new Error(data?.error);
-          if (Number.isInteger(data?.contest) && Number(data?.contest) > 0)
-            targetContest = Number(data?.contest);
-          if (data?.id) persistentId = data.id;
-        } catch (error) {
-          throw error;
-        }
-      }
-
-      if (!targetContest) {
-        alert(
-          "Não foi possível identificar o próximo concurso. Verifique sua conexão e tente salvar novamente.",
-        );
-        return;
-      }
-
-      const entry = {
-        participantToken,
-        id: persistentId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        lottery,
-        label: r.label,
-        games: referencedGames(),
-        targetContest,
-        totalCostCents: officialGamesCostCents(lottery, games),
-        createdAt: new Date().toISOString(),
-      };
-      localStorage.setItem(
-        key,
-        JSON.stringify([entry, ...(Array.isArray(current) ? current : [])]),
-      );
-
-      if (participantToken) {
-        try {
-          const participantKey = `${key}:${participantToken}`;
-          const previous = JSON.parse(localStorage.getItem(participantKey) || "[]");
-          localStorage.setItem(participantKey, JSON.stringify([entry, ...(Array.isArray(previous) ? previous : [])]));
-        } catch { /* The main local record is already saved. */ }
-      }
+      setSaveProgress(100);
+      setSavePhase(`${(data.savedCount ?? prepared.length).toLocaleString("pt-BR")} jogos salvos${data.duplicateCount ? `; ${data.duplicateCount} repetidos não adicionados` : ""}`);
       setSaved(true);
       setShowSaveDialog(true);
     } catch (error) {
-      alert(controller.signal.aborted
-        ? "O salvamento demorou demais. Confira Meus jogos salvos antes de tentar novamente. Seus jogos continuam nesta tela."
-        : error instanceof Error && error.message ? error.message : "Não foi possível salvar. Seus jogos continuam nesta tela para tentar novamente.");
+      const message = error instanceof Error ? error.message : "Não foi possível salvar. Seus jogos continuam nesta tela.";
+      setSavePhase(message);
+      alert(message);
     } finally {
-      window.clearTimeout(saveTimeout);
       savingLock.current = false;
       setSaving(false);
     }
   };
   const createAnotherGame = () => {
+    setSaveProgress(0);
+    setSavePhase("");
     setSavedGamesOnPage((current) => [...current, ...games]);
     setGames([]);
     setManual([]);
@@ -631,25 +582,24 @@ export function PersonalGameGenerator({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const shareGames = async () => {
-    const text = shareText();
+    if (sharing || saving) return;
+    setSharing(true);
     try {
-      if (navigator.share) {
-        await navigator.share({ title: `${r.label} — Bolão Amigos BTP`, text });
-        setShared(true);
-        setTimeout(() => setShared(false), 3000);
-        return;
+      await new Promise(resolve => setTimeout(resolve, 40));
+      const lines: string[] = [];
+      for (let offset = 0; offset < visibleGames.length; offset += 100) {
+        visibleGames.slice(offset, offset + 100).forEach((game, index) => {
+          const reference = offset + index + 1;
+          lines.push(`${gameText(game, reference - 1)} | ${formatGameReference(reference)}`);
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-        setShared(true);
-        setTimeout(() => setShared(false), 3000);
-        return;
-      }
-      window.location.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    } catch (e) {
-      if ((e as Error)?.name !== "AbortError")
-        window.location.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    }
+      const { shareGamesPdf } = await import("@/lib/game-pdf");
+      await shareGamesPdf(r.label, lines);
+      setShared(true);
+    } catch (error) {
+      if ((error as Error)?.name !== "AbortError") alert("Não foi possível preparar o PDF. Seus jogos continuam nesta tela.");
+    } finally { setSharing(false); }
   };
   return (
     <div className="form">
@@ -995,23 +945,28 @@ export function PersonalGameGenerator({
           </div>
           {games.length > 0 && (
             <>
-              {saving && <p className="status" role="status">Salvando {games.length.toLocaleString("pt-BR")} jogos. Aguarde a confirmação.</p>}
+              {savePhase && <p className="status" role="status" aria-live="polite">{savePhase}{saving ? ` · ${saveProgress}%` : ""}</p>}
               <div className="actions" style={{ marginTop: "16px" }}>
                 <button
                   className="button primary"
                   type="button"
                   onClick={saveGames}
-                  disabled={saving || saved}
+                  style={{ position: "relative", overflow: "hidden", paddingBottom: "19px" }}
+                  disabled={saving || saved || sharing}
                   aria-busy={saving}
                 >
-                  {saving ? "⏳ AGUARDE, SALVANDO JOGOS..." : saved ? "✅ JOGOS SALVOS" : "💾 SALVAR JOGO"}
+                  {saving ? `⏳ SALVANDO · ${saveProgress}%` : saved ? "✅ JOGOS SALVOS" : "💾 SALVAR JOGO"}
+                  {(saving || saved) && <span role="progressbar" aria-label="Progresso do salvamento" aria-valuemin={0} aria-valuemax={100} aria-valuenow={saveProgress} style={{ position: "absolute", bottom: 3, left: 0, right: 0, height: 3, background: "#0003" }}><span style={{ display: "block", height: "100%", width: `${saveProgress}%`, background: "#00ffd5", transition: "width .15s linear" }} /></span>}
                 </button>
                 <button
                   className="button secondary"
                   type="button"
                   onClick={shareGames}
+                  data-share-games="memory"
+                  disabled={sharing || saving}
+                  aria-busy={sharing}
                 >
-                  {shared ? "✅ PRONTO" : "📲 COMPARTILHAR JOGO"}
+                  {sharing ? "⏳ PREPARANDO PDF..." : shared ? "✅ PRONTO" : "📲 COMPARTILHAR JOGO"}
                 </button>
               </div>
               <p className="muted" style={{ fontSize: "12px" }}>

@@ -28,12 +28,14 @@ export async function makeGamesPdf(title: string, lines: string[], logoBytes?: U
     if (row) rows.push(row);
     return rows;
   };
-  const cards = lines.map((line, index) => {
+  const cards: { reference: number; lot: number; heading: string; rows: string[] }[] = [];
+  for (const [index, line] of lines.entries()) {
     const match = clean(line).match(/^(Jogo\s*\d+):?\s*(.*)$/i);
     const reference = Number(match?.[1].match(/\d+/)?.[0]) || index + 1;
     const lot = Math.floor((reference - 1) / 100) + 1;
-    return { reference, lot, heading: `Jogo ${reference}`, rows: wrap(match?.[2] || line) };
-  });
+    cards.push({ reference, lot, heading: `Jogo ${reference}`, rows: wrap(match?.[2] || line) });
+    if (index % 100 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+  }
   const cardHeight = Math.max(52, ...cards.map(card => 26 + card.rows.length * 11));
   const top = height - 112;
   const rowsPerPage = Math.max(1, Math.floor((top - 88 + gap) / (cardHeight + gap)));
