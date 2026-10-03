@@ -126,6 +126,7 @@ export default function SavedGamesPage() {
   const [checking, setChecking] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
   const [backHref, setBackHref] = useState("/meu-jogo");
+  const [participantToken, setParticipantToken] = useState<string | null>(null);
   const [contestInput, setContestInput] = useState("");
   const [searchedContest, setSearchedContest] = useState<number | null>(null);
   const [searchError, setSearchError] = useState("");
@@ -137,6 +138,8 @@ export default function SavedGamesPage() {
     const requestedBack = new URLSearchParams(window.location.search).get("voltar");
     if (requestedBack?.startsWith("/p/")) {
       setBackHref(requestedBack);
+      const token = requestedBack.split("/p/")[1]?.split(/[/?#]/)[0] || null;
+      setParticipantToken(token);
       // Fluxo original do participante: os jogos pessoais são lidos deste aparelho.
       try {
         const value = JSON.parse(localStorage.getItem(KEY) || "[]");
@@ -411,23 +414,29 @@ export default function SavedGamesPage() {
   }, [draws, items]);
 
   const remove = async (id: string) => {
-    // Os jogos pessoais deste fluxo ficam salvos neste aparelho.
-    // Excluir deve liberar imediatamente a criação de um novo fechamento,
-    // sem depender de uma exclusão no banco.
+    try {
+      const endpoint = participantToken ? "/api/personal-games" : "/api/organizer-personal-games";
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(participantToken ? { id, token: participantToken } : { id }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(data?.error || "Não foi possível excluir o jogo.");
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Não foi possível excluir o jogo.");
+      return;
+    }
+
     const next = items.filter((item) => item.id !== id);
     setItems(next);
-
     try {
       const stored = JSON.parse(localStorage.getItem(KEY) || "[]");
       const allStored = Array.isArray(stored) ? (stored as Saved[]) : [];
-      localStorage.setItem(
-        KEY,
-        JSON.stringify(allStored.filter((item) => item.id !== id)),
-      );
-    } catch {
-      // A exclusão da tela não deve ser bloqueada por erro do armazenamento.
-    }
-
+      localStorage.setItem(KEY, JSON.stringify(allStored.filter((item) => item.id !== id)));
+    } catch {}
     if (!next.some((item) => item.lottery === selectedLottery))
       setSelectedLottery(next[0]?.lottery ?? "");
   };
