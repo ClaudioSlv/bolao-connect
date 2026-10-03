@@ -1,3 +1,4 @@
+import { refundRetentionForVersion } from "@/lib/partial-payment-resolution";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolutionAmounts } from "@/lib/partial-payment-resolution";
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   if (paymentsError) return NextResponse.json({error: "Não foi possível conferir os pagamentos."}, {status: 500});
   const paidCents = (payments ?? []).reduce((sum, row) => sum + Number(row.amount_cents || 0) + Number(row.credit_used_cents || 0), 0);
   if (paidCents <= 0) return NextResponse.json({error: "Não há valor pago para resolver."}, {status: 409});
-  const {retentionCents, amountCents} = resolutionAmounts(paidCents, choice as "refund" | "credit", policyVersion >= 6 ? 3 : 0);
+  const {retentionCents, amountCents} = resolutionAmounts(paidCents, choice as "refund" | "credit", refundRetentionForVersion(policyVersion));
   const {data: existing, error: existingError} = await s.from("partial_payment_resolution_choices").select("choice,status,amount_cents,retention_cents")
     .eq("participant_id", p.id).maybeSingle();
   if (existingError) return NextResponse.json({error: "Não foi possível conferir sua escolha."}, {status: 500});

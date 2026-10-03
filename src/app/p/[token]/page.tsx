@@ -1,3 +1,4 @@
+import { refundRetentionForVersion } from "@/lib/partial-payment-resolution";
 import Link from "next/link";
 import { ClosedPoolRoster } from "@/components/closed-pool-roster";
 import { redirect } from "next/navigation";
@@ -322,7 +323,7 @@ export default async function Page({
         justAccepted={rulesStatus === "accepted"}
       />
       {acceptance && !isTest && paymentClosed && !paid && !isWaitlisted && Number(pool.rules_version) >= 5 && Number(paidCents) > 0 &&
-        <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined} existingStatus={resolutionChoice?.status} retentionPercent={Number(pool.rules_version) >= 6 ? 3 : 0}/>}
+        <PartialPaymentChoice token={token} paidCents={Number(paidCents)} existingChoice={resolutionChoice?.choice as "refund" | "credit" | undefined} existingStatus={resolutionChoice?.status} retentionPercent={refundRetentionForVersion(Number(pool.rules_version))}/>}
       {isTest && paid && pool.public_slug === "teste-estorno-5-reais-20260929" && <TestEfiRefund token={token}/>}
       <AvailablePoolsNotice
         pools={availablePools}
@@ -510,7 +511,7 @@ export default async function Page({
             {automaticPixEnabled&&<span>O QR Code será vinculado automaticamente ao seu cadastro.</span>}
           </div>
           <>
-              {automaticPixEnabled&&<><p className="muted">{paymentPlan ? `Pagamento parcial ativo em ${paymentPlan.installment_count}x. Você pode quitar o restante integralmente ou continuar pelas parcelas.` : "Escolha pagar integralmente ou dividir em parcelas. A cota muda para Pago somente após a quitação total."}</p><EfiCheckout token={token} amountCents={due} planTotalCents={amount} creditCents={credit} existingPlanCount={paymentPlan?.installment_count} paymentDeadline={p.payment_deadline_override || pool.payment_deadline} refundRetentionPercent={Number(pool.rules_version) >= 6 ? 3 : 0}/></>}
+              {automaticPixEnabled&&<><p className="muted">{paymentPlan ? `Pagamento parcial ativo em ${paymentPlan.installment_count}x. Você pode quitar o restante integralmente ou continuar pelas parcelas.` : "Escolha pagar integralmente ou dividir em parcelas. A cota muda para Pago somente após a quitação total."}</p><EfiCheckout token={token} amountCents={due} planTotalCents={amount} creditCents={credit} existingPlanCount={paymentPlan?.installment_count} paymentDeadline={p.payment_deadline_override || pool.payment_deadline} refundRetentionPercent={refundRetentionForVersion(Number(pool.rules_version))}/></>}
               {!isTest && !automaticPixEnabled && <ManualPixCopy
                 pixKey={manualPixKey}
                 amountLabel={money(due)}

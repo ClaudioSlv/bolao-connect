@@ -1,3 +1,4 @@
+import { refundRetentionForVersion } from "@/lib/partial-payment-resolution";
 import Link from "next/link";
 import {createAdminClient} from "@/lib/supabase/admin";
 import {EfiCheckout} from "@/components/efi-checkout";
@@ -65,7 +66,7 @@ export default async function ParticipantWallet({params}:{params:Promise<{token:
       <p className="muted">Plano escolhido: <strong>{plan.installment_count}x</strong>. A cota será confirmada após a quitação total até {deadline?new Date(deadline).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"}):"o prazo do bolão"}. Se não for quitada, a reserva poderá ser cancelada após a conferência dos valores pagos.</p>
       <div className="installment-list">{schedule.map((value,index)=>{const installmentPaid=index<paidInstallments;return <div className={installmentPaid?"installment-row paid":"installment-row pending"} key={index}><span>Parcela {index+1}</span><strong>{money(value)}</strong><b>{installmentPaid?"Paga":"Pendente"}</b></div>})}</div>
       {!paymentOpen&&<p className="status">O pagamento das parcelas não está disponível fora do prazo do bolão.</p>}
-      {paymentOpen&&automaticPixEnabled&&remainingInstallments.length>0&&<EfiCheckout token={token} amountCents={due} creditCents={balance} installmentAmounts={remainingInstallments} paymentDeadline={deadline} refundRetentionPercent={Number(pool.rules_version)>=6?3:0}/>}
+      {paymentOpen&&automaticPixEnabled&&remainingInstallments.length>0&&<EfiCheckout token={token} amountCents={due} creditCents={balance} installmentAmounts={remainingInstallments} paymentDeadline={deadline} refundRetentionPercent={refundRetentionForVersion(Number(pool.rules_version))}/>}
     </section>}
     <section className="section">
       <h2>Histórico de créditos</h2>
